@@ -1,0 +1,17 @@
+-  assert.ok(globalDistribution < globalSmoke, 'global hook distribution runs after smoke');
+-  assert.ok(scriptsReady < globalSmoke, 'global smoke runs before script dependencies are deployed');
+-    assert.ok(dependencyIndex >= 0 && dependencyIndex < globalSmoke, `${dependencyCopy} runs after global smoke`);
+-  assert.ok(globalSmoke < globalMerge, 'global settings merge runs before hook smoke');
+-  assert.match(
+-  assert.ok(distributionFunction >= 0 && distributionFunction < repoDistribution, 'repo regular-file hook distribution is missing');
+-  assert.ok(repoDistribution < codexCopy, 'Codex entries are copied before the repo hook inventory');
+-  assert.ok(
+-    assert.deepEqual(call.args, [descriptor.scriptPath]);
+-    assert.deepEqual(call.options.stdio, ['pipe', 'ignore', 'ignore']);
+-    assert.deepEqual(Object.keys(payload).sort(), [
+-    assert.equal(payload.tool_name, 'Read');
+-    assert.deepEqual(payload.tool_input, { file_path: 'sgsd-hook-smoke.txt' });
+-    assert.deepEqual(payload.tool_response, { ok: true });
+-    assert.equal(output.includes('MODULE_NOT_FOUND'), false, 'raw installed-hook output leaked from refusal');
+-    assert.ok(output.includes('hook_registration_missing'), 'broken control omitted missing code for ' + hookId);
+-    assert.ok(

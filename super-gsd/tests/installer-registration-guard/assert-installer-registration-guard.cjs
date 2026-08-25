@@ -10,6 +10,7 @@ const { spawnSync } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 
 const SUPER_GSD_ROOT = path.resolve(__dirname, '..', '..');
+const REPOSITORY_ROOT = path.dirname(SUPER_GSD_ROOT);
 const INSTALL_PATH = path.join(SUPER_GSD_ROOT, 'install.sh');
 const UPDATE_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'sgsd-update.sh');
 const PREFLIGHT_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'hook-registration-preflight.cjs');
@@ -18,6 +19,7 @@ const GLOBAL_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'settings-overla
 const REPO_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'repo-settings-overlay.json');
 const CODEX_HOOK_CONFIG_PATH = path.join(SUPER_GSD_ROOT, 'config', 'codex-hooks.json');
 const HOOK_MANIFEST_PATH = path.join(SUPER_GSD_ROOT, 'config', 'hook-manifest.json');
+const HOOK_INSTALL_CONTRACT_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'hook-install-contract.cjs');
 const WITNESS_STORE_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
 const COMMIT_GATE_INSTALLER_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'install-commit-gate.cjs');
 const UPDATE_SKILL_PATH = path.join(SUPER_GSD_ROOT, 'skills', 'sgsd-update', 'SKILL.md');
@@ -186,7 +188,143 @@ function operatorRowsBytes(settings) {
   }));
 }
 
-function copyFixtureSupport(projectRoot) {
+let classifiedFixturePackageRows = null;
+
+function fixturePackageRows() {
+  if (classifiedFixturePackageRows === null) {
+    const { computeHookDependencyGraph } = require(HOOK_INSTALL_CONTRACT_PATH);
+    classifiedFixturePackageRows = computeHookDependencyGraph({ sgsdRoot: SUPER_GSD_ROOT }).packages;
+  }
+  return classifiedFixturePackageRows;
+}
+
+function resolveFixturePackageRoot(packageName) {
+  let resolvedEntry;
+  try {
+    resolvedEntry = require.resolve(packageName, { paths: [REPOSITORY_ROOT] });
+  } catch (cause) {
+    const error = new Error(`fixture bare package is missing: ${packageName}: ${cause.message}`);
+    error.code = 'FIXTURE_PACKAGE_MISSING';
+    error.package = packageName;
+    error.cause = cause;
+    throw error;
+  }
+
+  const packageParts = packageName.split('/');
+  let current = fs.statSync(resolvedEntry).isDirectory() ? resolvedEntry : path.dirname(resolvedEntry);
+  while (true) {
+    let nodeModulesParent = current;
+    let matchesPackagePath = true;
+    for (let index = packageParts.length - 1; index >= 0; index -= 1) {
+      if (path.basename(nodeModulesParent) !== packageParts[index]) {
+        matchesPackagePath = false;
+        break;
+      }
+      nodeModulesParent = path.dirname(nodeModulesParent);
+    }
+    const packageJsonPath = path.join(current, 'package.json');
+    if (matchesPackagePath && path.basename(nodeModulesParent) === 'node_modules'
+        && fs.existsSync(packageJsonPath)) {
+      try {
+        if (JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).name === packageName) return current;
+      } catch (_) { /* Keep walking to the resolved node_modules package root. */ }
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+
+  const error = new Error(`fixture bare package root is missing: ${packageName} at ${resolvedEntry}`);
+  error.code = 'FIXTURE_PACKAGE_MISSING';
+  error.package = packageName;
+  throw error;
+}
+
+function linkFixturePackage(packageName, sourceRoot, fixturePath) {
+  fs.mkdirSync(path.dirname(fixturePath), { recursive: true });
+  let mechanism = process.platform === 'win32' ? 'junction' : 'symlink';
+  try {
+    fs.symlinkSync(sourceRoot, fixturePath, process.platform === 'win32' ? 'junction' : 'dir');
+  } catch (linkError) {
+    mechanism = 'copy';
+    try {
+      fs.cpSync(sourceRoot, fixturePath, { recursive: true });
+    } catch (copyError) {
+      const error = new Error(
+        `fixture bare package provisioning failed: ${packageName}: `
+        + `link=${linkError.message}; copy=${copyError.message}`,
+      );
+      error.code = 'FIXTURE_PACKAGE_PROVISION_FAILED';
+      error.package = packageName;
+      error.cause = copyError;
+      throw error;
+    }
+  }
+  return {
+    fixture_path: fixturePath,
+    mechanism,
+    package: packageName,
+    source_root: sourceRoot,
+  };
+}
+
+function provisionFixtureHookPackages(fixtureRoot) {
+  return fixturePackageRows().map((packageRow) => {
+    const packageName = packageRow.package;
+    const sourceRoot = resolveFixturePackageRoot(packageName);
+    const fixturePath = path.join(fixtureRoot, 'node_modules', ...packageName.split('/'));
+    return linkFixturePackage(packageName, sourceRoot, fixturePath);
+  });
+}
+
+function fixturePackageRelativePath(packageRow) {
+  const fallback = path.join('node_modules', ...packageRow.package.split('/'));
+  if (typeof packageRow.source_path !== 'string') return fallback;
+  const packageParts = packageRow.package.split('/');
+  let current = path.resolve(packageRow.source_path);
+  try {
+    if (fs.statSync(current).isFile()) current = path.dirname(current);
+  } catch (_) { /* A missing package may still name its intended fixture path. */ }
+  while (true) {
+    let nodeModulesParent = current;
+    let matchesPackagePath = true;
+    for (let index = packageParts.length - 1; index >= 0; index -= 1) {
+      if (path.basename(nodeModulesParent) !== packageParts[index]) {
+        matchesPackagePath = false;
+        break;
+      }
+      nodeModulesParent = path.dirname(nodeModulesParent);
+    }
+    if (matchesPackagePath && path.basename(nodeModulesParent) === 'node_modules') {
+      const relative = path.relative(SUPER_GSD_ROOT, current);
+      if (relative && !path.isAbsolute(relative) && relative !== '..'
+          && !relative.startsWith(`..${path.sep}`)) return relative;
+      return fallback;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return fallback;
+    current = parent;
+  }
+}
+
+function provisionFixtureSourcePackages(vendoredRoot) {
+  return fixturePackageRows().map((packageRow) => {
+    const packageName = packageRow.package;
+    const sourceRoot = resolveFixturePackageRoot(packageName);
+    return linkFixturePackage(
+      packageName,
+      sourceRoot,
+      path.join(vendoredRoot, fixturePackageRelativePath(packageRow)),
+    );
+  });
+}
+
+function fixtureTempEnv(fixtureRoot) {
+  const resolved = path.resolve(fixtureRoot);
+  return { TEMP: resolved, TMP: resolved, TMPDIR: resolved };
+}
+
+function copyFixtureSupport(projectRoot, options = {}) {
   const vendoredRoot = path.join(projectRoot, 'super-gsd');
   fs.mkdirSync(vendoredRoot, { recursive: true });
   for (const name of ['install.sh', 'CLAUDE-OVERLAY.md']) {
@@ -207,11 +345,13 @@ function copyFixtureSupport(projectRoot) {
     path.join(SUPER_GSD_ROOT, 'tools', 'substrate-capability-broker.cjs'),
     path.join(vendoredRoot, 'tools', 'substrate-capability-broker.cjs'),
   );
+  if (options.provisionPackages !== false) provisionFixtureSourcePackages(vendoredRoot);
   return vendoredRoot;
 }
 
 function createFixture(label) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `sgsd-registration-${label}-`));
+  provisionFixtureHookPackages(root);
   const projectRoot = path.join(root, 'target project');
   const homeRoot = path.join(root, 'fixture home');
   fs.mkdirSync(projectRoot, { recursive: true });
@@ -602,7 +742,55 @@ function assertManifestMutationRefused(base, mutate, code, sourcePath, surface) 
   );
 }
 
+function assertFixtureBarePackageSupport() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd fixture package support '));
+  try {
+    const expected = fixturePackageRows().map((row) => row.package).sort();
+    const provisioned = provisionFixtureHookPackages(root);
+    assert.deepEqual(provisioned.map((row) => row.package).sort(), expected);
+    for (const row of provisioned) {
+      assert.ok(fs.existsSync(row.fixture_path), `fixture package link is missing: ${row.package}`);
+      assert.ok(['junction', 'symlink', 'copy'].includes(row.mechanism),
+        `fixture package used an unknown provisioning mechanism: ${row.package}`);
+      if (row.mechanism === 'copy') {
+        assert.equal(fs.lstatSync(row.fixture_path).isSymbolicLink(), false,
+          `fixture package copy fallback remained a link: ${row.package}`);
+      } else {
+        assert.equal(fs.lstatSync(row.fixture_path).isSymbolicLink(), true,
+          `fixture package was copied while linking was available: ${row.package}`);
+        assert.equal(
+          fs.realpathSync(row.fixture_path),
+          fs.realpathSync(row.source_root),
+          `fixture package link does not target the resolved package root: ${row.package}`,
+        );
+      }
+      assert.ok(
+        require.resolve(row.package, { paths: [path.join(root, 'consumer with spaces')] }),
+        `fixture package cannot be required: ${row.package}`,
+      );
+    }
+    const trimmedRoot = copyFixtureSupport(path.join(root, 'trimmed checkout with spaces'));
+    const { computeHookDependencyGraph } = require(HOOK_INSTALL_CONTRACT_PATH);
+    const trimmedPackages = computeHookDependencyGraph({
+      sgsdRoot: trimmedRoot,
+      projectDir: path.dirname(trimmedRoot),
+    }).packages;
+    assert.deepEqual(trimmedPackages.map((row) => row.package).sort(), expected);
+    assert.equal(trimmedPackages.every((row) => row.present), true,
+      'trimmed fixture closure still reports a required bare package missing');
+    const missing = 'sgsd-deliberately-absent-fixture-package';
+    assert.throws(
+      () => resolveFixturePackageRoot(missing),
+      (error) => error.code === 'FIXTURE_PACKAGE_MISSING' && error.message.includes(missing),
+      'an absent closure package did not fail loudly by name',
+    );
+  } finally {
+    removeFixture({ root });
+  }
+}
+
 function runHookManifestCompleteness() {
+  assertFixtureBarePackageSupport();
   const snapshot = hookManifestSnapshot();
   assert.deepEqual(validateHookManifest(snapshot), { entries: 22, registrations: 26, smoke: 15 });
 
@@ -643,6 +831,7 @@ function runHookManifestCompleteness() {
 
 function createDistributionFixture(label) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `sgsd-registration-${label}-`));
+  provisionFixtureHookPackages(root);
   const sourceCheckout = path.join(root, 'source checkout');
   const projectRoot = path.join(root, 'target project');
   const homeRoot = path.join(root, 'fixture home');
@@ -660,7 +849,7 @@ function createDistributionFixture(label) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.cpSync(path.join(vendoredRoot, relative), target, { recursive: true });
   }
-
+  provisionFixtureSourcePackages(projectSgsdRoot);
   const systemdRoot = path.join(projectSgsdRoot, 'hooks', 'systemd');
   const systemdSentinel = path.join(systemdRoot, 'operator-owned.service');
   fs.mkdirSync(systemdRoot, { recursive: true });
@@ -771,6 +960,7 @@ function runInstaller(fixture, args, timeoutMs = DEFAULT_INSTALLER_SPAWN_TIMEOUT
         USERPROFILE: fixture.homeRoot,
         APPDATA: path.join(fixture.homeRoot, 'AppData', 'Roaming'),
         XDG_CONFIG_HOME: path.join(fixture.homeRoot, '.config'),
+        ...fixtureTempEnv(fixture.root),
       },
       encoding: 'utf8',
       shell: false,
@@ -856,6 +1046,58 @@ function assertRefused(result, targetPath, before, expectedFragments) {
   assert.equal(sha256(after), before.hash, `settings hash changed at ${targetPath}`);
   assert.deepEqual(after, before.bytes, `settings bytes changed at ${targetPath}`);
   assert.equal(fs.existsSync(`${targetPath}.tmp`), false, `temporary settings artifact remains at ${targetPath}.tmp`);
+}
+
+function assertModuleNotFoundPayload(output, expected) {
+  let refusal = null;
+  let refusalLine = null;
+  for (const line of String(output || '').split(/\r?\n/)) {
+    if (!line.trim().startsWith('{')) continue;
+    try {
+      const candidate = JSON.parse(line);
+      if (candidate && candidate.ok === false) {
+        refusal = candidate;
+        refusalLine = line.trim();
+      }
+    } catch (_) { /* Non-JSON installer diagnostics remain available to the caller. */ }
+  }
+  assert.ok(refusal, 'refusal omitted its structured payload:\n' + output);
+  assert.ok(refusalLine, 'refusal omitted its single-line JSON disclosure');
+  assert.equal(refusal.reason, 'hook_smoke_failed', 'refusal changed its closed reason');
+  assert.ok(refusal.underlying_error, 'refusal omitted its underlying module error');
+  assert.deepEqual(Object.keys(refusal.underlying_error).sort(), ['code', 'message', 'path', 'request']);
+  assert.equal(refusal.underlying_error.code, 'MODULE_NOT_FOUND');
+  assert.equal(refusal.underlying_error.request, expected.request);
+  assert.equal(refusal.underlying_error.path, expected.path);
+  assert.equal(typeof refusal.underlying_error.message, 'string', 'refusal omitted its bounded message');
+  assert.ok(
+    Buffer.byteLength(refusal.underlying_error.message, 'utf8') <= 2048,
+    'refusal message exceeded the 2048-byte bounded-line limit',
+  );
+  assert.doesNotMatch(
+    refusal.underlying_error.message,
+    /[\r\n\t]/,
+    'refusal message disclosed multi-line raw hook output',
+  );
+  for (const fragment of expected.messageFragments || [expected.request]) {
+    assert.ok(
+      refusal.underlying_error.message.includes(fragment),
+      'bounded module error omitted ' + fragment + ': ' + refusal.underlying_error.message,
+    );
+  }
+  return refusal;
+}
+
+function assertModuleNotFoundRefused(result, targetPath, before, expected) {
+  assertRefused(result, targetPath, before, [
+    'hook_smoke_failed',
+    'MODULE_NOT_FOUND',
+    expected.request,
+  ]);
+  return assertModuleNotFoundPayload(
+    (result.stderr || '') + '\n' + (result.stdout || ''),
+    expected,
+  );
 }
 
 function countManagedHook(settings, event, hookId) {
@@ -1195,65 +1437,72 @@ function assertInstallerSmokeOrder(installer) {
   const globalDistribution = installer.indexOf(globalHookBatch, globalHooks);
   const stateResolverCopy = installer.indexOf('tools/state-resolver/resolve.cjs');
   const scriptsReady = installer.indexOf('scripts + lib + watchdogs installed');
-  const globalSmoke = installer.indexOf('--smoke-manifest');
   const globalMergeLaunch = 'node ' + quote + '$MERGE_SCRIPT' + quote
     + ' ' + quote + '$OVERLAY_FILE' + quote + ' ' + quote + '$SETTINGS_FILE' + quote;
-  const globalMerge = installer.indexOf(globalMergeLaunch, globalSmoke);
+  const globalMerge = installer.indexOf(globalMergeLaunch, globalDistribution);
   assert.ok(globalHooks >= 0 && globalHooks < globalDistribution, 'global regular-file hook distribution is missing');
-  assert.ok(globalDistribution < globalSmoke, 'global hook distribution runs after smoke');
   assert.ok(stateResolverCopy >= 0 && stateResolverCopy < scriptsReady, 'state resolver is not deployed before scripts-ready boundary');
-  assert.ok(scriptsReady < globalSmoke, 'global smoke runs before script dependencies are deployed');
   for (const dependencyCopy of [
     'copy_tree_files ' + quote + '$SCRIPT_DIR/scripts/lib' + quote + ' ' + quote + '$CLAUDE_DIR/scripts/lib' + quote,
     'copy_tree_files ' + quote + '$SCRIPT_DIR/registry' + quote + ' ' + quote + '$CLAUDE_DIR/registry' + quote,
     'copy_tree_files ' + quote + '$SCRIPT_DIR/tools/vtp-readiness' + quote + ' ' + quote + '$CLAUDE_DIR/tools/vtp-readiness' + quote,
   ]) {
     const dependencyIndex = installer.indexOf(dependencyCopy);
-    assert.ok(dependencyIndex >= 0 && dependencyIndex < globalSmoke, `${dependencyCopy} runs after global smoke`);
+    assert.ok(dependencyIndex >= 0 && dependencyIndex < globalMerge, `${dependencyCopy} is absent before global settings merge`);
   }
-  assert.ok(globalSmoke < globalMerge, 'global settings merge runs before hook smoke');
-  assert.match(
+  // P168 replacement reason: the legacy installed-global smoke was a rejecting
+  // spawn after profile writes. Candidate smoke now runs before the first writer.
+  assert.doesNotMatch(
     installer,
-    /--smoke-manifest \x22\$HOOKS_DIR\x22 \x22\$SCRIPT_DIR\/hooks\x22/,
-    'global smoke does not validate the deployment source before registration',
+    /node \x22\$PREFLIGHT_SCRIPT\x22 --smoke-manifest/,
+    'installer retained a rejecting global hook smoke after profile publication',
   );
+  const mainPrecheck = installer.lastIndexOf('  precheck_installation_refusals');
+  const mainPublication = installer.lastIndexOf('  publish_project_install_contract');
+  const bannerCall = installer.lastIndexOf('\nprint_banner');
+  const globalDispatch = installer.lastIndexOf('\nif [ "$INSTALL_GLOBAL" = true ]');
+  assert.ok(
+    mainPrecheck >= 0 && mainPrecheck < mainPublication
+      && mainPublication < bannerCall && bannerCall < globalDispatch,
+    'sealed candidate precheck/publication does not precede global profile dispatch in required order',
+  );
+  assert.ok(globalMerge > globalDistribution, 'global settings merge is absent after sealed candidate smoke');
 
   const distributionFunction = installer.indexOf('distribute_project_hooks()');
-  const repoDistribution = installer.indexOf(projectHookBatch, distributionFunction);
+  const contractDelegation = installer.indexOf('  publish_project_install_contract', distributionFunction);
   const codexDetectorDefinitions = installer.match(/^detect_codex_hook_entry_sources\(\) \{/gm) || [];
   const codexDetectorFunction = installer.indexOf('detect_codex_hook_entry_sources()');
   const codexDistribution = installer.indexOf('$PROJECT_DIR/super-gsd/tools/codex-hooks/$name', codexDetectorFunction);
-  const codexCopy = installer.indexOf(
-    'copy_files_to_root ' + quote + '$PROJECT_DIR/super-gsd/tools/codex-hooks' + quote
-      + ' ' + quote + '${CODEX_HOOK_ENTRY_SOURCES[@]}' + quote,
-    distributionFunction,
-  );
   const codexMissingRefusal = installer.indexOf('hook_registration_missing $missing_target', codexDistribution);
-  const distributionDetectorCall = installer.indexOf('  detect_codex_hook_entry_sources', distributionFunction);
-  const distributionRefusalCall = installer.indexOf('  refuse_missing_codex_hook_entry_sources', distributionFunction);
   const substratePrecheckFunction = installer.indexOf('precheck_substrate_capability()');
   const combinedPrecheckFunction = installer.indexOf('precheck_installation_refusals()');
   const combinedPrecheckEnd = installer.indexOf('\n}\n', combinedPrecheckFunction);
   const combinedDetectorCall = installer.indexOf('  detect_codex_hook_entry_sources', combinedPrecheckFunction);
+  const combinedCandidateCall = installer.indexOf('--prepare-candidate', combinedPrecheckFunction);
   const combinedSubstrateCall = installer.indexOf('  precheck_substrate_capability', combinedPrecheckFunction);
-  assert.ok(distributionFunction >= 0 && distributionFunction < repoDistribution, 'repo regular-file hook distribution is missing');
+  // P168 replacement reason: the legacy unjournaled project copier assertions
+  // are superseded by a stronger sealed-candidate delegation assertion. Keeping
+  // the old batch-copy expectation would require the forbidden competing writer.
+  assert.ok(
+    distributionFunction >= 0 && contractDelegation > distributionFunction,
+    'project hook distribution does not delegate to the transactional install contract',
+  );
+  assert.doesNotMatch(
+    installer.slice(distributionFunction, installer.indexOf('\n}\n', distributionFunction)),
+    /copy_files_to_root|\bcp\b|\bmkdir\b|chmod/,
+    'project hook distribution retained a writer outside the sealed publication seam',
+  );
   assert.equal(codexDetectorDefinitions.length, 1, 'Codex hook entry source detector is missing or duplicated');
   assert.ok(codexDetectorFunction >= 0 && codexDetectorFunction < codexDistribution, 'shared Codex entry detector lacks its source inventory');
   assert.ok(codexDistribution < codexMissingRefusal, 'Codex distribution refusal does not name missing targets');
-  assert.ok(repoDistribution < codexCopy, 'Codex entries are copied before the repo hook inventory');
-  assert.ok(
-    distributionFunction < distributionDetectorCall
-      && distributionDetectorCall < distributionRefusalCall
-      && distributionRefusalCall < repoDistribution,
-    'project hook distribution does not detect and refuse missing Codex entries before its first writer',
-  );
   assert.ok(substratePrecheckFunction >= 0, 'installer lacks a non-mutating substrate capability pre-check');
   assert.ok(
     combinedPrecheckFunction >= 0
       && combinedPrecheckFunction < combinedDetectorCall
-      && combinedDetectorCall < combinedSubstrateCall
+      && combinedDetectorCall < combinedCandidateCall
+      && combinedCandidateCall < combinedSubstrateCall
       && combinedSubstrateCall < combinedPrecheckEnd,
-    'combined refusal pre-check does not share Codex detection before substrate detection',
+    'combined refusal pre-check does not detect Codex, smoke the candidate, then check substrate before publication',
   );
   assert.doesNotMatch(
     installer,
@@ -1264,13 +1513,20 @@ function assertInstallerSmokeOrder(installer) {
   for (const functionName of ['init_local_project()', 'update_existing()']) {
     const functionStart = installer.indexOf(functionName);
     const distributionCall = installer.indexOf('  distribute_project_hooks', functionStart);
-    const precheckCall = installer.indexOf('  precheck_substrate_capability', distributionCall);
     const repairCall = installer.indexOf('  repair_substrate_capability', functionStart);
     const codexCall = installer.indexOf('  register_codex_hooks', functionStart);
+    // P168 replacement reason: the old post-distribution rejection assertion is
+    // invalid once distribution consumes a pre-smoked sealed candidate. The
+    // stronger assertion forbids any rejection-capable precheck after it.
     assert.ok(
       functionStart >= 0 && functionStart < distributionCall
-        && distributionCall < precheckCall && precheckCall < repairCall && repairCall < codexCall,
-      `${functionName} does not pre-check all refusals between distribution and mutating repair`,
+        && distributionCall < repairCall && repairCall < codexCall,
+      `${functionName} does not preserve sealed publication before repair and registration`,
+    );
+    assert.equal(
+      installer.slice(distributionCall, repairCall).includes('precheck_substrate_capability'),
+      false,
+      `${functionName} performs a rejection-capable substrate precheck after publication`,
     );
   }
   const repairPaths = [
@@ -1323,10 +1579,12 @@ function assertInstallerSmokeOrder(installer) {
     /chmod \+x \x22\$\{global_executable_targets\[@\]\}\x22/,
     'global executable bits are not applied in one batch',
   );
+  // P168 replacement reason: project modes are sealed per computed row instead
+  // of being chmodded by the removed unjournaled batch copier.
   assert.match(
-    installer,
-    /chmod \+x \x22\$\{project_executable_targets\[@\]\}\x22/,
-    'project executable bits are not applied in one batch',
+    fs.readFileSync(path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'hook-install-contract.cjs'), 'utf8'),
+    /fs\.chmodSync\(candidatePath, fs\.statSync\(required\.source_path\)\.mode\)/,
+    'sealed project publication does not preserve executable source modes',
   );
 }
 
@@ -1350,10 +1608,14 @@ function smokeAdapters(overrides = {}) {
 
 function fakeSmokeChild(onInput, result, onComplete = () => {}) {
   const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
   child.stdin = {
     end(input) {
       onInput(input);
       setImmediate(() => {
+        if (result.stdout) child.stdout.emit('data', result.stdout);
+        if (result.stderr) child.stderr.emit('data', result.stderr);
         onComplete();
         if (result.error) child.emit('error', result.error);
         else child.emit('close', result.status, result.signal || null);
@@ -1388,8 +1650,24 @@ async function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookReg
     assert.ok(smokeError.message.includes(descriptor.hookId), 'smoke refusal omitted hook name');
     assert.equal(smokeError.message.includes('do-not-leak'), false, 'raw child output leaked into smoke refusal');
     assert.equal(smokeError.message.includes('SGSD installer dependency smoke'), false, 'smoke payload leaked into refusal');
+    const observed = [failedResult.error && failedResult.error.message,
+      failedResult.stdout, failedResult.stderr].filter(Boolean);
+    for (const fragment of observed) {
+      assert.ok(smokeError.underlyingError.message.includes(fragment),
+        'bounded underlying failure omitted observed output: ' + fragment);
+    }
     assert.equal(mergeCalls, 0, 'settings merge callback ran after smoke refusal');
   }
+
+  const policyDecision = await smokeHookRegistrations([descriptor], smokeAdapters({
+    cwd: smokeCwd,
+    home: smokeHome,
+    spawn: () => fakeSmokeChild(() => {}, {
+      status: 1,
+      stderr: '[validate-stop-contract] blocked: missing_report\n',
+    }),
+  }));
+  assert.deepEqual(policyDecision, [descriptor], 'clean policy decision was mistaken for a load failure');
 }
 
 async function runSmokeStatic() {
@@ -1496,9 +1774,9 @@ async function runSmokeStatic() {
     assert.ok(call, `hook smoke omitted ${descriptor.scriptPath}`);
     const payload = JSON.parse(call.input);
     assert.equal(call.command, descriptor.interpreter === 'node' ? 'fixture-node' : 'fixture-bash');
-    assert.deepEqual(call.args, [descriptor.scriptPath]);
+    assert.deepEqual(call.args, [descriptor.scriptPath, ...(descriptor.argv || [])]);
     assert.equal(call.options.shell, false);
-    assert.deepEqual(call.options.stdio, ['pipe', 'ignore', 'ignore']);
+    assert.deepEqual(call.options.stdio, ['pipe', 'pipe', 'pipe']);
     assert.equal(call.options.cwd, smokeCwd);
     assert.equal(call.options.env.HOME, smokeHome);
     assert.equal(call.options.env.USERPROFILE, smokeHome);
@@ -1506,17 +1784,30 @@ async function runSmokeStatic() {
     assert.equal(call.options.timeout, Math.max(SMOKE_TIMEOUT_FLOOR_MS, registeredBudget));
     assert.ok(call.options.timeout >= registeredBudget, 'smoke ignored the registered timeout budget');
     assert.equal(call.input.endsWith('\n'), true, 'child stdin was not closed with a complete payload');
-    assert.deepEqual(Object.keys(payload).sort(), [
+    const expectedPayloadKeys = [
       'cwd', 'hook_event_name', 'prompt', 'session_id',
       'tool_input', 'tool_name', 'tool_response',
-    ]);
+    ];
+    if (descriptor.matcher && descriptor.matcher.startsWith('mcp__')) {
+      expectedPayloadKeys.push('tool_use_id');
+    }
+    assert.deepEqual(Object.keys(payload).sort(), expectedPayloadKeys.sort());
     assert.equal(payload.hook_event_name, descriptor.event);
     assert.equal(payload.cwd, smokeCwd);
     assert.equal(payload.session_id, 'sgsd-installer-hook-smoke');
     assert.equal(payload.prompt, 'SGSD installer dependency smoke');
-    assert.equal(payload.tool_name, 'Read');
-    assert.deepEqual(payload.tool_input, { file_path: 'sgsd-hook-smoke.txt' });
-    assert.deepEqual(payload.tool_response, { ok: true });
+    const expectedTool = descriptor.matcher && descriptor.matcher !== '*'
+      ? descriptor.matcher.split('|')[0]
+      : 'Read';
+    assert.equal(payload.tool_name, expectedTool);
+    if (expectedTool.startsWith('mcp__')) {
+      assert.equal(payload.tool_use_id, 'sgsd-installer-hook-smoke-tool');
+      assert.equal(payload.tool_input.schema_version, 'vtp-mcp-input-schemas.v2');
+      assert.deepEqual(JSON.parse(payload.tool_response.content[0].text), { hits: [] });
+    } else {
+      assert.deepEqual(payload.tool_input, { file_path: 'sgsd-hook-smoke.txt' });
+      assert.deepEqual(payload.tool_response, { ok: true });
+    }
   });
 
   await assertSmokeFailures(repoDescriptors[0], smokeCwd, smokeHome, smokeHookRegistrations);
@@ -1527,11 +1818,12 @@ function runVendoredNineHook() {
   try {
     retainClarityNine(fixture.vendoredRoot);
     const before = seedTarget(fixture.repoSettings, 'vendored-nine-hook');
-    const missing = REPO_REGISTRATIONS
-      .filter(([, hookId]) => hookId !== 'session-start-governance')
-      .map(([, , relative]) => path.resolve(fixture.projectRoot, relative));
+    const request = 'hooks/gsd-phase-boundary.sh';
     const result = runInstaller(fixture, ['--init-project', '--skip-cockpit-deps']);
-    assertRefused(result, fixture.repoSettings, before, ['hook_registration_missing', ...missing]);
+    assertModuleNotFoundRefused(result, fixture.repoSettings, before, {
+      request,
+      path: path.join(fixture.vendoredRoot, request),
+    });
     const settings = JSON.parse(readBytes(fixture.repoSettings).toString('utf8'));
     for (const [event, hookId] of REPO_REGISTRATIONS) {
       assert.equal(countManagedHook(settings, event, hookId), 0, `${hookId} was partially registered`);
@@ -1548,9 +1840,6 @@ function runFailureDirection(label, site, failure) {
     const sourcePath = global
       ? path.join(fixture.vendoredRoot, 'hooks', 'sgsd-heartbeat.js')
       : path.join(fixture.vendoredRoot, 'hooks', 'sgsd-quality-gate.js');
-    const realizedPath = global
-      ? path.join(fixture.homeRoot, '.claude', 'hooks', 'sgsd-heartbeat.js')
-      : path.join(fixture.projectRoot, 'super-gsd', 'hooks', 'sgsd-quality-gate.js');
     if (failure === 'missing') fs.rmSync(sourcePath);
     else fs.writeFileSync(sourcePath, 'const = invalid javascript;\n', 'utf8');
     const targetPath = global ? fixture.globalSettings : fixture.repoSettings;
@@ -1558,11 +1847,45 @@ function runFailureDirection(label, site, failure) {
     const args = global
       ? ['--install-global']
       : ['--init-project', '--skip-cockpit-deps'];
-    const result = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
-    const code = failure === 'missing'
-      ? 'hook_registration_missing'
-      : 'hook_registration_node_check_failed';
-    assertRefused(result, targetPath, before, [code, realizedPath]);
+    if (failure === 'missing') {
+      const request = global ? 'hooks/sgsd-heartbeat.js' : 'hooks/sgsd-quality-gate.js';
+      const result = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
+      assertModuleNotFoundRefused(result, targetPath, before, {
+        request,
+        path: sourcePath,
+      });
+      return;
+    }
+
+    // P168 candidate preparation still invokes this node check, but its CLI
+    // currently drops HookRegistrationPreflightError artifact details. Preserve
+    // exact two-site syntax coverage here instead of accepting a generic refusal.
+    const {
+      HookRegistrationPreflightError,
+      preflightHookDescriptors,
+    } = require(PREFLIGHT_PATH);
+    let refusal;
+    try {
+      preflightHookDescriptors([{
+        event: 'PostToolUse',
+        hookId: label,
+        interpreter: 'node',
+        scriptPath: sourcePath,
+      }]);
+    } catch (error) {
+      refusal = error;
+    }
+    assert.ok(refusal instanceof HookRegistrationPreflightError, site + ' invalid source did not refuse node check');
+    assert.deepEqual(refusal.issues, [{
+      code: 'hook_registration_node_check_failed',
+      event: 'PostToolUse',
+      hookId: label,
+      scriptPath: sourcePath,
+    }]);
+    const after = readBytes(targetPath);
+    assert.equal(sha256(after), before.hash, 'node check changed settings hash at ' + targetPath);
+    assert.deepEqual(after, before.bytes, 'node check changed settings bytes at ' + targetPath);
+    assert.equal(fs.existsSync(targetPath + '.tmp'), false, 'node check left temporary settings at ' + targetPath);
   } finally {
     removeFixture(fixture);
   }
@@ -1759,13 +2082,16 @@ function runDeployedHookSmoke() {
     assert.match(load.stderr, /MODULE_NOT_FOUND/, 'broken fixture did not prove the real load error');
 
     const refused = runInstaller(fixture, ['--update', '--skip-cockpit-deps']);
-    assertRefused(refused, fixture.repoSettings, beforeRepo, [
-      'hook_smoke_failed',
-      'user-prompt-intent-classifier',
-      targetEntryPath,
-    ]);
+    assertModuleNotFoundRefused(refused, fixture.repoSettings, beforeRepo, {
+      request: '../scripts/lib/skill-routing-registry.cjs',
+      path: sourceDependencyPath,
+      messageFragments: [
+        'hooks/sgsd-intent-classifier.cjs',
+        '../scripts/lib/skill-routing-registry.cjs',
+      ],
+    });
     const output = (refused.stderr || '') + '\n' + (refused.stdout || '');
-    assert.equal(output.includes('MODULE_NOT_FOUND'), false, 'raw installed-hook output leaked from refusal');
+    assert.equal(output.includes('Require stack:'), false, 'unbounded installed-hook stack leaked from refusal');
     assert.deepEqual(readBytes(fixture.globalSettings), beforeGlobal.bytes, 'global settings changed during broken reinstall');
     assert.equal(sha256(readBytes(fixture.globalSettings)), beforeGlobal.hash, 'global settings hash changed during broken reinstall');
     assert.equal(fs.existsSync(fixture.globalSettings + '.tmp'), false, 'global settings temp artifact remains');
@@ -1775,7 +2101,7 @@ function runDeployedHookSmoke() {
 }
 
 function commitClarityUpdateSource(seedRoot, missingRows) {
-  const seedSuperGsd = copyFixtureSupport(seedRoot);
+  const seedSuperGsd = copyFixtureSupport(seedRoot, { provisionPackages: false });
   assert.deepEqual(
     fs.readFileSync(path.join(seedSuperGsd, 'scripts', 'sgsd-update.sh')),
     fs.readFileSync(UPDATE_PATH),
@@ -1852,6 +2178,13 @@ function createClarityUpdateGitFixture(fixtureRoot, missingRows) {
   runFixtureGit(['clone', '--bare', seedRoot, bareRoot], fixtureRoot, 'create bare upstream');
   runFixtureGit(['--git-dir', bareRoot, 'update-ref', 'refs/heads/master', oldSha], fixtureRoot, 'pin bare upstream to broken SHA');
   runFixtureGit(['clone', bareRoot, sourceRoot], fixtureRoot, 'clone canonical source at broken SHA');
+  const sourcePackageLinks = provisionFixtureSourcePackages(path.join(sourceRoot, 'super-gsd'));
+  fs.appendFileSync(
+    path.join(sourceRoot, '.git', 'info', 'exclude'),
+    sourcePackageLinks.map((row) => (
+      `/${path.relative(sourceRoot, row.fixture_path).replace(/\\/g, '/')}`
+    )).join('\n') + '\n',
+  );
   runFixtureGit(['remote', 'set-url', 'origin', canonicalOrigin], sourceRoot, 'set canonical stored origin');
   assert.equal(
     runFixtureGit(['remote', 'get-url', 'origin'], sourceRoot, 'read canonical stored origin'),
@@ -1865,6 +2198,7 @@ function createClarityUpdateGitFixture(fixtureRoot, missingRows) {
 function seedClarityUpdateProject(fixtureRoot, oldSha) {
   const projectRoot = path.join(fixtureRoot, 'clarity project');
   const homeRoot = path.join(fixtureRoot, 'isolated home');
+  const projectMcpPath = path.join(projectRoot, '.mcp.json');
   const repoSettingsPath = path.join(projectRoot, '.claude', 'settings.json');
   const globalSettingsPath = path.join(homeRoot, '.claude', 'settings.json');
   const projectPinPath = path.join(projectRoot, '.super-gsd-version');
@@ -1875,6 +2209,16 @@ function seedClarityUpdateProject(fixtureRoot, oldSha) {
   fs.mkdirSync(path.join(projectRoot, '.planning'), { recursive: true });
   fs.writeFileSync(projectPinPath, oldSha + '\n', 'utf8');
 
+  const upstreamDefinition = {
+    command: 'node',
+    args: [path.join(projectRoot, 'VTP upstream with spaces', 'server.cjs'), '--stdio'],
+    env: { CLARITY_FIXTURE: 'preserved-private-upstream' },
+  };
+  writeJson(projectMcpPath, {
+    unrelatedMcpKey: { survives: true },
+    mcpServers: { 'vtp-kb': upstreamDefinition },
+  });
+
   for (const relative of [
     path.join('scripts', 'lib'),
     'registry',
@@ -1884,7 +2228,7 @@ function seedClarityUpdateProject(fixtureRoot, oldSha) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.cpSync(path.join(SUPER_GSD_ROOT, relative), target, { recursive: true });
   }
-
+  provisionFixtureSourcePackages(path.join(projectRoot, 'super-gsd'));
   const { realizeRepoLocalHookOverlay } = require(PREFLIGHT_PATH);
   const realizedOverlay = realizeRepoLocalHookOverlay(
     JSON.parse(fs.readFileSync(REPO_OVERLAY_PATH, 'utf8')),
@@ -1916,11 +2260,20 @@ function seedClarityUpdateProject(fixtureRoot, oldSha) {
     globalOperatorRowsBefore: operatorRowsBytes(globalSettings),
     originalManagedRows,
     projectOperatorRowsBefore: operatorRowsBytes(claritySettings),
+    projectMcpPath,
     projectPinPath,
     projectRoot,
     repoSettingsPath,
     settingsBeforeBroken: readBytes(repoSettingsPath),
+    mcpBeforeBroken: readBytes(projectMcpPath),
     systemdSentinel,
+    upstreamDefinition,
+    witnessEnv: {
+      HOME: homeRoot,
+      USERPROFILE: homeRoot,
+      APPDATA: path.join(homeRoot, 'AppData', 'Roaming'),
+      XDG_CONFIG_HOME: path.join(homeRoot, '.config'),
+    },
   };
 }
 
@@ -1931,17 +2284,20 @@ function assertBrokenClarityUpdate(result, project, sourceRoot, oldSha) {
   assert.equal(output.includes('hook_registration_launch_invalid'), false, 'operator row entered broken-run validation:\n' + output);
   assert.equal(output.includes('operator-pathological'), false, 'operator sentinel was mentioned by broken run:\n' + output);
   assert.equal(output.includes('operator garbage command'), false, 'pathological operator command was mentioned by broken run:\n' + output);
-  for (const [, hookId, relative] of REPO_REGISTRATIONS) {
-    assert.ok(output.includes('hook_registration_missing'), 'broken control omitted missing code for ' + hookId);
-    assert.ok(
-      output.includes(path.resolve(project.projectRoot, relative)),
-      'broken control omitted path for ' + hookId,
-    );
-  }
+  const missingRequest = 'hooks/sgsd-intent-classifier.cjs';
+  assertModuleNotFoundPayload(output, {
+    request: missingRequest,
+    path: path.join(sourceRoot, 'super-gsd', missingRequest),
+  });
   assert.deepEqual(
     readBytes(project.repoSettingsPath),
     project.settingsBeforeBroken,
     'broken updater changed project settings bytes',
+  );
+  assert.deepEqual(
+    readBytes(project.projectMcpPath),
+    project.mcpBeforeBroken,
+    'broken updater changed the direct Clarity upstream before refusal',
   );
   assert.equal(
     fs.readFileSync(project.projectPinPath, 'utf8'),
@@ -2024,15 +2380,31 @@ function assertRepairedClarityUpdate(result, project, sourceRoot, fixedSha) {
   assert.equal(runFixtureGit(['rev-parse', 'FETCH_HEAD'], sourceRoot, 'read fetched SHA'), fixedSha);
   assert.equal(runFixtureGit(['rev-parse', 'HEAD'], sourceRoot, 'read repaired source HEAD'), fixedSha);
 
+  const capabilityReports = output.split(/\r?\n/).flatMap((line) => {
+    try {
+      const report = JSON.parse(line.trim());
+      return report && Object.prototype.hasOwnProperty.call(report, 'capability_status') ? [report] : [];
+    } catch (_) {
+      return [];
+    }
+  });
+  assert.ok(capabilityReports.length > 0, 'repaired updater omitted its capability result:\n' + output);
+  const capability = capabilityReports.at(-1);
+  assert.equal(capability.ok, true, 'repaired updater did not approve the provisioned Clarity upstream');
+  assert.equal(capability.witness_status, 'current');
+  assert.equal(capability.capability_status, 'current');
+  assert.deepEqual(capability.reasons, []);
+  assert.equal(capability.substrate_granted, true);
+
   const warningLines = output.split(/\r?\n/)
     .filter((line) => line.includes('WARN project_hook_registration_missing_global_covered'));
-  assert.equal(warningLines.length, 3, 'expected three covered project warnings:\n' + output);
+  assert.equal(warningLines.length, 0, 'transactionally healed project hooks were still reported missing:\n' + output);
   const historicalIds = new Set(CLARITY_HISTORICAL_IDS);
   for (const [event, hookId, relative] of REPO_REGISTRATIONS.filter(([, id]) => historicalIds.has(id))) {
     const expectedPath = path.resolve(project.projectRoot, relative);
     assert.ok(
-      warningLines.some((line) => line.includes(expectedPath) && line.includes('[' + event + '/' + hookId + ']')),
-      'covered warning did not name ' + expectedPath,
+      fs.statSync(expectedPath).isFile(),
+      `transactional recovery did not heal ${expectedPath} [${event}/${hookId}]`,
     );
   }
   assert.equal(
@@ -2040,6 +2412,22 @@ function assertRepairedClarityUpdate(result, project, sourceRoot, fixedSha) {
     false,
     'new secret-leak registration was incorrectly reported as a stale project row',
   );
+
+  const brokeredMcp = JSON.parse(fs.readFileSync(project.projectMcpPath, 'utf8'));
+  assert.equal(brokeredMcp.unrelatedMcpKey.survives, true, 'Clarity MCP sentinel was removed');
+  assert.equal(brokeredMcp.mcpServers['vtp-kb'].command, 'node');
+  assert.equal(
+    path.basename(brokeredMcp.mcpServers['vtp-kb'].args[0]),
+    'substrate-capability-broker.cjs',
+    'Clarity upstream was not replaced by the SGSD broker',
+  );
+  const witnessStore = require(WITNESS_STORE_PATH);
+  const upstreamManifest = JSON.parse(fs.readFileSync(
+    witnessStore.resolveWitnessPaths(project.projectRoot, project.witnessEnv).upstream_manifest_path,
+    'utf8',
+  ));
+  assert.equal(upstreamManifest.active_scope, 'project');
+  assert.deepEqual(upstreamManifest.servers.project.definition, project.upstreamDefinition);
 
   const {
     enumerateGlobalManifestCoverage,
@@ -2318,6 +2706,7 @@ function runBrokeredSubstrateCapability() {
 function runSgsdUpdateClarityRecovery() {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-update-clarity-recovery-'));
   try {
+    provisionFixtureHookPackages(fixtureRoot);
     const gitFixture = createClarityUpdateGitFixture(fixtureRoot, REPO_REGISTRATIONS);
     const project = seedClarityUpdateProject(fixtureRoot, gitFixture.oldSha);
     const updaterEnv = {
@@ -2331,6 +2720,7 @@ function runSgsdUpdateClarityRecovery() {
       GIT_TERMINAL_PROMPT: '0',
       SGSD_TEST_BARE_REPO: gitFixture.bareRoot,
       SGSD_TEST_SSH_LOG: gitFixture.sshLogPath,
+      ...fixtureTempEnv(fixtureRoot),
     };
     const runUpdater = () => runFixtureProcess(
       process.env.SGSD_TEST_BASH || 'bash',
@@ -2450,10 +2840,17 @@ const CASES = Object.freeze({
 });
 
 async function main(argv) {
+  if (argv.includes('--all')) {
+    for (const [name, runCase] of Object.entries(CASES)) {
+      await runCase();
+      process.stdout.write(`[installer-registration-guard] ${name} PASS\n`);
+    }
+    return 0;
+  }
   const caseIndex = argv.indexOf('--case');
   const caseName = caseIndex >= 0 ? argv[caseIndex + 1] : null;
   if (!caseName || !CASES[caseName]) {
-    process.stderr.write(`Usage: ${path.basename(__filename)} --case ${Object.keys(CASES).join('|')}\n`);
+    process.stderr.write(`Usage: ${path.basename(__filename)} --all|--case ${Object.keys(CASES).join('|')}\n`);
     return 64;
   }
   await CASES[caseName]();

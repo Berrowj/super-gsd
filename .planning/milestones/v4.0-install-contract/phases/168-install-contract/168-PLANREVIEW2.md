@@ -16,7 +16,7 @@ PLAN VERDICT: GO
 --- codex stderr ---
 OpenAI Codex v0.146.0
 --------
-workdir: C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+workdir: <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 model: gpt-5.6-sol
 provider: openai
 approval: never
@@ -118,7 +118,7 @@ NOGO requires a numbered list of what still must change. Max 400 words.
 codex
 I’ll use the `using-superpowers` skill to route this review, then inspect only the revision-2 plan and supplied context. I’ll keep the accepted empty-tree and diagnosis decisions closed, make no edits, and won’t rerun schema validation.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\using-superpowers\\SKILL.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\operator\\.codex\\skills\\using-superpowers\\SKILL.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1405ms:
 ---
 name: using-superpowers
@@ -238,20 +238,20 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -260,7 +260,7 @@ At line:1 char:1
 codex
 The routing skill points to the repository review workflow as relevant here. I’m applying it only as a read-only evidence discipline; the user’s round-2 scope remains controlling.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.agents\\skills\\review\\SKILL.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw 'C:\\Users\\operator\\.agents\\skills\\review\\SKILL.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 743ms:
 ---
 name: review
@@ -479,7 +479,7 @@ This gate is MANDATORY. Never skip it. Never auto-implement fixes.
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$files = @('"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md', '.planning/milestones/v4.0-install-contract/phases/168-install-contract/CONTEXT.md'); foreach ("'$file in $files) { "===== $file ====="; Get-Content -Raw -LiteralPath $file }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$files = @('"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md', '.planning/milestones/v4.0-install-contract/phases/168-install-contract/CONTEXT.md'); foreach ("'$file in $files) { "===== $file ====="; Get-Content -Raw -LiteralPath $file }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 673ms:
 ===== .planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md =====
 ---
@@ -1258,7 +1258,7 @@ the deliverable.
 codex
 The combined read was truncated in the task bodies, so I’m narrowing to numbered plan sections. The top-level criteria already state the right candidate-tree and per-entry goals; the decisive check is whether T1/T2 operationalize them without a loophole.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; "LINE_COUNT=$($lines.Count)"; for ($i=0; $i -lt [Math]::Min(220,$lines.Count); $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; "LINE_COUNT=$($lines.Count)"; for ($i=0; $i -lt [Math]::Min(220,$lines.Count); $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-25T10:13:11.399768Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 0.9 seconds
 Output:
@@ -1282,7 +1282,7 @@ At line:2 char:181
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=0; $i -lt 220; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=0; $i -lt 220; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 772ms:
    1: ---
    2: schema_version: 2
@@ -1506,7 +1506,7 @@ exec
  220:       inspectProjectInstall, and applyProjectInstall. Start from every manifest
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=220; $i -lt 420; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=220; $i -lt 420; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1657ms:
  221: 
  222:       Create hook-install-contract.cjs as the single authority and export
@@ -1710,7 +1710,7 @@ exec
  420:       worktree-aware freshness over T1's detector. One read-only doctor command
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=420; $i -lt $lines.Count; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=420; $i -lt $lines.Count; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 856ms:
  421:       reports exact project hook/module drift for an explicit normal repository
  422:       or linked worktree, update makes it current, and no alternative detector
@@ -1799,7 +1799,7 @@ exec
  505: is not accepted as proof of the measured target-relative defect.
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n --fixed-strings -e 'operator decision' -e '55' -e 'parity' -e 'merge' -e 'selective closure' -e 'boundary' '.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n --fixed-strings -e 'operator decision' -e '55' -e 'parity' -e 'merge' -e 'selective closure' -e 'boundary' '.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 647ms:
 114:      Installation refuses before npm, hook or module copying, settings merge,
 200:  - Do not merge this branch; publication to master remains an operator decision.
@@ -1807,7 +1807,7 @@ exec
 396:      applyProjectInstall, npm, settings merge, key provisioning, broker/grant
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=180; $i -lt 215; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=180; $i -lt 215; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 645ms:
  181:       reasons, rewritten-only acceptance, and no-raw-result behavior are
  182:       unchanged. The prior broken module control now exposes the exact missing
@@ -1848,7 +1848,7 @@ exec
 codex
 The plan changed on disk during my read: its boundary clauses and publication wording are now stronger than the first snapshot. I’m treating the latest stable revision-2 bytes as authoritative and checking that the task contracts match those clauses before issuing the verdict.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; Get-Item -LiteralPath "'$p | Select-Object Length,LastWriteTime; Get-FileHash -Algorithm SHA256 -LiteralPath $p | Select-Object Hash' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; Get-Item -LiteralPath "'$p | Select-Object Length,LastWriteTime; Get-FileHash -Algorithm SHA256 -LiteralPath $p | Select-Object Hash' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 4322ms:
 
 Length LastWriteTime      
@@ -1859,13 +1859,13 @@ Length LastWriteTime
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$h = Get-FileHash -Algorithm SHA256 -LiteralPath $p; $h.Hash; (Get-Content -LiteralPath $p).Count' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$h = Get-FileHash -Algorithm SHA256 -LiteralPath $p; $h.Hash; (Get-Content -LiteralPath $p).Count' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1508ms:
 74B3C899D1D6B000CBEFA5A6ABA4302922686106B608D444496976A57951CC48
 536
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=215; $i -lt 390; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=215; $i -lt 390; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1258ms:
  216:     input_contract: >
  217:       Treat CONTEXT.md's measured delivery trace and P167 SUMMARY/AUDIT
@@ -2044,7 +2044,7 @@ exec
  390:       Sandbox EPERM on a spawn-bound command is ORCHESTRATOR_REQUIRED, never PASS
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=390; $i -lt $lines.Count; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=390; $i -lt $lines.Count; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 597ms:
  391:       or SKIP-PASS.
  392:     verification_cmd: >
@@ -2194,7 +2194,7 @@ exec
  536: is not accepted as proof of the measured target-relative defect.
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=50; $i -lt 205; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$lines = Get-Content -LiteralPath $p; for ($i=50; $i -lt 205; $i++) { '"'{0,4}: {1}' -f ("'$i+1), $lines[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1249ms:
   51:   - wiki/LINT-REPORT.md
   52: invariants:
@@ -2353,7 +2353,7 @@ exec
  205:     agent: codex
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$h = Get-FileHash -Algorithm SHA256 -LiteralPath $p; $h.Hash; (Get-Item -LiteralPath $p).LastWriteTime' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p = '"'.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'; "'$h = Get-FileHash -Algorithm SHA256 -LiteralPath $p; $h.Hash; (Get-Item -LiteralPath $p).LastWriteTime' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1852ms:
 C84F6D8FA2BE751684471399E967148858173A3E804DFEE589F44AF8DBAEE620
 
@@ -2364,7 +2364,7 @@ C84F6D8FA2BE751684471399E967148858173A3E804DFEE589F44AF8DBAEE620
 codex
 A final on-disk update landed while I was checking the publication seam. I’m reading only the changed decision clauses now; this stays within the requested narrow round-2 review.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -C 2 --fixed-strings -e 'first destination write' -e 'remaining install mutations' -e 'one-way seam' -e 'operator decision' -e 'approximately 55-file' -e 'loader-trace' '.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -C 2 --fixed-strings -e 'first destination write' -e 'remaining install mutations' -e 'one-way seam' -e 'operator decision' -e 'approximately 55-file' -e 'loader-trace' '.planning/milestones/v4.0-install-contract/phases/168-install-contract/168-01-PLAN-LOCKED.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 697ms:
 55-  - Every rejection-capable source, manifest, destination, package, registration, and all-hook smoke check completes against one complete project-shaped candidate before the first project, profile, npm, key, settings, broker, or grant mutation.
 56-  - The candidate lives under a fresh OS temporary directory outside the project and profile, contains the exact prospective project paths, uses an isolated HOME/USERPROFILE, and resolves requires naturally from candidate hook paths without NODE_PATH or canonical-source fallback.

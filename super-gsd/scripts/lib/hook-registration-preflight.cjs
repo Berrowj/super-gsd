@@ -29,12 +29,52 @@ class HookRegistrationPreflightError extends Error {
 }
 
 class HookSmokeError extends Error {
-  constructor(descriptor) {
+  constructor(descriptor, underlyingError = null) {
     const location = descriptor.event + '/' + descriptor.hookId;
     super('hook_smoke_failed ' + descriptor.scriptPath + ' [' + location + ']');
     this.name = 'HookSmokeError';
     this.descriptor = descriptor;
+    this.code = 'hook_smoke_failed';
+    this.underlyingError = underlyingError;
+    this.underlying_error = underlyingError;
   }
+}
+
+function boundedLine(value, maxBytes = 2048) {
+  const oneLine = String(value || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const bytes = Buffer.from(oneLine, 'utf8');
+  if (bytes.length <= maxBytes) return oneLine;
+  return bytes.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
+}
+
+function moduleFailureDetail(output, options = {}) {
+  const message = boundedLine(output);
+  if (!/MODULE_NOT_FOUND|Cannot find module/.test(message)) return {
+    code: 'HOOK_PROCESS_FAILED',
+    request: null,
+    path: null,
+    message,
+  };
+  const requestMatch = message.match(/Cannot find module\s+['\u0022]([^'\u0022]+)['\u0022]/);
+  const request = requestMatch ? requestMatch[1] : null;
+  let resolvedPath = request && path.isAbsolute(request) ? path.resolve(request) : null;
+  if (resolvedPath && options.candidateRoot && options.targetRoot) {
+    const relative = path.relative(path.resolve(options.candidateRoot), resolvedPath);
+    if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+      resolvedPath = path.resolve(options.targetRoot, relative);
+    }
+  }
+  return {
+    code: 'MODULE_NOT_FOUND',
+    request,
+    path: resolvedPath,
+    message: boundedLine(request ? `Cannot find module '${request}'` : 'module resolution failed'),
+  };
+}
+
+function isCleanPolicyDecision(output) {
+  return /^\[[a-z0-9_.:-]+\]\s+(?:[a-z0-9_.:-]+\s+)*(?:blocked|denied|refused):\s+\S.*$/i
+    .test(boundedLine(output));
 }
 
 function launchInvalid(event, hookId, scriptPath, detail) {
@@ -71,7 +111,7 @@ function parseCombinedCommand(command, event, hookId) {
   };
 }
 
-function descriptorFor(hook, event, hookId) {
+function descriptorFor(hook, event, hookId, matcher = null) {
   if (!hook || typeof hook !== 'object' || Array.isArray(hook)) {
     launchInvalid(event, hookId, null, 'command hook must be an object');
   }
@@ -80,6 +120,7 @@ function descriptorFor(hook, event, hookId) {
 
   let interpreter;
   let scriptPath;
+  let argv = [];
   const normalizedCommand = command.toLowerCase();
   if (SUPPORTED_INTERPRETERS.has(normalizedCommand)) {
     if (!Array.isArray(hook.args) || hook.args.length < 1 || typeof hook.args[0] !== 'string') {
@@ -87,6 +128,7 @@ function descriptorFor(hook, event, hookId) {
     }
     interpreter = normalizedCommand;
     scriptPath = parseScriptPath(hook.args[0], event, hookId, true);
+    argv = hook.args.slice(1).map((value) => String(value));
   } else {
     if (Object.prototype.hasOwnProperty.call(hook, 'args')
       && (!Array.isArray(hook.args) || hook.args.length > 0)) {
@@ -104,6 +146,8 @@ function descriptorFor(hook, event, hookId) {
     interpreter,
     scriptPath: path.resolve(scriptPath),
     timeout: Number.isFinite(hook.timeout) ? hook.timeout : null,
+    argv,
+    matcher: typeof matcher === 'string' ? matcher : null,
   };
 }
 
@@ -141,7 +185,7 @@ function enumerateHookRegistrations(overlay) {
         const hookId = typeof entry.sgsd_hook_id === 'string' && entry.sgsd_hook_id.trim()
           ? entry.sgsd_hook_id.trim()
           : `${event}[${entryIndex}].hooks[${hookIndex}]`;
-        descriptors.push(descriptorFor(hook, event, hookId));
+        descriptors.push(descriptorFor(hook, event, hookId, entry.matcher));
       });
     });
   }
@@ -395,7 +439,7 @@ function enumerateGlobalManifestCoverage(settings, manifestDescriptors) {
           ? entry.sgsd_hook_id.trim()
           : `${manifestDescriptor.event}[${entryIndex}].hooks[${hookIndex}]`;
         try {
-          const descriptor = descriptorFor(hook, manifestDescriptor.event, hookId);
+          const descriptor = descriptorFor(hook, manifestDescriptor.event, hookId, entry.matcher);
           if (!sameHookRegistration(manifestDescriptor, descriptor)) return;
           seenRows.add(rowIdentity);
           descriptors.push(descriptor);
@@ -412,6 +456,7 @@ function enumerateGlobalManifestCoverage(settings, manifestDescriptors) {
 function sameHookRegistration(projectDescriptor, globalDescriptor) {
   return projectDescriptor.event === globalDescriptor.event
     && projectDescriptor.interpreter === globalDescriptor.interpreter
+    && JSON.stringify(projectDescriptor.argv || []) === JSON.stringify(globalDescriptor.argv || [])
     && path.basename(projectDescriptor.scriptPath).toLowerCase()
       === path.basename(globalDescriptor.scriptPath).toLowerCase();
 }
@@ -422,6 +467,7 @@ function hookDescriptorIdentity(descriptor) {
     descriptor.event,
     descriptor.hookId,
     descriptor.interpreter,
+    descriptor.argv || [],
     process.platform === 'win32' ? scriptPath.toLowerCase() : scriptPath,
   ]);
 }
@@ -498,16 +544,30 @@ function descriptorSmokeTimeout(descriptor) {
   return Math.max(SMOKE_TIMEOUT_FLOOR_MS, registeredBudget);
 }
 
-function smokePayload(event, cwd) {
-  return {
+function smokePayload(descriptor, cwd) {
+  const event = descriptor.event;
+  const matcher = descriptor.matcher && descriptor.matcher !== '*'
+    ? descriptor.matcher.split('|')[0]
+    : 'Read';
+  const mcp = matcher.startsWith('mcp__');
+  const payload = {
     hook_event_name: event,
     cwd,
     session_id: 'sgsd-installer-hook-smoke',
     prompt: 'SGSD installer dependency smoke',
-    tool_name: 'Read',
-    tool_input: { file_path: 'sgsd-hook-smoke.txt' },
+    tool_name: matcher,
+    tool_input: mcp
+      ? { schema_version: 'vtp-mcp-input-schemas.v2', query: 'installer dependency smoke' }
+      : { file_path: 'sgsd-hook-smoke.txt' },
     tool_response: { ok: true },
   };
+  if (mcp) {
+    payload.tool_use_id = 'sgsd-installer-hook-smoke-tool';
+    payload.tool_response = {
+      content: [{ type: 'text', text: JSON.stringify({ hits: [] }) }],
+    };
+  }
+  return payload;
 }
 
 function spawnSmokeHook(descriptor, options) {
@@ -517,31 +577,41 @@ function spawnSmokeHook(descriptor, options) {
     home,
     nodePath,
     spawnProcess,
+    env,
   } = options;
-  const input = JSON.stringify(smokePayload(descriptor.event, cwd)) + '\n';
+  const input = JSON.stringify(smokePayload(descriptor, cwd)) + '\n';
   return new Promise((resolve) => {
     let child;
     let settled = false;
-    const finish = (passed) => {
+    let output = '';
+    const finish = (passed, launchError = null, status = null, signal = null) => {
       if (settled) return;
       settled = true;
-      resolve(passed);
+      resolve({ passed, output: boundedLine(output), launchError, status, signal });
     };
     try {
       child = spawnProcess(
         descriptor.interpreter === 'node' ? nodePath : bashPath,
-        [descriptor.scriptPath],
+        [descriptor.scriptPath, ...(descriptor.argv || [])],
         {
           cwd,
-          env: { ...process.env, HOME: home, USERPROFILE: home },
+          env: env || { ...process.env, HOME: home, USERPROFILE: home },
           shell: false,
-          stdio: ['pipe', 'ignore', 'ignore'],
+          stdio: ['pipe', 'pipe', 'pipe'],
           timeout: descriptorSmokeTimeout(descriptor),
           windowsHide: true,
         },
       );
-      child.once('error', () => finish(false));
-      child.once('close', (status, signal) => finish(checkPassed({ status, signal })));
+      if (child.stdout && typeof child.stdout.on === 'function') {
+        child.stdout.on('data', (chunk) => { if (output.length < 8192) output += chunk; });
+      }
+      if (child.stderr && typeof child.stderr.on === 'function') {
+        child.stderr.on('data', (chunk) => { if (output.length < 8192) output += chunk; });
+      }
+      child.once('error', (error) => finish(false, error));
+      child.once('close', (status, signal) => (
+        finish(checkPassed({ status, signal }), null, status, signal)
+      ));
       if (child.stdin && typeof child.stdin.once === 'function') {
         child.stdin.once('error', () => {
           // The child close status remains authoritative, as with spawnSync.
@@ -556,7 +626,7 @@ function spawnSmokeHook(descriptor, options) {
           // Preserve the launch failure as the smoke result.
         }
       }
-      finish(false);
+      finish(false, _error);
     }
   });
 }
@@ -589,10 +659,38 @@ async function smokeHookRegistrations(descriptors, adapters = {}) {
 
   try {
     const results = await mapWithConcurrency(checked, SMOKE_CONCURRENCY, (descriptor) => (
-      spawnSmokeHook(descriptor, { bashPath, cwd, home, nodePath, spawnProcess })
+      spawnSmokeHook(descriptor, {
+        bashPath,
+        cwd,
+        env: adapters.env,
+        home,
+        nodePath,
+        spawnProcess,
+      })
     ));
-    const failedIndex = results.findIndex((passed) => !passed);
-    if (failedIndex >= 0) throw new HookSmokeError(checked[failedIndex]);
+    const failureDetails = results.map((result) => {
+      if (result.passed) return null;
+      const raw = result.launchError && result.launchError.message
+        ? result.launchError.message
+        : result.output;
+      const detail = moduleFailureDetail(raw, {
+        candidateRoot: adapters.candidateRoot,
+        targetRoot: adapters.targetRoot,
+      });
+      if (detail.code === 'MODULE_NOT_FOUND') return detail;
+      if (!result.launchError && !result.signal && result.status !== null
+        && isCleanPolicyDecision(raw)) {
+        return null;
+      }
+      return detail;
+    });
+    const failedIndex = failureDetails.findIndex(Boolean);
+    if (failedIndex >= 0) {
+      throw new HookSmokeError(
+        checked[failedIndex],
+        failureDetails[failedIndex],
+      );
+    }
   } finally {
     if (ownsCwd) {
       try {
@@ -652,7 +750,16 @@ if (require.main === module) {
   smokeCli(process.argv.slice(2)).then((exitCode) => {
     process.exitCode = exitCode;
   }, (error) => {
-    process.stderr.write('ERROR: ' + error.message + '\n');
+    if (error instanceof HookSmokeError) {
+      process.stderr.write(JSON.stringify({
+        ok: false,
+        reason: 'hook_smoke_failed',
+        detail: error.message,
+        underlying_error: error.underlyingError,
+      }) + '\n');
+    } else {
+      process.stderr.write('ERROR: ' + error.message + '\n');
+    }
     process.exitCode = 4;
   });
 }
@@ -668,6 +775,7 @@ module.exports = {
   enumerateHookRegistrations,
   enumerateProjectManagedHookRegistrations,
   filterWarnedHookDescriptors,
+  isCleanPolicyDecision,
   parseHookSmokeManifest,
   preflightHookDeploymentSources,
   preflightHookDescriptors,

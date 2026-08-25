@@ -1,0 +1,2 @@
+codex-executor: Windows Codex file-read failure detected; routing to read-pack patch fallback
+bash: /tmp/codex-patch-executor.sh: No such file or directory

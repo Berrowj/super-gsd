@@ -30,6 +30,7 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const { mergeSettingsFiles } = require('../../scripts/merge-settings.js');
 const witnessStore = require('../../scripts/lib/substrate-invocation-witness-store.cjs');
+const hookInstallContract = require('../../scripts/lib/hook-install-contract.cjs');
 const {
   enumerateHookRegistrations,
   preflightHookDescriptors,
@@ -45,6 +46,9 @@ const REPO_HOOK_PREFLIGHT = path.resolve(
   'scripts',
   'lib',
   'hook-registration-preflight.cjs',
+);
+const HOOK_INSTALL_CONTRACT = path.resolve(
+  __dirname, '..', '..', 'scripts', 'lib', 'hook-install-contract.cjs',
 );
 const BROKER_RELATIVE_PATH = path.join('super-gsd', 'tools', 'substrate-capability-broker.cjs');
 const P167_MARKER = '<sgsd_vtp_substrate_witness_p167>';
@@ -574,18 +578,12 @@ function auditClaudeSubstrateCapability(ctx, witnessAudit) {
   };
 }
 
-function installSubstrateRuntime(ctx, actions) {
-  const relatives = new Set([
-    path.join('hooks', 'sgsd-substrate-invocation-witness.cjs'),
-    path.join('tools', 'substrate-capability-broker.cjs'),
-    path.join('scripts', 'lib', 'substrate-invocation-witness-store.cjs'),
-  ]);
-  for (const relative of relatives) {
-    const source = path.join(ctx.sgsdRoot, relative);
-    const target = path.join(ctx.projectDir, 'super-gsd', relative);
-    if (!exists(source) || samePath(source, target) || sha256(source) === sha256(target)) continue;
-    copyFile(source, target, actions);
-  }
+function installSubstrateBroker(ctx, actions) {
+  const relative = path.join('tools', 'substrate-capability-broker.cjs');
+  const source = path.join(ctx.sgsdRoot, relative);
+  const target = path.join(ctx.projectDir, 'super-gsd', relative);
+  if (!exists(source) || samePath(source, target) || sha256(source) === sha256(target)) return;
+  copyFile(source, target, actions);
 }
 
 function inProcessNodeCheck(scriptPath) {
@@ -609,6 +607,9 @@ function repoHookSourcePath(ctx, scriptPath) {
 function checkSubstrateHookRegistrations(ctx, options = {}) {
   if (!options.repairProjectHooks) return { ok: true, reasons: [], detail: null };
   try {
+    if (ctx.projectInstallReport && ctx.projectInstallReport.manifest_drift.length) {
+      throw new Error('hook manifest dependencies are stale');
+    }
     const overlay = JSON.parse(fs.readFileSync(REPO_HOOK_OVERLAY, 'utf8'));
     const descriptors = enumerateHookRegistrations(realizeRepoLocalHookOverlay(overlay, ctx.projectDir));
     preflightHookDescriptors(descriptors, {
@@ -664,9 +665,60 @@ function smokeRepoHookOverlay(ctx) {
   );
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    const detail = String(result.stderr || result.stdout || 'hook smoke failed').trim();
-    throw new Error(detail);
+    const raw = String(result.stderr || result.stdout || '').trim().split(/\r?\n/).at(-1) || '';
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch (_) { /* Use a bounded generic failure. */ }
+    const error = new Error(parsed && parsed.detail ? parsed.detail : 'hook_smoke_failed');
+    error.underlying_error = parsed && parsed.underlying_error || null;
+    throw error;
   }
+}
+
+function parseInstallContractFailure(result) {
+  const raw = String(result.stderr || result.stdout || '').trim().split(/\r?\n/).at(-1) || '';
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      detail: parsed.reason || 'hook_smoke_failed',
+      underlying_error: parsed.underlying_error || null,
+    };
+  } catch (_) {
+    return {
+      detail: 'hook_smoke_failed',
+      underlying_error: {
+        code: result.error && result.error.code ? result.error.code : 'HOOK_PROCESS_FAILED',
+        request: null,
+        path: null,
+        message: raw.replace(/[\r\n\t]+/g, ' ').slice(0, 2048),
+      },
+    };
+  }
+}
+
+function publishProjectHookInstall(ctx, actions) {
+  const report = ctx.projectInstallReport || hookInstallContract.inspectProjectInstall({
+    projectDir: ctx.projectDir,
+    sgsdRoot: ctx.sgsdRoot,
+  });
+  ctx.projectInstallReport = report;
+  if (report.ok) return { ok: true };
+  const prepared = spawnSync(process.execPath, [
+    HOOK_INSTALL_CONTRACT, '--prepare-candidate', '--project-dir', ctx.projectDir,
+  ], { cwd: ctx.projectDir, encoding: 'utf8', shell: false, windowsHide: true, timeout: 120_000 });
+  if (prepared.error || prepared.status !== 0) return { ok: false, ...parseInstallContractFailure(prepared) };
+  const descriptor = String(prepared.stdout || '').trim().split(/\r?\n/).at(-1);
+  const applied = spawnSync(process.execPath, [
+    HOOK_INSTALL_CONTRACT, '--apply-candidate', descriptor,
+  ], { cwd: ctx.projectDir, encoding: 'utf8', shell: false, windowsHide: true, timeout: 120_000 });
+  if (applied.error || applied.status !== 0) return { ok: false, ...parseInstallContractFailure(applied) };
+  let publication = { actions: [] };
+  try { publication = JSON.parse(String(applied.stdout || '{}')); } catch (_) { /* No action detail. */ }
+  actions.push(...(publication.actions || []));
+  ctx.projectInstallReport = hookInstallContract.inspectProjectInstall({
+    projectDir: ctx.projectDir,
+    sgsdRoot: ctx.sgsdRoot,
+  });
+  return { ok: true };
 }
 
 function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
@@ -680,8 +732,24 @@ function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
     };
   }
   try {
-    if (options.repairProjectHooks) smokeRepoHookOverlay(ctx);
-    installSubstrateRuntime(ctx, actions);
+    const installReport = ctx.projectInstallReport || hookInstallContract.inspectProjectInstall({
+      projectDir: ctx.projectDir,
+      sgsdRoot: ctx.sgsdRoot,
+    });
+    ctx.projectInstallReport = installReport;
+    if (options.repairProjectHooks && installReport.stale.some(
+      (row) => row.relative_path.startsWith('hooks/'),
+    )) smokeRepoHookOverlay(ctx);
+    if (options.repairProjectHooks) {
+      const publication = publishProjectHookInstall(ctx, actions);
+      if (!publication.ok) return {
+        ok: false,
+        reasons: ['witness_repair_failed'],
+        detail: publication.detail,
+        underlying_error: publication.underlying_error,
+      };
+    }
+    installSubstrateBroker(ctx, actions);
     const key = witnessStore.provisionWitnessKey(ctx.projectDir, process.env);
     if (key.created) actions.push({ action: 'provision_substrate_witness_key', status: 'created' });
     if (options.allowGlobalRepair) removeGlobalWitnessRegistrations(actions);
@@ -704,7 +772,12 @@ function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
     actions.push({ action: 'merge_substrate_witness_hooks', target: path.join(ctx.projectDir, '.claude', 'settings.json') });
     return { ok: true, reasons: [] };
   } catch (error) {
-    return { ok: false, reasons: ['witness_repair_failed'], detail: error && error.message ? error.message : 'unknown' };
+    return {
+      ok: false,
+      reasons: ['witness_repair_failed'],
+      detail: error && error.message ? error.message : 'unknown',
+      underlying_error: error && (error.underlyingError || error.underlying_error) || null,
+    };
   }
 }
 
@@ -1352,11 +1425,13 @@ function auditCodexHooks(ctx) {
 
 function mkContext(explicitProjectDir) {
   const root = sgsdRoot();
-  return {
-    projectDir: explicitProjectDir == null
+  const projectDir = explicitProjectDir == null
       ? findPlanningRoot(process.cwd())
-      : path.resolve(explicitProjectDir),
+      : path.resolve(explicitProjectDir);
+  return {
+    projectDir,
     sgsdRoot: root,
+    projectInstallReport: hookInstallContract.inspectProjectInstall({ projectDir, sgsdRoot: root }),
     canonicalAgentsDir: path.join(root, 'agents'),
     canonicalSkillsDir: path.join(root, 'skills'),
     globalAgentsDir: path.join(homeDir(), '.claude', 'agents'),
@@ -1371,11 +1446,21 @@ function runAudit(opts) {
   const safeRepair = repairMode || (opts && opts.repairSafe === true);
   const substrateRepair = opts && opts.repairSubstrateCapability === true;
   const requestedCapabilityRepair = safeRepair || substrateRepair;
-  const registrationCheck = requestedCapabilityRepair
+  let registrationCheck = requestedCapabilityRepair
     ? checkSubstrateHookRegistrations(ctx, {
       repairProjectHooks: opts && opts.repairProjectHooks === true,
     })
     : { ok: true, reasons: [], detail: null };
+  if (requestedCapabilityRepair && registrationCheck.ok
+      && (safeRepair || opts.repairProjectHooks === true)) {
+    const publication = publishProjectHookInstall(ctx, actions);
+    if (!publication.ok) registrationCheck = {
+      ok: false,
+      reasons: ['hook_registration_preflight_failed'],
+      detail: publication.detail,
+      underlying_error: publication.underlying_error,
+    };
+  }
   const repairCapability = requestedCapabilityRepair && registrationCheck.ok;
   const allowGlobalRepair = safeRepair || (opts && opts.allowGlobalRepair === true);
   const repairGlobalAgents = registrationCheck.ok
@@ -1463,6 +1548,10 @@ function runAudit(opts) {
   const codexHooks = auditCodexHooks(ctx);
   const orchestratorProtocol = auditOrchestratorProtocol(ctx);
   const projectClaudeMd = auditProjectClaudeMd(ctx);
+  const projectHookInstall = hookInstallContract.inspectProjectInstall({
+    projectDir: ctx.projectDir,
+    sgsdRoot: ctx.sgsdRoot,
+  });
 
   const missingGlobal = globalAgents.filter((r) => !r.installed || r.drifted);
   const staleLegacyExecutor = globalAgents.filter((r) => r.name === 'gsd-executor.md' && (!r.installed || r.drifted || !r.disabled_legacy_executor));
@@ -1491,6 +1580,7 @@ function runAudit(opts) {
   if (!orchestratorProtocol.ok) issues.push('orchestrator_protocol_markers_missing_or_stale');
   if (!projectClaudeMd.ok) issues.push('project_claude_md_missing_or_stale');
   if (!codexHooks.ok) issues.push('project_codex_hooks_missing_or_stale');
+  if (!projectHookInstall.ok) issues.push('project_hook_install_missing_or_stale');
   if (!claudeSubstrateWitness.ready || !claudeSubstrateCapability.ready) {
     issues.push('project_claude_substrate_witness_missing_or_stale');
   }
@@ -1521,6 +1611,7 @@ function runAudit(opts) {
           || codexHooks.status === 'template-error' ? 1 : 0),
       claude_substrate_witness_issues: claudeSubstrateWitness.reasons.length,
       claude_substrate_capability_issues: claudeSubstrateCapability.reasons.length,
+      project_hook_install_issues: projectHookInstall.missing.length + projectHookInstall.stale.length,
     },
     global_agents: globalAgents,
     global_skills: globalSkills,
@@ -1534,6 +1625,7 @@ function runAudit(opts) {
     orchestrator_protocol: orchestratorProtocol,
     project_claude_md: projectClaudeMd,
     codex_hooks: codexHooks,
+    project_hook_install: projectHookInstall,
     claude_substrate_witness: claudeSubstrateWitness,
     claude_substrate_capability: claudeSubstrateCapability,
     repaired: {
@@ -1542,6 +1634,7 @@ function runAudit(opts) {
       global_legacy_agents: repairedLegacyAgents,
       backed_up_local_shadows: backedUpLocalShadows,
       substrate_witness_repair_detail: witnessRepair.detail || null,
+      substrate_witness_repair_underlying_error: witnessRepair.underlying_error || null,
       actions,
     },
   };
@@ -1621,6 +1714,12 @@ function printHuman(snap) {
   process.stdout.write('profile_missing_watch_codex=' + snap.summary.profile_missing_watch_codex + '\n');
   process.stdout.write('project_claude_md_missing=' + snap.summary.project_claude_md_missing + '\n');
   process.stdout.write('codex_hook_issues=' + snap.summary.codex_hook_issues + '\n');
+  process.stdout.write('project_hook_install_issues=' + snap.summary.project_hook_install_issues + '\n');
+  for (const row of [...snap.project_hook_install.missing, ...snap.project_hook_install.stale]) {
+    process.stdout.write('project_hook_install_' + row.status + '=' + row.target_path
+      + ' expected=' + row.expected_sha256 + ' actual=' + (row.actual_sha256 || 'missing')
+      + ' required_by=' + row.required_by.join(',') + '\n');
+  }
   process.stdout.write('claude_substrate_witness_status=' + snap.claude_substrate_witness.status + '\n');
   process.stdout.write('claude_substrate_capability_status=' + snap.claude_substrate_capability.status + '\n');
   if (snap.local_agent_shadows.length) {
@@ -1688,6 +1787,7 @@ function main(argv) {
         ...snap.claude_substrate_capability.reasons,
       ])],
       detail: snap.repaired.substrate_witness_repair_detail,
+      underlying_error: snap.repaired.substrate_witness_repair_underlying_error,
       substrate_granted: snap.claude_substrate_witness.ready && snap.claude_substrate_capability.ready,
     }) + '\n');
     process.exit(refused ? 2 : 0);
@@ -1697,6 +1797,7 @@ function main(argv) {
     projectDir,
     repair: args.indexOf('--repair') !== -1,
     repairSafe: args.indexOf('--repair-safe') !== -1,
+    repairProjectHooks: args.indexOf('--repair') !== -1 || args.indexOf('--repair-safe') !== -1,
   });
   if (args.indexOf('--json') !== -1) {
     process.stdout.write(JSON.stringify(snap, null, 2) + '\n');

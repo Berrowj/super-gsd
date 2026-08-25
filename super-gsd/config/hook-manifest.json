@@ -4,186 +4,526 @@
     {
       "source_path": "hooks/gsd-checkpoint-writer.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "PostToolUse", "matcher": "Bash", "timeout_seconds": 3, "command": "node ~/.claude/hooks/gsd-checkpoint-writer.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "PostToolUse",
+          "matcher": "Bash",
+          "timeout_seconds": 3,
+          "command": "node ~/.claude/hooks/gsd-checkpoint-writer.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/gsd-context-monitor.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "PostToolUse", "matcher": "Agent|Read|Write|Edit|Bash", "timeout_seconds": 3, "command": "node ~/.claude/hooks/gsd-context-monitor.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "PostToolUse",
+          "matcher": "Agent|Read|Write|Edit|Bash",
+          "timeout_seconds": 3,
+          "command": "node ~/.claude/hooks/gsd-context-monitor.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/gsd-phase-boundary.sh",
       "interpreter": "bash",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "intentionally_unregistered", "surface": "auxiliary-only", "smoke_event": "PostToolUse", "smoke_timeout_seconds": 5, "reason": "Community opt-in helper invoked only when project config enables hooks.community; it is smoke-tracked but is not installed as a default Claude event hook."}
-      ]
+        {
+          "kind": "intentionally_unregistered",
+          "surface": "auxiliary-only",
+          "smoke_event": "PostToolUse",
+          "smoke_timeout_seconds": 5,
+          "reason": "Community opt-in helper invoked only when project config enables hooks.community; it is smoke-tracked but is not installed as a default Claude event hook."
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/gsd-session-start.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "SessionStart", "matcher": null, "timeout_seconds": 5, "command": "node ~/.claude/hooks/gsd-session-start.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "SessionStart",
+          "matcher": null,
+          "timeout_seconds": 5,
+          "command": "node ~/.claude/hooks/gsd-session-start.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/gsd-session-state.sh",
       "interpreter": "bash",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "SessionStart", "matcher": null, "timeout_seconds": 5, "command": "bash ~/.claude/hooks/gsd-session-state.sh"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "SessionStart",
+          "matcher": null,
+          "timeout_seconds": 5,
+          "command": "bash ~/.claude/hooks/gsd-session-state.sh"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/gsd-stuck-detector.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "PostToolUse", "matcher": "Bash|Edit|Write", "timeout_seconds": 3, "command": "node ~/.claude/hooks/gsd-stuck-detector.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "PostToolUse",
+          "matcher": "Bash|Edit|Write",
+          "timeout_seconds": 3,
+          "command": "node ~/.claude/hooks/gsd-stuck-detector.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/gsd-token-logger.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "PostToolUse", "matcher": "Agent", "timeout_seconds": 3, "command": "node ~/.claude/hooks/gsd-token-logger.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "PostToolUse",
+          "matcher": "Agent",
+          "timeout_seconds": 3,
+          "command": "node ~/.claude/hooks/gsd-token-logger.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/sgsd-activity-logger.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "PreToolUse", "matcher": "*", "timeout_seconds": 2, "command": "node ~/.claude/hooks/sgsd-activity-logger.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "PreToolUse",
+          "matcher": "*",
+          "timeout_seconds": 2,
+          "command": "node ~/.claude/hooks/sgsd-activity-logger.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/sgsd-commit-gate.cjs",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "install.sh --install-commit-gate", "surface": "git-pre-commit", "event": "pre-commit", "matcher": null, "timeout_seconds": null, "command": "node super-gsd/hooks/sgsd-commit-gate.cjs"},
-        {"kind": "intentionally_unregistered", "surface": "claude-global hooks", "reason": "The commit gate is default-off and activated only through the explicit Git pre-commit installer lifecycle; no Claude event is semantically equivalent."}
+        {
+          "kind": "registered",
+          "authority": "install.sh --install-commit-gate",
+          "surface": "git-pre-commit",
+          "event": "pre-commit",
+          "matcher": null,
+          "timeout_seconds": null,
+          "command": "node super-gsd/hooks/sgsd-commit-gate.cjs"
+        },
+        {
+          "kind": "intentionally_unregistered",
+          "surface": "claude-global hooks",
+          "reason": "The commit gate is default-off and activated only through the explicit Git pre-commit installer lifecycle; no Claude event is semantically equivalent."
+        }
+      ],
+      "dependencies": [
+        "scripts/lib/commit-gate-shadow-log.cjs",
+        "scripts/lib/commit-gate-shadow-report.cjs",
+        "scripts/lib/sgsd-artifact-conventions.cjs",
+        "scripts/lib/sgsd-state.cjs"
       ]
     },
     {
       "source_path": "hooks/sgsd-heartbeat.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "PostToolUse", "matcher": "*", "timeout_seconds": 2, "command": "node ~/.claude/hooks/sgsd-heartbeat.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "PostToolUse",
+          "matcher": "*",
+          "timeout_seconds": 2,
+          "command": "node ~/.claude/hooks/sgsd-heartbeat.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/sgsd-intent-classifier.cjs",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "UserPromptSubmit", "matcher": "*", "timeout_seconds": 5, "command": "node ~/.claude/hooks/sgsd-intent-classifier.cjs"},
-        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "UserPromptSubmit", "matcher": null, "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-intent-classifier.cjs", "hook_id": "user-prompt-intent-classifier"}
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "UserPromptSubmit",
+          "matcher": "*",
+          "timeout_seconds": 5,
+          "command": "node ~/.claude/hooks/sgsd-intent-classifier.cjs"
+        },
+        {
+          "kind": "registered",
+          "authority": "config/repo-settings-overlay.json",
+          "surface": "claude-project",
+          "event": "UserPromptSubmit",
+          "matcher": null,
+          "timeout_seconds": 5,
+          "command": "node super-gsd/hooks/sgsd-intent-classifier.cjs",
+          "hook_id": "user-prompt-intent-classifier"
+        }
+      ],
+      "dependencies": [
+        "scripts/lib/demand-baseline-ledger.cjs",
+        "scripts/lib/gate-evidence-log.cjs",
+        "scripts/lib/sgsd-state.cjs",
+        "scripts/lib/skill-routing-registry.cjs",
+        "tools/vtp-readiness/registry.cjs"
       ]
     },
     {
       "source_path": "hooks/sgsd-quality-gate.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "PostToolUse", "matcher": "Edit|Write|NotebookEdit", "timeout_seconds": 10, "command": "node ~/.claude/hooks/sgsd-quality-gate.js"},
-        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "PostToolUse", "matcher": "Edit|Write|NotebookEdit", "timeout_seconds": 10, "command": "node super-gsd/hooks/sgsd-quality-gate.js", "hook_id": "post-tool-use-quality-gate"}
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "PostToolUse",
+          "matcher": "Edit|Write|NotebookEdit",
+          "timeout_seconds": 10,
+          "command": "node ~/.claude/hooks/sgsd-quality-gate.js"
+        },
+        {
+          "kind": "registered",
+          "authority": "config/repo-settings-overlay.json",
+          "surface": "claude-project",
+          "event": "PostToolUse",
+          "matcher": "Edit|Write|NotebookEdit",
+          "timeout_seconds": 10,
+          "command": "node super-gsd/hooks/sgsd-quality-gate.js",
+          "hook_id": "post-tool-use-quality-gate"
+        }
+      ],
+      "dependencies": [
+        "hooks/sgsd-intent-classifier.cjs",
+        "scripts/lib/demand-baseline-ledger.cjs",
+        "scripts/lib/gate-evidence-log.cjs",
+        "scripts/lib/sgsd-state.cjs",
+        "scripts/lib/skill-routing-registry.cjs",
+        "tools/vtp-readiness/registry.cjs"
       ]
     },
     {
       "source_path": "hooks/sgsd-session-start.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "SessionStart", "matcher": null, "timeout_seconds": 5, "command": "node ~/.claude/hooks/sgsd-session-start.js"},
-        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "SessionStart", "matcher": null, "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-session-start.js", "hook_id": "session-start-governance"}
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "SessionStart",
+          "matcher": null,
+          "timeout_seconds": 5,
+          "command": "node ~/.claude/hooks/sgsd-session-start.js"
+        },
+        {
+          "kind": "registered",
+          "authority": "config/repo-settings-overlay.json",
+          "surface": "claude-project",
+          "event": "SessionStart",
+          "matcher": null,
+          "timeout_seconds": 5,
+          "command": "node super-gsd/hooks/sgsd-session-start.js",
+          "hook_id": "session-start-governance"
+        }
+      ],
+      "dependencies": [
+        "scripts/lib/gate-evidence-log.cjs",
+        "scripts/lib/sgsd-state.cjs"
       ]
     },
     {
       "source_path": "hooks/sgsd-substrate-invocation-witness.cjs",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "PreToolUse", "matcher": "mcp__vtp-kb__vtp_search_substrate", "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-substrate-invocation-witness.cjs --event PreToolUse", "hook_id": "pre-tool-use-substrate-invocation-witness"},
-        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "PostToolUse", "matcher": "mcp__vtp-kb__vtp_search_substrate", "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-substrate-invocation-witness.cjs --event PostToolUse", "hook_id": "post-tool-use-substrate-invocation-witness"},
-        {"kind": "intentionally_unregistered", "surface": "claude-global hooks", "reason": "Project-bound witness state and source digests require exactly one project registration per event; a global copy would duplicate Pre/Post execution."}
+        {
+          "kind": "registered",
+          "authority": "config/repo-settings-overlay.json",
+          "surface": "claude-project",
+          "event": "PreToolUse",
+          "matcher": "mcp__vtp-kb__vtp_search_substrate",
+          "timeout_seconds": 5,
+          "command": "node super-gsd/hooks/sgsd-substrate-invocation-witness.cjs --event PreToolUse",
+          "hook_id": "pre-tool-use-substrate-invocation-witness"
+        },
+        {
+          "kind": "registered",
+          "authority": "config/repo-settings-overlay.json",
+          "surface": "claude-project",
+          "event": "PostToolUse",
+          "matcher": "mcp__vtp-kb__vtp_search_substrate",
+          "timeout_seconds": 5,
+          "command": "node super-gsd/hooks/sgsd-substrate-invocation-witness.cjs --event PostToolUse",
+          "hook_id": "post-tool-use-substrate-invocation-witness"
+        },
+        {
+          "kind": "intentionally_unregistered",
+          "surface": "claude-global hooks",
+          "reason": "Project-bound witness state and source digests require exactly one project registration per event; a global copy would duplicate Pre/Post execution."
+        }
+      ],
+      "dependencies": [
+        "scripts/lib/sgsd-state.cjs",
+        "scripts/lib/substrate-invocation-witness-store.cjs",
+        "scripts/lib/vtp-context-composer.cjs"
       ]
     },
     {
       "source_path": "hooks/sgsd-statusline.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global statusLine", "event": "statusLine", "matcher": null, "timeout_seconds": null, "command": "node ~/.claude/hooks/sgsd-statusline.js"},
-        {"kind": "intentionally_unregistered", "surface": "claude-global hooks", "reason": "Claude statusLine is a native top-level registration surface, so duplicating this command in hooks events would execute it with the wrong payload and lifecycle."}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global statusLine",
+          "event": "statusLine",
+          "matcher": null,
+          "timeout_seconds": null,
+          "command": "node ~/.claude/hooks/sgsd-statusline.js"
+        },
+        {
+          "kind": "intentionally_unregistered",
+          "surface": "claude-global hooks",
+          "reason": "Claude statusLine is a native top-level registration surface, so duplicating this command in hooks events would execute it with the wrong payload and lifecycle."
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/sgsd-stop-handoff.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "Stop", "matcher": "*", "timeout_seconds": 60, "command": "node ~/.claude/hooks/sgsd-stop-handoff.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "Stop",
+          "matcher": "*",
+          "timeout_seconds": 60,
+          "command": "node ~/.claude/hooks/sgsd-stop-handoff.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "hooks/sgsd-vtp-pending.js",
       "interpreter": "node",
-      "distribution_targets": ["claude-global", "claude-project"],
+      "distribution_targets": [
+        "claude-global",
+        "claude-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/settings-overlay.json", "surface": "claude-global hooks", "event": "SessionStart", "matcher": null, "timeout_seconds": 5, "command": "node ~/.claude/hooks/sgsd-vtp-pending.js"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/settings-overlay.json",
+          "surface": "claude-global hooks",
+          "event": "SessionStart",
+          "matcher": null,
+          "timeout_seconds": 5,
+          "command": "node ~/.claude/hooks/sgsd-vtp-pending.js"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "tools/codex-hooks/block-forbidden-write.cjs",
       "interpreter": "node",
-      "distribution_targets": ["codex-project"],
+      "distribution_targets": [
+        "codex-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/codex-hooks.json", "surface": "codex-project", "event": "PreToolUse", "matcher": "*", "timeout_seconds": null, "command": "node super-gsd/tools/codex-hooks/block-forbidden-write.cjs"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/codex-hooks.json",
+          "surface": "codex-project",
+          "event": "PreToolUse",
+          "matcher": "*",
+          "timeout_seconds": null,
+          "command": "node super-gsd/tools/codex-hooks/block-forbidden-write.cjs"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "tools/codex-hooks/block-secret-leak.cjs",
       "interpreter": "node",
-      "distribution_targets": ["codex-project"],
+      "distribution_targets": [
+        "codex-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/codex-hooks.json", "surface": "codex-project", "event": "UserPromptSubmit", "matcher": "*", "timeout_seconds": null, "command": "node super-gsd/tools/codex-hooks/block-secret-leak.cjs"},
-        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "UserPromptSubmit", "matcher": null, "timeout_seconds": 5, "command": "node super-gsd/tools/codex-hooks/block-secret-leak.cjs", "hook_id": "user-prompt-secret-leak-guard"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/codex-hooks.json",
+          "surface": "codex-project",
+          "event": "UserPromptSubmit",
+          "matcher": "*",
+          "timeout_seconds": null,
+          "command": "node super-gsd/tools/codex-hooks/block-secret-leak.cjs"
+        },
+        {
+          "kind": "registered",
+          "authority": "config/repo-settings-overlay.json",
+          "surface": "claude-project",
+          "event": "UserPromptSubmit",
+          "matcher": null,
+          "timeout_seconds": 5,
+          "command": "node super-gsd/tools/codex-hooks/block-secret-leak.cjs",
+          "hook_id": "user-prompt-secret-leak-guard"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "tools/codex-hooks/enforce-allowed-files.cjs",
       "interpreter": "node",
-      "distribution_targets": ["codex-project"],
+      "distribution_targets": [
+        "codex-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/codex-hooks.json", "surface": "codex-project", "event": "PreToolUse", "matcher": "*", "timeout_seconds": null, "command": "node super-gsd/tools/codex-hooks/enforce-allowed-files.cjs"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/codex-hooks.json",
+          "surface": "codex-project",
+          "event": "PreToolUse",
+          "matcher": "*",
+          "timeout_seconds": null,
+          "command": "node super-gsd/tools/codex-hooks/enforce-allowed-files.cjs"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "tools/codex-hooks/log-tool-event.cjs",
       "interpreter": "node",
-      "distribution_targets": ["codex-project"],
+      "distribution_targets": [
+        "codex-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/codex-hooks.json", "surface": "codex-project", "event": "PostToolUse", "matcher": "*", "timeout_seconds": null, "command": "node super-gsd/tools/codex-hooks/log-tool-event.cjs"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/codex-hooks.json",
+          "surface": "codex-project",
+          "event": "PostToolUse",
+          "matcher": "*",
+          "timeout_seconds": null,
+          "command": "node super-gsd/tools/codex-hooks/log-tool-event.cjs"
+        }
+      ],
+      "dependencies": []
     },
     {
       "source_path": "tools/codex-hooks/validate-stop-contract.cjs",
       "interpreter": "node",
-      "distribution_targets": ["codex-project"],
+      "distribution_targets": [
+        "codex-project"
+      ],
       "dispositions": [
-        {"kind": "registered", "authority": "config/codex-hooks.json", "surface": "codex-project", "event": "Stop", "matcher": "*", "timeout_seconds": null, "command": "node super-gsd/tools/codex-hooks/validate-stop-contract.cjs"}
-      ]
+        {
+          "kind": "registered",
+          "authority": "config/codex-hooks.json",
+          "surface": "codex-project",
+          "event": "Stop",
+          "matcher": "*",
+          "timeout_seconds": null,
+          "command": "node super-gsd/tools/codex-hooks/validate-stop-contract.cjs"
+        }
+      ],
+      "dependencies": []
     }
   ]
 }

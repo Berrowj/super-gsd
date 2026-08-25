@@ -34,7 +34,8 @@ normalize_windows_home() {
 normalize_windows_home
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(pwd)"
+STARTING_CWD="$(pwd)"
+PROJECT_DIR="$STARTING_CWD"
 CLAUDE_DIR="$HOME/.claude"
 GSD_DIR="$CLAUDE_DIR/get-shit-done"
 HOOKS_DIR="$CLAUDE_DIR/hooks"
@@ -43,6 +44,9 @@ COMMANDS_DIR="$CLAUDE_DIR/commands"
 TEMPLATES_DIR="$GSD_DIR/templates/super-gsd"
 GLOBAL_SCRIPTS_DIR="$CLAUDE_DIR/super-gsd/scripts"
 LOCAL_BIN_DIR="$HOME/.local/bin"
+INSTALL_CONTRACT_SCRIPT="$SCRIPT_DIR/scripts/lib/hook-install-contract.cjs"
+INSTALL_CANDIDATE_DESCRIPTOR=""
+INSTALL_CONTRACT_PUBLISHED=false
 
 # event|hook-id|interpreter|installed filename|registered timeout seconds
 # Smoke contract only: distribution independently copies every regular file in
@@ -134,6 +138,9 @@ Dangerous permission change:
       This affects every Claude Code session for the current OS user.
 
 Optional:
+  --project-dir PATH
+      Resolve and use exactly PATH for project-local inspection and writes.
+      Walk-up discovery is never used when this option is present.
   --skip-brv
       Accepted for older docs/scripts as a no-op. Current SGSD memory is
       project-local .planning/memory, not BRV/ByteRover.
@@ -631,11 +638,9 @@ install_global_assets() {
     echo "ERROR: hook smoke helper missing: $PREFLIGHT_SCRIPT" >&2
     exit 1
   elif [ "$DRY_RUN" = true ]; then
-    log "  DRY RUN: would smoke every global deployment-manifest hook"
+    log "  DRY RUN: complete candidate already smoked every distributed hook"
     log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE"
   else
-    printf '%s\n' "$GLOBAL_HOOK_DEPLOYMENT_MANIFEST" \
-      | node "$PREFLIGHT_SCRIPT" --smoke-manifest "$HOOKS_DIR" "$SCRIPT_DIR/hooks"
     if MERGE_OUTPUT="$(node "$MERGE_SCRIPT" "$OVERLAY_FILE" "$SETTINGS_FILE" 2>&1)"; then
       [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /'
     else
@@ -726,32 +731,7 @@ refuse_missing_codex_hook_entry_sources() {
 }
 
 distribute_project_hooks() {
-  detect_codex_hook_entry_sources
-  refuse_missing_codex_hook_entry_sources || exit 1
-
-  echo ""
-  log "Distributing project-local Claude and Codex hook entries..."
-  PROJECT_HOOKS_DIR="$PROJECT_DIR/super-gsd/hooks"
-  PROJECT_HOOK_COUNT=0
-  local name hook
-  local -a project_hook_sources=()
-  local -a project_executable_targets=()
-  for hook in "$SCRIPT_DIR/hooks/"*; do
-    [[ -f "$hook" ]] || continue
-    name="${hook##*/}"
-    project_hook_sources+=("$hook")
-    case "$name" in
-      *.sh) project_executable_targets+=("$PROJECT_HOOKS_DIR/$name") ;;
-    esac
-    PROJECT_HOOK_COUNT=$((PROJECT_HOOK_COUNT + 1))
-  done
-  copy_files_to_root "$PROJECT_HOOKS_DIR" "${project_hook_sources[@]}"
-  if [[ "$DRY_RUN" == false && ${#project_executable_targets[@]} -gt 0 ]]; then
-    chmod +x "${project_executable_targets[@]}"
-  fi
-
-  copy_files_to_root "$PROJECT_DIR/super-gsd/tools/codex-hooks" "${CODEX_HOOK_ENTRY_SOURCES[@]}"
-  log "  $PROJECT_HOOK_COUNT Claude hooks and $CODEX_HOOK_COUNT Codex entries distributed"
+  publish_project_install_contract
 }
 
 precheck_substrate_capability() {
@@ -783,8 +763,41 @@ precheck_substrate_capability() {
 }
 
 precheck_installation_refusals() {
+  [[ "$INSTALL_CONTRACT_PUBLISHED" == false ]] || return 0
+  [[ -z "$INSTALL_CANDIDATE_DESCRIPTOR" ]] || return 0
   detect_codex_hook_entry_sources
+  if [[ ! -f "$INSTALL_CONTRACT_SCRIPT" ]]; then
+    echo "ERROR: hook install contract missing: $INSTALL_CONTRACT_SCRIPT" >&2
+    exit 1
+  fi
+  node "$INSTALL_CONTRACT_SCRIPT" --check-manifest || exit $?
+  local candidate_output
+  if candidate_output="$(node "$INSTALL_CONTRACT_SCRIPT" --prepare-candidate --project-dir "$PROJECT_DIR" 2>&1)"; then
+    :
+  else
+    local candidate_status=$?
+    [[ -z "$candidate_output" ]] || printf '%s\n' "$candidate_output" >&2
+    exit "$candidate_status"
+  fi
+  INSTALL_CANDIDATE_DESCRIPTOR="$(printf '%s\n' "$candidate_output" | tail -1)"
+  [[ -n "$INSTALL_CANDIDATE_DESCRIPTOR" && -f "$INSTALL_CANDIDATE_DESCRIPTOR" ]] || {
+    echo "ERROR: hook install candidate descriptor was not created" >&2
+    exit 1
+  }
   precheck_substrate_capability
+}
+
+publish_project_install_contract() {
+  [[ "$INSTALL_CONTRACT_PUBLISHED" == false ]] || return 0
+  precheck_installation_refusals
+  if [[ "$DRY_RUN" == true ]]; then
+    log "DRY RUN: candidate project hook dependency closure passed smoke"
+    return 0
+  fi
+  node "$INSTALL_CONTRACT_SCRIPT" --apply-candidate "$INSTALL_CANDIDATE_DESCRIPTOR" >/dev/null
+  INSTALL_CANDIDATE_DESCRIPTOR=""
+  INSTALL_CONTRACT_PUBLISHED=true
+  log "Project hook dependency closure published transactionally"
 }
 
 preflight_existing_repo_local_hooks() {
@@ -935,7 +948,6 @@ init_local_project() {
 
   ensure_memory_tree
   distribute_project_hooks
-  precheck_substrate_capability
   repair_substrate_capability
   register_codex_hooks
 
@@ -1035,7 +1047,6 @@ update_existing() {
   # ensure_memory_tree is idempotent; existing entries are left untouched.
   ensure_memory_tree
   distribute_project_hooks
-  precheck_substrate_capability
   repair_substrate_capability
   register_codex_hooks
 
@@ -1098,7 +1109,8 @@ enable_autoapprove() {
   log "Global autoApprove enabled."
 }
 
-for arg in "$@"; do
+while [ "$#" -gt 0 ]; do
+  arg="$1"
   case "$arg" in
     --doctor)
       RUN_DOCTOR=true
@@ -1138,6 +1150,18 @@ for arg in "$@"; do
       # Opt-in for the ~112MB Chromium download as part of --init-project.
       SETUP_COCKPIT_DEPS=true
       ;;
+    --project-dir)
+      if [ "$#" -lt 2 ]; then
+        echo "ERROR: --project-dir requires a path" >&2
+        exit 1
+      fi
+      PROJECT_DIR="$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]))' "$2")"
+      shift 2
+      continue
+      ;;
+    --project-dir=*)
+      PROJECT_DIR="$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]))' "${arg#*=}")"
+      ;;
     --with-brv)
       echo "ERROR: --with-brv is no longer supported. Current SGSD uses .planning/memory; run sgsd-memory-migrate for legacy BRV projects."
       exit 1
@@ -1156,6 +1180,7 @@ for arg in "$@"; do
       exit 1
       ;;
   esac
+  shift
 done
 
 if [ "$INSTALL_COMMIT_GATE" = true ] && [ "$UNINSTALL_COMMIT_GATE" = true ]; then
@@ -1165,6 +1190,12 @@ fi
 
 if [ "$SAW_ACTION" = false ]; then
   RUN_DOCTOR=true
+fi
+
+if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
+    || { [ "$INSTALL_GLOBAL" = true ] && [ -d "$PROJECT_DIR/.planning" ]; }; then
+  precheck_installation_refusals
+  publish_project_install_contract
 fi
 
 print_banner
@@ -1222,4 +1253,9 @@ echo "  bash super-gsd/install.sh --install-global --dry-run"
 echo ""
 if [ "$SAW_ACTION" = false ]; then
   usage
+fi
+
+if [ -n "$INSTALL_CANDIDATE_DESCRIPTOR" ]; then
+  node "$INSTALL_CONTRACT_SCRIPT" --discard-candidate "$INSTALL_CANDIDATE_DESCRIPTOR" >/dev/null 2>&1 || true
+  INSTALL_CANDIDATE_DESCRIPTOR=""
 fi

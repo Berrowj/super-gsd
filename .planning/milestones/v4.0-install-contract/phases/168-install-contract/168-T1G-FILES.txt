@@ -1,0 +1,3 @@
+super-gsd/tools/feature-propagation/audit.cjs
+super-gsd/scripts/lib/hook-install-contract.cjs
+super-gsd/install.sh
