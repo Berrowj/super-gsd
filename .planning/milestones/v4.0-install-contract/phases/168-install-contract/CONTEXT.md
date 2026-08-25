@@ -97,3 +97,38 @@ belongs to this phase's plan, not to an ad-hoc patch.
 
 This defect was found by running the command rather than by reading the operator's
 paraphrase. Apply the same discipline to `/sgsd-update` before designing for it.
+
+## Why nothing reaches the other repositories, measured 2026-08-25
+
+Four repositories were surveyed read-only: `GSDedits`, `project-clarity-erp`,
+`Voice-Text-Plan`, `JCL-Cirdadium`. Every one has 14 hooks. This branch has 17. All four
+are missing the same three:
+
+    gsd-phase-boundary.sh
+    sgsd-vtp-pending.js
+    sgsd-substrate-invocation-witness.cjs
+
+None of the three is missing from `hook-manifest.json`; all three are listed with
+`distribution_targets: claude-global|claude-project`. `substrate-invocation-witness-store.cjs`
+and `substrate-capability-broker.cjs` are absent from all of them too.
+
+The cause is not the propagation code. All three hooks were authored on this branch
+(`92f21b3` and `b167ebd` on 2026-08-20 for the two older ones, P167 for the witness) and
+this branch is **178 commits ahead of `origin/master`**. The other repositories install
+from master. Unmerged work cannot propagate, however correct the installer is.
+
+So the operator's report resolves into three distinct causes, only one of which is an
+installer bug:
+
+1. **The branch was never merged.** 178 commits ahead of `origin/master`. This alone
+   explains why no work done here appears anywhere else. Merging is an operator
+   decision and is not this phase's to take.
+2. **Nothing told anyone.** `install.sh:381` cannot detect a git worktree, so the
+   freshness comparison against GitHub master never ran and the doctor reported
+   "not a git repo". The staleness signal existed and was silently skipped.
+3. **The latent defect that would bite after a merge.** The manifest declares no module
+   dependencies, so five hooks can be copied and registered without the modules they
+   require. Merging fixes 1 and 2 but not this.
+
+Design P168 around cause 3, fix cause 2 as part of it, and treat cause 1 as an operator
+decision recorded in this file, not as work this phase performs.
