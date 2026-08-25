@@ -9,6 +9,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [codex-executor auth-denied is usually false](errors/codex-exec-auth-denied-false-positive.md) - it greps stderr for "auth" and codex echoes the prompt; probe before believing it
 
+- [Tenant OneDrive folders are junctions](errors/onedrive-tenant-folders-are-junctions.md) — readdir isDirectory() is false on them; statSync follows the link (2026-08-25)
+
 ## architecture/anti-patterns
 
 - [Anti-Pattern - Premature Loop Stopping](architecture/anti-patterns/anti-patterns-premature-stopping.md)
