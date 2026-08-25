@@ -1,0 +1,7 @@
+super-gsd/scripts/lib/hook-install-contract.cjs
+super-gsd/config/hook-manifest.json
+super-gsd/scripts/lib/hook-registration-preflight.cjs
+super-gsd/tools/feature-propagation/audit.cjs
+super-gsd/install.sh
+super-gsd/tests/install-contract/assert-install-contract.cjs
+super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
