@@ -1,0 +1,1458 @@
+diff --git a/super-gsd/install.sh b/super-gsd/install.sh
+index 8e52344..e4f8c9c 100644
+--- a/super-gsd/install.sh
++++ b/super-gsd/install.sh
+@@ -6,6 +6,8 @@
+ 
+ set -e
+ 
++ORIGINAL_INSTALL_ARGS=("$@")
++
+ if [ -d "$HOME/.local/bin" ]; then
+   PATH="$HOME/.local/bin:$PATH"
+ fi
+@@ -46,6 +48,7 @@ GLOBAL_SCRIPTS_DIR="$CLAUDE_DIR/super-gsd/scripts"
+ LOCAL_BIN_DIR="$HOME/.local/bin"
+ INSTALL_CONTRACT_SCRIPT="$SCRIPT_DIR/scripts/lib/hook-install-contract.cjs"
+ INSTALL_CANDIDATE_DESCRIPTOR=""
++INSTALL_CANDIDATE_STATE="empty"
+ INSTALL_CONTRACT_PUBLISHED=false
+ 
+ # event|hook-id|interpreter|installed filename|registered timeout seconds
+@@ -762,9 +765,30 @@ precheck_substrate_capability() {
+   [[ "$refused" == false ]] || exit 1
+ }
+ 
++cleanup_install_candidate() {
++  [[ "$INSTALL_CANDIDATE_STATE" == "prepared" ]] || return 0
++  local prepared_descriptor="$INSTALL_CANDIDATE_DESCRIPTOR"
++  INSTALL_CANDIDATE_DESCRIPTOR=""
++  INSTALL_CANDIDATE_STATE="discarding"
++  if [[ -n "$prepared_descriptor" ]]; then
++    node "$INSTALL_CONTRACT_SCRIPT" --discard-candidate "$prepared_descriptor" >/dev/null 2>&1 || true
++  fi
++  INSTALL_CANDIDATE_STATE="discarded"
++}
++
+ precheck_installation_refusals() {
+   [[ "$INSTALL_CONTRACT_PUBLISHED" == false ]] || return 0
+-  [[ -z "$INSTALL_CANDIDATE_DESCRIPTOR" ]] || return 0
++  if [[ "$INSTALL_CANDIDATE_STATE" == "prepared" ]]; then
++    [[ -n "$INSTALL_CANDIDATE_DESCRIPTOR" && -f "$INSTALL_CANDIDATE_DESCRIPTOR" ]] || {
++      echo "ERROR: prepared hook install candidate descriptor is unavailable" >&2
++      exit 1
++    }
++    return 0
++  fi
++  [[ "$INSTALL_CANDIDATE_STATE" == "empty" ]] || {
++    echo "ERROR: hook install candidate lifecycle is $INSTALL_CANDIDATE_STATE" >&2
++    exit 1
++  }
+   detect_codex_hook_entry_sources
+   if [[ ! -f "$INSTALL_CONTRACT_SCRIPT" ]]; then
+     echo "ERROR: hook install contract missing: $INSTALL_CONTRACT_SCRIPT" >&2
+@@ -779,11 +803,15 @@ precheck_installation_refusals() {
+     [[ -z "$candidate_output" ]] || printf '%s\n' "$candidate_output" >&2
+     exit "$candidate_status"
+   fi
+-  INSTALL_CANDIDATE_DESCRIPTOR="$(printf '%s\n' "$candidate_output" | tail -1)"
+-  [[ -n "$INSTALL_CANDIDATE_DESCRIPTOR" && -f "$INSTALL_CANDIDATE_DESCRIPTOR" ]] || {
++  local prepared_descriptor
++  prepared_descriptor="$(printf '%s\n' "$candidate_output" | tail -1)"
++  [[ -n "$prepared_descriptor" && -f "$prepared_descriptor" ]] || {
+     echo "ERROR: hook install candidate descriptor was not created" >&2
+     exit 1
+   }
++  INSTALL_CANDIDATE_DESCRIPTOR="$prepared_descriptor"
++  INSTALL_CANDIDATE_STATE="prepared"
++  trap cleanup_install_candidate EXIT
+   precheck_substrate_capability
+ }
+ 
+@@ -794,9 +822,22 @@ publish_project_install_contract() {
+     log "DRY RUN: candidate project hook dependency closure passed smoke"
+     return 0
+   fi
+-  node "$INSTALL_CONTRACT_SCRIPT" --apply-candidate "$INSTALL_CANDIDATE_DESCRIPTOR" >/dev/null
++  [[ "$INSTALL_CANDIDATE_STATE" == "prepared" ]] || {
++    echo "ERROR: hook install candidate was not prepared for publication" >&2
++    exit 1
++  }
++  local prepared_descriptor="$INSTALL_CANDIDATE_DESCRIPTOR"
++  local apply_status
++  if node "$INSTALL_CONTRACT_SCRIPT" --apply-candidate "$prepared_descriptor" >/dev/null; then
++    :
++  else
++    apply_status=$?
++    exit "$apply_status"
++  fi
+   INSTALL_CANDIDATE_DESCRIPTOR=""
++  INSTALL_CANDIDATE_STATE="published"
+   INSTALL_CONTRACT_PUBLISHED=true
++  trap - EXIT
+   log "Project hook dependency closure published transactionally"
+ }
+ 
+@@ -1192,8 +1233,85 @@ if [ "$SAW_ACTION" = false ]; then
+   RUN_DOCTOR=true
+ fi
+ 
++if [ "${SGSD_INSTALL_STAGE_ACTIVE:-0}" != "1" ] \
++    && { [ "$INSTALL_GLOBAL" = true ] || [ "$INIT_LOCAL" = true ] \
++      || [ "$UPDATE_MODE" = true ] || [ "$ENABLE_AUTOAPPROVE" = true ]; }; then
++  if [ "$INSTALL_COMMIT_GATE" = true ] || [ "$UNINSTALL_COMMIT_GATE" = true ]; then
++    echo "ERROR: commit-gate actions cannot be combined with staged installer actions" >&2
++    exit 1
++  fi
++  if [ ! -f "$INSTALL_CONTRACT_SCRIPT" ]; then
++    echo "ERROR: hook install contract missing: $INSTALL_CONTRACT_SCRIPT" >&2
++    exit 1
++  fi
++  INSTALL_CONFIG_DIR="${XDG_CONFIG_HOME:-}"
++  if [ -z "$INSTALL_CONFIG_DIR" ]; then
++    case "$(uname -s 2>/dev/null || echo unknown)" in
++      MINGW*|MSYS*|CYGWIN*) INSTALL_CONFIG_DIR="${APPDATA:-$HOME/.config}" ;;
++      *) INSTALL_CONFIG_DIR="$HOME/.config" ;;
++    esac
++  fi
++  INSTALL_STAGE_DESCRIPTOR="$(
++    node "$INSTALL_CONTRACT_SCRIPT" --prepare-installer-stage \
++      --project-dir "$PROJECT_DIR" --home-dir "$HOME" --config-dir "$INSTALL_CONFIG_DIR"
++  )"
++  cleanup_installer_stage() {
++    if [ -n "${INSTALL_STAGE_DESCRIPTOR:-}" ]; then
++      node "$INSTALL_CONTRACT_SCRIPT" --discard-installer-stage \
++        "$INSTALL_STAGE_DESCRIPTOR" >/dev/null 2>&1 || true
++    fi
++  }
++  trap cleanup_installer_stage EXIT
++  read_installer_stage_field() {
++    node -e '
++const fs = require("fs");
++const descriptor = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
++const value = descriptor[process.argv[2]];
++if (typeof value !== "string" || !value) process.exit(2);
++process.stdout.write(value);
++' "$INSTALL_STAGE_DESCRIPTOR" "$1"
++  }
++  INSTALL_STAGE_PROJECT="$(read_installer_stage_field stage_project_dir)"
++  INSTALL_STAGE_HOME="$(read_installer_stage_field stage_home_dir)"
++  INSTALL_STAGE_CONFIG="$(read_installer_stage_field stage_config_dir)"
++  INSTALL_STAGE_OUTPUT="$INSTALL_STAGE_HOME/installer-output.log"
++  mkdir -p "$INSTALL_STAGE_HOME/.tmp" "$INSTALL_STAGE_HOME/AppData/Roaming"
++  set +e
++  env \
++    SGSD_INSTALL_STAGE_ACTIVE=1 \
++    HOME="$INSTALL_STAGE_HOME" \
++    USERPROFILE="$INSTALL_STAGE_HOME" \
++    APPDATA="$INSTALL_STAGE_CONFIG" \
++    LOCALAPPDATA="$INSTALL_STAGE_HOME/AppData/Local" \
++    XDG_CONFIG_HOME="$INSTALL_STAGE_CONFIG" \
++    XDG_DATA_HOME="$INSTALL_STAGE_HOME/.local/share" \
++    XDG_STATE_HOME="$INSTALL_STAGE_HOME/.local/state" \
++    XDG_CACHE_HOME="$INSTALL_STAGE_HOME/.cache" \
++    TMPDIR="$INSTALL_STAGE_HOME/.tmp" \
++    TEMP="$INSTALL_STAGE_HOME/.tmp" \
++    TMP="$INSTALL_STAGE_HOME/.tmp" \
++    bash "$SCRIPT_DIR/install.sh" "${ORIGINAL_INSTALL_ARGS[@]}" \
++      --project-dir "$INSTALL_STAGE_PROJECT" \
++      >"$INSTALL_STAGE_OUTPUT" 2>&1
++  INSTALL_STAGE_STATUS=$?
++  set -e
++  if [ "$INSTALL_STAGE_STATUS" -ne 0 ]; then
++    [ ! -f "$INSTALL_STAGE_OUTPUT" ] || sed 's/^/  /' "$INSTALL_STAGE_OUTPUT" >&2
++    exit "$INSTALL_STAGE_STATUS"
++  fi
++  node "$INSTALL_CONTRACT_SCRIPT" --seal-installer-stage \
++    "$INSTALL_STAGE_DESCRIPTOR" >/dev/null
++  node "$INSTALL_CONTRACT_SCRIPT" --apply-installer-stage \
++    "$INSTALL_STAGE_DESCRIPTOR" >/dev/null
++  [ ! -f "$INSTALL_STAGE_OUTPUT" ] || cat "$INSTALL_STAGE_OUTPUT" || true
++  cleanup_installer_stage
++  INSTALL_STAGE_DESCRIPTOR=""
++  trap - EXIT
++  exit 0
++fi
++
+ if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
+-    || { [ "$INSTALL_GLOBAL" = true ] && [ -d "$PROJECT_DIR/.planning" ]; }; then
++    || [ "$INSTALL_GLOBAL" = true ]; then
+   precheck_installation_refusals
+   publish_project_install_contract
+ fi
+@@ -1255,7 +1373,4 @@ if [ "$SAW_ACTION" = false ]; then
+   usage
+ fi
+ 
+-if [ -n "$INSTALL_CANDIDATE_DESCRIPTOR" ]; then
+-  node "$INSTALL_CONTRACT_SCRIPT" --discard-candidate "$INSTALL_CANDIDATE_DESCRIPTOR" >/dev/null 2>&1 || true
+-  INSTALL_CANDIDATE_DESCRIPTOR=""
+-fi
++cleanup_install_candidate
+diff --git a/super-gsd/scripts/lib/hook-install-contract.cjs b/super-gsd/scripts/lib/hook-install-contract.cjs
+index b47f2f7..95ffb9b 100644
+--- a/super-gsd/scripts/lib/hook-install-contract.cjs
++++ b/super-gsd/scripts/lib/hook-install-contract.cjs
+@@ -764,7 +764,13 @@ async function prepareProjectInstall(options = {}) {
+   }
+ }
+ 
+-function applyPreparedProjectInstall(descriptorPath) {
++function applyPreparedProjectInstall(preparedOrDescriptorPath) {
++  const descriptorPath = typeof preparedOrDescriptorPath === 'string'
++    ? preparedOrDescriptorPath
++    : preparedOrDescriptorPath && preparedOrDescriptorPath.descriptorPath;
++  if (typeof descriptorPath !== 'string' || !descriptorPath) {
++    throw new TypeError('prepared install candidate must include descriptorPath');
++  }
+   const resolved = path.resolve(descriptorPath);
+   const descriptor = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+   if (!descriptor || descriptor.schema_version !== 1
+@@ -781,18 +787,473 @@ function applyPreparedProjectInstall(descriptorPath) {
+   }
+ }
+ 
++function boundedDiagnosticMessage(value, maxBytes = 2048) {
++  const lines = String(value || '').replace(/\r\n?|[\u2028\u2029]/g, '\n').split('\n');
++  const clean = [];
++  let inRequireStack = false;
++  for (const line of lines) {
++    if (/^\s*Require stack:\s*$/i.test(line)) {
++      inRequireStack = true;
++      continue;
++    }
++    if (inRequireStack && /^\s*-\s+\S/.test(line)) continue;
++    inRequireStack = false;
++    if (/^\s*at(?:\s|$)/.test(line)) continue;
++    const compact = line.replace(/\t+/g, ' ').replace(/\s+/g, ' ').trim()
++      .replace(
++        /\s+at\s+[A-Za-z0-9_$.[\]<>-]+(?:\s+\([^)]*:\d+:\d+\)|\s+node:\S+:\d+:\d+).*$/,
++        '',
++      );
++    if (compact) clean.push(compact);
++  }
++  return boundedMessage(clean.join(' '), maxBytes);
++}
++
+ function boundedUnderlyingError(error) {
+-  const raw = error && (error.underlyingError || error.underlying_error);
+-  if (raw) return raw;
+-  if (!error || error.code !== 'MODULE_NOT_FOUND') return null;
++  if (!error) return null;
++  const nested = error.underlyingError || error.underlying_error;
++  const source = nested && typeof nested === 'object' ? nested : error;
++  const message = nested && typeof nested !== 'object'
++    ? nested
++    : source.message || error.message || 'hook install contract failed';
+   return {
+-    code: 'MODULE_NOT_FOUND',
+-    request: error.request || null,
+-    path: error.resolved_path || null,
+-    message: boundedMessage(error.message),
++    code: boundedMessage(
++      source.code || (source.name && source.name !== 'Error'
++        ? source.name
++        : 'HOOK_INSTALL_CONTRACT_FAILED'),
++      128,
++    ),
++    request: source.request || error.request
++      ? boundedMessage(source.request || error.request, 1024)
++      : null,
++    path: source.path || source.resolved_path || error.path || error.resolved_path
++      ? boundedMessage(source.path || source.resolved_path || error.path || error.resolved_path, 2048)
++      : null,
++    message: boundedDiagnosticMessage(message),
+   };
+ }
+ 
++const INSTALLER_STAGE_SCHEMA_VERSION = 2;
++
++function noteStageRead(filePath, options = {}) {
++  if (typeof options.onReadPath === 'function') options.onReadPath(path.resolve(filePath));
++}
++
++function pathPresent(filePath, options = {}) {
++  noteStageRead(filePath, options);
++  try {
++    fs.lstatSync(filePath);
++    return true;
++  } catch (_) {
++    return false;
++  }
++}
++
++function stageMode(stat) {
++  return stat.mode & 0o777;
++}
++
++function copyStageTree(sourcePath, targetPath, options = {}, relative = '') {
++  noteStageRead(sourcePath, options);
++  const stat = fs.lstatSync(sourcePath);
++  if (stat.isSymbolicLink()) {
++    const error = new Error('installer stage refuses symlink: ' + sourcePath);
++    error.code = 'INSTALLER_STAGE_SYMLINK';
++    throw error;
++  }
++  if (stat.isDirectory()) {
++    fs.mkdirSync(targetPath, { recursive: true, mode: stageMode(stat) });
++    fs.chmodSync(targetPath, stageMode(stat));
++    for (const name of fs.readdirSync(sourcePath).sort()) {
++      const childRelative = relative ? path.join(relative, name) : name;
++      if (options.exclude && options.exclude.has(posix(childRelative))) continue;
++      copyStageTree(
++        path.join(sourcePath, name),
++        path.join(targetPath, name),
++        options,
++        childRelative,
++      );
++    }
++    return;
++  }
++  if (!stat.isFile()) {
++    const error = new Error('installer stage refuses special file: ' + sourcePath);
++    error.code = 'INSTALLER_STAGE_SPECIAL_FILE';
++    throw error;
++  }
++  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
++  fs.copyFileSync(sourcePath, targetPath, fs.constants.COPYFILE_FICLONE);
++  fs.chmodSync(targetPath, stageMode(stat));
++}
++
++function describeStageTree(rootPath, options = {}) {
++  if (!pathPresent(rootPath, options)) return { exists: false };
++  const rows = [];
++  function visit(currentPath, relative) {
++    noteStageRead(currentPath, options);
++    const stat = fs.lstatSync(currentPath);
++    if (stat.isSymbolicLink()) {
++      const error = new Error('installer stage refuses symlink: ' + currentPath);
++      error.code = 'INSTALLER_STAGE_SYMLINK';
++      throw error;
++    }
++    if (stat.isDirectory()) {
++      rows.push({ kind: 'directory', mode: stageMode(stat), path: posix(relative) });
++      for (const name of fs.readdirSync(currentPath).sort()) {
++        visit(path.join(currentPath, name), relative ? path.join(relative, name) : name);
++      }
++      return;
++    }
++    if (!stat.isFile()) {
++      const error = new Error('installer stage refuses special file: ' + currentPath);
++      error.code = 'INSTALLER_STAGE_SPECIAL_FILE';
++      throw error;
++    }
++    rows.push({
++      kind: 'file',
++      mode: stageMode(stat),
++      path: posix(relative),
++      sha256: digest(fs.readFileSync(currentPath)),
++    });
++  }
++  visit(rootPath, '');
++  return {
++    exists: true,
++    digest: digest(Buffer.from(JSON.stringify(rows), 'utf8')),
++    kind: rows[0].kind,
++    mode: rows[0].mode,
++  };
++}
++
++function sameStageDescription(left, right) {
++  return JSON.stringify(left) === JSON.stringify(right);
++}
++
++function assertInstallerStageDescriptor(descriptorPath, descriptor, requireSealed) {
++  const resolved = path.resolve(descriptorPath);
++  const root = path.dirname(resolved);
++  const expectedPrefix = path.resolve(os.tmpdir(), 'sgsd-installer-stage-');
++  if (!descriptor || descriptor.schema_version !== INSTALLER_STAGE_SCHEMA_VERSION
++      || descriptor.transaction_root !== root
++      || !root.startsWith(expectedPrefix)
++      || !Array.isArray(descriptor.mappings)
++      || (requireSealed && (!descriptor.sealed || !Array.isArray(descriptor.rows)))) {
++    throw new Error('invalid installer stage descriptor');
++  }
++  for (const mapping of descriptor.mappings) {
++    if (!mapping || !inside(root, path.resolve(mapping.stage_path))) {
++      throw new Error('installer stage mapping escapes transaction root');
++    }
++  }
++  for (const row of descriptor.rows || []) {
++    if (row.sealed_path && !inside(root, path.resolve(row.sealed_path))) {
++      throw new Error('sealed installer row escapes transaction root');
++    }
++    const owner = descriptor.mappings.find((mapping) => mapping.id === row.mapping_id);
++    if (!owner || !inside(path.resolve(owner.actual_path), path.resolve(row.actual_path))) {
++      throw new Error('installer publication row escapes destination root');
++    }
++  }
++  return { resolved, root };
++}
++
++function stageMapping(id, actualPath, stagePath, options = {}) {
++  return {
++    id,
++    actual_path: path.resolve(actualPath),
++    stage_path: path.resolve(stagePath),
++    exclude: Array.from(options.exclude || []).sort(),
++    leaf: options.leaf === true,
++  };
++}
++
++function deriveClaudeAssetsRelativePath(manifest) {
++  const roots = new Set();
++  for (const entry of manifest.entries || []) {
++    if (!(entry.distribution_targets || []).includes('claude-global')) continue;
++    for (const disposition of entry.dispositions || []) {
++      const command = typeof disposition.command === 'string' ? disposition.command : '';
++      for (const match of command.matchAll(/~\/([^/\\\s]+)\//g)) roots.add(match[1]);
++    }
++  }
++  if (roots.size !== 1) {
++    throw new Error('hook manifest must identify exactly one Claude assets directory');
++  }
++  return [...roots][0];
++}
++
++function installerOwnedStagePaths(options) {
++  const sgsdRoot = path.resolve(options.sgsdRoot || DEFAULT_ROOT);
++  const manifest = loadManifest(options, sgsdRoot);
++  const claudeAssetsRelative = deriveClaudeAssetsRelativePath(manifest);
++  const witnessStore = require(path.join(
++    sgsdRoot, 'scripts', 'lib', 'substrate-invocation-witness-store.cjs',
++  ));
++  const conventionRoot = path.join(os.tmpdir(), 'sgsd-installer-stage-path-convention');
++  const conventionConfig = path.join(conventionRoot, 'config');
++  const conventionAuthority = witnessStore.resolveWitnessPaths(
++    path.join(conventionRoot, 'project'),
++    {
++      HOME: conventionRoot,
++      USERPROFILE: conventionRoot,
++      APPDATA: conventionConfig,
++      XDG_CONFIG_HOME: conventionConfig,
++    },
++  ).authority_root;
++  const authorityRelative = path.relative(conventionConfig, conventionAuthority);
++  if (!authorityRelative || path.isAbsolute(authorityRelative) || authorityRelative === '..'
++      || authorityRelative.startsWith(`..${path.sep}`)) {
++    throw new Error('witness store authority convention escapes its config root');
++  }
++  const authorityRoot = path.resolve(options.configDir, authorityRelative);
++  if (!inside(options.configDir, authorityRoot) || path.resolve(options.configDir) === authorityRoot) {
++    throw new Error('witness authority is not scoped beneath the installer config root');
++  }
++  return {
++    authority_root: authorityRoot,
++    claude_assets_dir: path.join(options.homeDir, claudeAssetsRelative),
++    claude_profile_path: path.join(options.homeDir, `${claudeAssetsRelative}.json`),
++    launcher_path: path.join(options.homeDir, '.local', 'bin', path.basename(
++      path.join(sgsdRoot, 'scripts', 'sgsd'),
++    )),
++  };
++}
++
++function prepareInstallerStage(options = {}) {
++  if (!options.projectDir || !options.homeDir) {
++    throw new Error('projectDir and homeDir are required for installer staging');
++  }
++  const projectDir = path.resolve(options.projectDir);
++  const homeDir = path.resolve(options.homeDir);
++  const configDir = path.resolve(options.configDir || path.join(homeDir, '.config'));
++  const owned = installerOwnedStagePaths({
++    ...options,
++    projectDir,
++    homeDir,
++    configDir,
++  });
++  const transactionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-installer-stage-'));
++  const stageProjectDir = path.join(transactionRoot, 'stage', 'project');
++  const stageHomeDir = path.join(transactionRoot, 'stage', 'home');
++  const stageConfigDir = path.join(transactionRoot, 'stage', 'config');
++  const readOptions = { onReadPath: options.onReadPath };
++  const mappings = [
++    stageMapping('project', projectDir, stageProjectDir, { exclude: new Set(['.git']) }),
++    stageMapping(
++      'claude-profile',
++      owned.claude_assets_dir,
++      path.join(stageHomeDir, path.relative(homeDir, owned.claude_assets_dir)),
++    ),
++    stageMapping(
++      'claude-profile-state',
++      owned.claude_profile_path,
++      path.join(stageHomeDir, path.relative(homeDir, owned.claude_profile_path)),
++      { leaf: true },
++    ),
++    stageMapping(
++      'local-launcher',
++      owned.launcher_path,
++      path.join(stageHomeDir, path.relative(homeDir, owned.launcher_path)),
++      { leaf: true },
++    ),
++    stageMapping(
++      'witness-authority',
++      owned.authority_root,
++      path.join(stageConfigDir, path.relative(configDir, owned.authority_root)),
++    ),
++  ];
++  try {
++    for (let left = 0; left < mappings.length; left += 1) {
++      for (let right = left + 1; right < mappings.length; right += 1) {
++        if (inside(mappings[left].actual_path, mappings[right].actual_path)
++            || inside(mappings[right].actual_path, mappings[left].actual_path)) {
++          throw new Error('installer stage destination roots overlap: '
++            + mappings[left].id + '/' + mappings[right].id);
++        }
++      }
++    }
++    if (!pathPresent(projectDir, readOptions) || !fs.lstatSync(projectDir).isDirectory()) {
++      throw new Error('installer stage project is not a directory: ' + projectDir);
++    }
++    fs.mkdirSync(stageHomeDir, { recursive: true });
++    for (const mapping of mappings) {
++      mapping.preimage = describeStageTree(mapping.actual_path, readOptions);
++      if (mapping.preimage.exists) {
++        copyStageTree(mapping.actual_path, mapping.stage_path, {
++          exclude: new Set(mapping.exclude),
++          onReadPath: options.onReadPath,
++        });
++      }
++    }
++    const descriptorPath = path.join(transactionRoot, 'installer-stage.json');
++    const descriptor = {
++      schema_version: INSTALLER_STAGE_SCHEMA_VERSION,
++      transaction_root: transactionRoot,
++      project_dir: projectDir,
++      home_dir: homeDir,
++      config_dir: configDir,
++      stage_project_dir: stageProjectDir,
++      stage_home_dir: stageHomeDir,
++      stage_config_dir: stageConfigDir,
++      mappings,
++      sealed: false,
++      rows: [],
++    };
++    fs.writeFileSync(descriptorPath, JSON.stringify(descriptor, null, 2) + '\n');
++    return {
++      descriptor_path: descriptorPath,
++      stage_project_dir: stageProjectDir,
++      stage_home_dir: stageHomeDir,
++      stage_config_dir: stageConfigDir,
++    };
++  } catch (error) {
++    try { fs.rmSync(transactionRoot, { recursive: true, force: true }); } catch (_) {}
++    throw error;
++  }
++}
++
++function mappingEntryNames(mapping) {
++  const names = new Set();
++  if (pathPresent(mapping.actual_path)) {
++    for (const name of fs.readdirSync(mapping.actual_path)) names.add(name);
++  }
++  if (pathPresent(mapping.stage_path)) {
++    for (const name of fs.readdirSync(mapping.stage_path)) names.add(name);
++  }
++  for (const excluded of mapping.exclude || []) names.delete(excluded);
++  return Array.from(names).sort();
++}
++
++function sealInstallerStage(descriptorPath) {
++  const resolved = path.resolve(descriptorPath);
++  const descriptor = JSON.parse(fs.readFileSync(resolved, 'utf8'));
++  const checked = assertInstallerStageDescriptor(resolved, descriptor, false);
++  if (descriptor.sealed) return descriptor;
++  const sealedRoot = path.join(checked.root, 'sealed');
++  const rows = [];
++  for (const mapping of descriptor.mappings) {
++    if (!sameStageDescription(describeStageTree(mapping.actual_path), mapping.preimage)) {
++      throw new Error('installer stage destination changed before seal: ' + mapping.id);
++    }
++    const names = mapping.leaf ? [null] : mappingEntryNames(mapping);
++    for (const name of names) {
++      const actualPath = name === null ? mapping.actual_path : path.join(mapping.actual_path, name);
++      const stagePath = name === null ? mapping.stage_path : path.join(mapping.stage_path, name);
++      const preimage = describeStageTree(actualPath);
++      const result = describeStageTree(stagePath);
++      if (sameStageDescription(preimage, result)) continue;
++      const sealedPath = result.exists
++        ? path.join(sealedRoot, mapping.id, name === null ? 'root' : name)
++        : null;
++      if (sealedPath) copyStageTree(stagePath, sealedPath);
++      rows.push({
++        id: name === null ? mapping.id : mapping.id + ':' + posix(name),
++        mapping_id: mapping.id,
++        actual_path: actualPath,
++        sealed_path: sealedPath,
++        preimage,
++        result,
++      });
++    }
++  }
++  descriptor.sealed = true;
++  descriptor.rows = rows;
++  fs.writeFileSync(resolved, JSON.stringify(descriptor, null, 2) + '\n');
++  return descriptor;
++}
++
++function removeStagePath(filePath) {
++  if (pathPresent(filePath)) fs.rmSync(filePath, { recursive: true, force: true });
++}
++
++function applyInstallerStage(descriptorPath, options = {}) {
++  const resolved = path.resolve(descriptorPath);
++  const descriptor = JSON.parse(fs.readFileSync(resolved, 'utf8'));
++  const checked = assertInstallerStageDescriptor(resolved, descriptor, true);
++  for (const row of descriptor.rows) {
++    if (!sameStageDescription(describeStageTree(row.actual_path), row.preimage)) {
++      throw new Error('installer destination changed before publication: ' + row.id);
++    }
++    if (!sameStageDescription(describeStageTree(row.sealed_path), row.result)) {
++      throw new Error('sealed installer bytes changed before publication: ' + row.id);
++    }
++  }
++  const rollbackRoot = path.join(checked.root, 'rollback');
++  removeStagePath(rollbackRoot);
++  fs.mkdirSync(rollbackRoot, { recursive: true });
++  const journalPath = path.join(rollbackRoot, 'publication-journal.json');
++  const journal = descriptor.rows.map((row, index) => {
++    const snapshotPath = row.preimage.exists
++      ? path.join(rollbackRoot, String(index), path.basename(row.actual_path))
++      : null;
++    if (snapshotPath) copyStageTree(row.actual_path, snapshotPath);
++    return {
++      attempted: false,
++      published: false,
++      row,
++      snapshot_path: snapshotPath,
++    };
++  });
++  const writeJournal = (state) => fs.writeFileSync(journalPath, JSON.stringify({
++    schema_version: INSTALLER_STAGE_SCHEMA_VERSION,
++    state,
++    rows: journal.map((entry) => ({
++      attempted: entry.attempted,
++      id: entry.row.id,
++      published: entry.published,
++      snapshot_path: entry.snapshot_path,
++      target_path: entry.row.actual_path,
++    })),
++  }, null, 2) + '\n');
++  writeJournal('prepared');
++  const actions = [];
++  try {
++    for (const entry of journal) {
++      const { row } = entry;
++      entry.attempted = true;
++      removeStagePath(row.actual_path);
++      if (row.result.exists) copyStageTree(row.sealed_path, row.actual_path);
++      entry.published = true;
++      actions.push({
++        action: 'publish_installer_stage',
++        target_path: row.actual_path,
++        sha256: row.result.digest || null,
++      });
++      writeJournal('publishing');
++      const failAfter = Number(process.env.SGSD_TEST_INSTALL_PUBLICATION_FAIL_AFTER || 0);
++      if (failAfter > 0 && actions.length === failAfter) {
++        throw new Error('injected installer publication failure');
++      }
++    }
++    writeJournal('committed');
++    if (!options.keepStage) fs.rmSync(checked.root, { recursive: true, force: true });
++    return { ok: true, actions, rows: descriptor.rows };
++  } catch (error) {
++    const rollbackFailures = [];
++    for (const entry of journal.filter((row) => row.attempted).reverse()) {
++      try {
++        removeStagePath(entry.row.actual_path);
++        if (entry.snapshot_path) copyStageTree(entry.snapshot_path, entry.row.actual_path);
++      } catch (rollbackError) {
++        rollbackFailures.push(entry.row.actual_path + ': ' + rollbackError.message);
++      }
++    }
++    if (rollbackFailures.length) {
++      error.rollback_failures = rollbackFailures;
++      error.message += '; rollback failed: ' + rollbackFailures.join('; ');
++    }
++    throw error;
++  }
++}
++
++function discardInstallerStage(descriptorPath) {
++  const resolved = path.resolve(descriptorPath);
++  const root = path.dirname(resolved);
++  const expectedPrefix = path.resolve(os.tmpdir(), 'sgsd-installer-stage-');
++  if (!root.startsWith(expectedPrefix)) throw new Error('invalid installer stage discard path');
++  fs.rmSync(root, { recursive: true, force: true });
++}
++
+ function argValue(argv, name) {
+   const index = argv.indexOf(name);
+   if (index >= 0) return argv[index + 1];
+@@ -805,6 +1266,41 @@ async function cli(argv) {
+   const manifestPath = path.resolve(argValue(argv, '--manifest')
+     || path.join(sgsdRoot, 'config', 'hook-manifest.json'));
+   const projectDir = argValue(argv, '--project-dir');
++  if (argv.includes('--prepare-installer-stage')) {
++    const homeDir = argValue(argv, '--home-dir');
++    const configDir = argValue(argv, '--config-dir');
++    if (!projectDir || !homeDir) {
++      throw new Error('--project-dir and --home-dir are required for installer staging');
++    }
++    const prepared = prepareInstallerStage({
++      projectDir,
++      homeDir,
++      configDir: configDir || undefined,
++      sgsdRoot,
++      manifestPath,
++    });
++    process.stdout.write(prepared.descriptor_path + '\n');
++    return 0;
++  }
++  if (argv.includes('--seal-installer-stage')) {
++    const descriptorPath = argValue(argv, '--seal-installer-stage');
++    if (!descriptorPath) throw new Error('--seal-installer-stage requires a descriptor path');
++    const sealed = sealInstallerStage(descriptorPath);
++    process.stdout.write(JSON.stringify({ ok: true, rows: sealed.rows.length }) + '\n');
++    return 0;
++  }
++  if (argv.includes('--apply-installer-stage')) {
++    const descriptorPath = argValue(argv, '--apply-installer-stage');
++    if (!descriptorPath) throw new Error('--apply-installer-stage requires a descriptor path');
++    const applied = applyInstallerStage(descriptorPath, { keepStage: true });
++    process.stdout.write(JSON.stringify({ ok: true, actions: applied.actions }) + '\n');
++    return 0;
++  }
++  if (argv.includes('--discard-installer-stage')) {
++    const descriptorPath = argValue(argv, '--discard-installer-stage');
++    if (descriptorPath && pathPresent(descriptorPath)) discardInstallerStage(descriptorPath);
++    return 0;
++  }
+   if (argv.includes('--prepare-candidate')) {
+     if (!projectDir) throw new Error('--project-dir is required for candidate preparation');
+     const prepared = await prepareProjectInstall({
+@@ -857,6 +1353,7 @@ async function cli(argv) {
+     return 0;
+   }
+   process.stderr.write('Usage: hook-install-contract.cjs --check-manifest|--write-manifest'
++    + '|--prepare-installer-stage|--seal-installer-stage FILE|--apply-installer-stage FILE'
+     + '|--prepare-candidate --project-dir DIR|--apply-candidate FILE|--inspect-project\n');
+   return 64;
+ }
+@@ -881,10 +1378,14 @@ if (require.main === module) {
+ }
+ 
+ module.exports = {
++  applyInstallerStage,
+   applyProjectInstall,
+   applyPreparedProjectInstall,
+   computeHookDependencyGraph,
++  discardInstallerStage,
+   inspectProjectInstall,
++  prepareInstallerStage,
+   prepareProjectInstall,
+   renderManifestDependencies,
++  sealInstallerStage,
+ };
+diff --git a/super-gsd/scripts/lib/hook-registration-preflight.cjs b/super-gsd/scripts/lib/hook-registration-preflight.cjs
+index 4affa8e..822990a 100644
+--- a/super-gsd/scripts/lib/hook-registration-preflight.cjs
++++ b/super-gsd/scripts/lib/hook-registration-preflight.cjs
+@@ -40,22 +40,53 @@ class HookSmokeError extends Error {
+   }
+ }
+ 
+-function boundedLine(value, maxBytes = 2048) {
+-  const oneLine = String(value || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+-  const bytes = Buffer.from(oneLine, 'utf8');
+-  if (bytes.length <= maxBytes) return oneLine;
++function boundedUtf8(value, maxBytes) {
++  const bytes = Buffer.from(String(value || ''), 'utf8');
++  if (bytes.length <= maxBytes) return bytes.toString('utf8');
+   return bytes.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
+ }
+ 
++function sanitizedDiagnostic(value, maxBytes = 2048) {
++  const lines = String(value || '').replace(/\r\n?|[\u2028\u2029]/g, '\n').split('\n');
++  const clean = [];
++  let inRequireStack = false;
++  for (const line of lines) {
++    if (/^\s*Require stack:\s*$/i.test(line)) {
++      inRequireStack = true;
++      continue;
++    }
++    if (inRequireStack && /^\s*-\s+\S/.test(line)) continue;
++    inRequireStack = false;
++    if (/^\s*at(?:\s|$)/.test(line)) continue;
++    let compact = line.replace(/\t+/g, ' ').replace(/\s+/g, ' ').trim();
++    compact = compact.replace(/\s+Require stack:.*$/i, '');
++    compact = compact.replace(
++      /\s+at\s+[A-Za-z0-9_$.[\]<>-]+(?:\s+\([^)]*:\d+:\d+\)|\s+node:\S+:\d+:\d+).*$/,
++      '',
++    );
++    const payloadIndex = compact.search(
++      /[{\[].*\b(?:tool_input|tool_response|api[_-]?key|access[_-]?token|secret|password|authorization)\b/i,
++    );
++    if (payloadIndex >= 0) compact = compact.slice(0, payloadIndex).trim();
++    compact = compact.replace(
++      /\b(api[_-]?key|access[_-]?token|secret|password|authorization)\b\s*[:=]\s*(?:'[^']*'|\S+)/gi,
++      '$1=[redacted]',
++    );
++    if (compact) clean.push(compact);
++  }
++  return boundedUtf8(clean.join(' '), maxBytes);
++}
++
+ function moduleFailureDetail(output, options = {}) {
+-  const message = boundedLine(output);
+-  if (!/MODULE_NOT_FOUND|Cannot find module/.test(message)) return {
++  const raw = String(output || '');
++  const message = sanitizedDiagnostic(raw);
++  if (!/MODULE_NOT_FOUND|Cannot find module/.test(raw)) return {
+     code: 'HOOK_PROCESS_FAILED',
+     request: null,
+     path: null,
+     message,
+   };
+-  const requestMatch = message.match(/Cannot find module\s+['\u0022]([^'\u0022]+)['\u0022]/);
++  const requestMatch = raw.match(/Cannot find module\s+['\u0022]([^'\u0022]+)['\u0022]/);
+   const request = requestMatch ? requestMatch[1] : null;
+   let resolvedPath = request && path.isAbsolute(request) ? path.resolve(request) : null;
+   if (resolvedPath && options.candidateRoot && options.targetRoot) {
+@@ -68,13 +99,19 @@ function moduleFailureDetail(output, options = {}) {
+     code: 'MODULE_NOT_FOUND',
+     request,
+     path: resolvedPath,
+-    message: boundedLine(request ? `Cannot find module '${request}'` : 'module resolution failed'),
++    message,
+   };
+ }
+ 
+ function isCleanPolicyDecision(output) {
+-  return /^\[[a-z0-9_.:-]+\]\s+(?:[a-z0-9_.:-]+\s+)*(?:blocked|denied|refused):\s+\S.*$/i
+-    .test(boundedLine(output));
++  const normalized = String(output || '').replace(/\r\n?|[\u2028\u2029]/g, '\n').trim();
++  if (!normalized || normalized.includes('\n') || normalized.includes('\t')) return false;
++  const match = normalized.match(
++    /^\[[a-z0-9_.:-]+\]\s+(?:[a-z0-9_.:-]+\s+)*(?:blocked|denied|refused):\s+(\S[^\r\n]*)$/i,
++  );
++  if (!match) return false;
++  return !/(?:Error|TypeError|ReferenceError|SyntaxError|RangeError)\s*:|MODULE_NOT_FOUND|Require stack:/i
++    .test(match[1]);
+ }
+ 
+ function launchInvalid(event, hookId, scriptPath, detail) {
+@@ -587,7 +624,7 @@ function spawnSmokeHook(descriptor, options) {
+     const finish = (passed, launchError = null, status = null, signal = null) => {
+       if (settled) return;
+       settled = true;
+-      resolve({ passed, output: boundedLine(output), launchError, status, signal });
++      resolve({ passed, output, launchError, status, signal });
+     };
+     try {
+       child = spawnProcess(
+diff --git a/super-gsd/tests/install-contract/assert-install-contract.cjs b/super-gsd/tests/install-contract/assert-install-contract.cjs
+index 83c35ed..31ef49b 100644
+--- a/super-gsd/tests/install-contract/assert-install-contract.cjs
++++ b/super-gsd/tests/install-contract/assert-install-contract.cjs
+@@ -47,6 +47,133 @@ function fixtureRoot(label) {
+   return fs.mkdtempSync(path.join(os.tmpdir(), `sgsd-install-contract-${label}-`));
+ }
+ 
++function manifestClaudeAssetsDir(homeDir) {
++  const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
++  const roots = new Set();
++  for (const entry of manifest.entries) {
++    if (!(entry.distribution_targets || []).includes('claude-global')) continue;
++    for (const disposition of entry.dispositions || []) {
++      const command = typeof disposition.command === 'string' ? disposition.command : '';
++      for (const match of command.matchAll(/~\/([^/\\\s]+)\//g)) roots.add(match[1]);
++    }
++  }
++  assert.equal(roots.size, 1, 'manifest does not identify one Claude assets directory');
++  return path.join(homeDir, [...roots][0]);
++}
++
++function assertInstallerStageOwnedReadScope(contract) {
++  const root = fixtureRoot('owned stage scope');
++  const projectDir = path.join(root, 'target project with spaces');
++  const homeDir = path.join(root, 'operator home with spaces');
++  const configDir = path.join(root, 'operator config with spaces');
++  const claudeAssetsDir = manifestClaudeAssetsDir(homeDir);
++  const launcherPath = path.join(homeDir, '.local', 'bin', 'sgsd');
++  const claudeProfilePath = path.join(homeDir, '.claude.json');
++  const witnessStore = require(path.join(
++    SUPER_GSD_ROOT, 'scripts', 'lib', 'substrate-invocation-witness-store.cjs',
++  ));
++  const authorityRoot = witnessStore.resolveWitnessPaths(projectDir, {
++    HOME: homeDir,
++    USERPROFILE: homeDir,
++    APPDATA: configDir,
++    XDG_CONFIG_HOME: configDir,
++  }).authority_root;
++  const reportedReadPaths = new Set();
++  const actualReadPaths = new Set();
++  let prepared = null;
++  try {
++    write(path.join(projectDir, 'operator project file.txt'), 'project bytes\n');
++    write(path.join(claudeAssetsDir, 'settings.json'), JSON.stringify({ operator: true }) + '\n');
++    write(claudeProfilePath, JSON.stringify({ operator: true }) + '\n');
++    write(launcherPath, 'operator launcher bytes\n');
++    write(path.join(homeDir, 'private unrelated', 'do not read.txt'), 'private\n');
++    write(path.join(homeDir, '.local', 'share', 'do not read.txt'), 'private\n');
++    write(path.join(configDir, 'unrelated application', 'do not read.txt'), 'private\n');
++
++    const tracedMethods = ['existsSync', 'lstatSync', 'statSync', 'readdirSync', 'readFileSync', 'copyFileSync'];
++    const originals = new Map(tracedMethods.map((name) => [name, fs[name]]));
++    const recordRead = (readPath) => {
++      if (typeof readPath !== 'string') return;
++      const resolved = path.resolve(readPath);
++      if ([projectDir, homeDir, configDir].some((candidate) => {
++        const relative = path.relative(candidate, resolved);
++        return relative === '' || (!path.isAbsolute(relative) && relative !== '..'
++          && !relative.startsWith(`..${path.sep}`));
++      })) actualReadPaths.add(resolved);
++    };
++    try {
++      for (const name of tracedMethods) {
++        fs[name] = function tracedStageRead(readPath, ...args) {
++          recordRead(readPath);
++          return originals.get(name).call(fs, readPath, ...args);
++        };
++      }
++      prepared = contract.prepareInstallerStage({
++        projectDir,
++        homeDir,
++        configDir,
++        onReadPath: (readPath) => reportedReadPaths.add(path.resolve(readPath)),
++      });
++    } finally {
++      for (const [name, implementation] of originals) fs[name] = implementation;
++    }
++
++    assert.ok(actualReadPaths.size > 0, 'installer stage performed no observable destination reads');
++    assert.deepEqual(
++      [...reportedReadPaths].sort(),
++      [...actualReadPaths].sort(),
++      'installer stage read trace omitted an actual destination read',
++    );
++    const descriptor = JSON.parse(fs.readFileSync(prepared.descriptor_path, 'utf8'));
++    assert.deepEqual(
++      descriptor.mappings.map((row) => path.resolve(row.actual_path)).sort(),
++      [projectDir, claudeAssetsDir, claudeProfilePath, launcherPath, authorityRoot]
++        .map((row) => path.resolve(row)).sort(),
++      'installer stage mappings are not confined to derived SGSD-owned paths',
++    );
++    const recursiveRoots = [projectDir, claudeAssetsDir, authorityRoot].map((row) => path.resolve(row));
++    const exactFiles = new Set([claudeProfilePath, launcherPath].map((row) => path.resolve(row)));
++    for (const readPath of actualReadPaths) {
++      const owned = exactFiles.has(readPath) || recursiveRoots.some((ownedRoot) => {
++        const relative = path.relative(ownedRoot, readPath);
++        return relative === '' || (!path.isAbsolute(relative) && relative !== '..'
++          && !relative.startsWith(`..${path.sep}`));
++      });
++      assert.equal(owned, true, `installer stage read outside SGSD-owned paths: ${readPath}`);
++    }
++  } finally {
++    if (prepared) contract.discardInstallerStage(prepared.descriptor_path);
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++}
++
++function assertCliFailureDiagnosis() {
++  const root = fixtureRoot('cli diagnosis');
++  try {
++    const missingDescriptor = path.join(root, 'missing candidate with spaces.json');
++    const result = run(process.execPath, [
++      CONTRACT_PATH, '--apply-candidate', missingDescriptor,
++    ]);
++    if (result.error) throw result.error;
++    assert.equal(result.status, 2, 'missing candidate descriptor did not refuse');
++    const refusal = JSON.parse(result.stderr.trim().split(/\r?\n/).at(-1));
++    assert.equal(refusal.reason, 'hook_install_contract_failed');
++    assert.ok(refusal.underlying_error, 'contract CLI laundered its own exception');
++    assert.deepEqual(
++      Object.keys(refusal.underlying_error).sort(),
++      ['code', 'message', 'path', 'request'],
++    );
++    assert.equal(refusal.underlying_error.code, 'ENOENT');
++    assert.equal(refusal.underlying_error.request, null);
++    assert.equal(refusal.underlying_error.path, path.resolve(missingDescriptor));
++    assert.match(refusal.underlying_error.message, /ENOENT.*missing candidate with spaces\.json/);
++    assert.ok(Buffer.byteLength(refusal.underlying_error.message, 'utf8') <= 2048);
++    assert.doesNotMatch(refusal.underlying_error.message, /[\r\n\t]|\s+at\s+/);
++  } finally {
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++}
++
+ function copyTree(source, target) {
+   fs.cpSync(source, target, { recursive: true });
+ }
+@@ -176,6 +303,8 @@ function realEntryLoaderTrace(entry, sourceRoot) {
+ 
+ async function generatedTransitiveManifest() {
+   const contract = require(CONTRACT_PATH);
++  assertInstallerStageOwnedReadScope(contract);
++  assertCliFailureDiagnosis();
+   const root = fixtureRoot('generated');
+   try {
+     const fixture = generatedResolutionFixture(root);
+@@ -340,10 +469,83 @@ function finalHookExecutions(projectDir, env) {
+   return seen.size;
+ }
+ 
++function assertStagedInstallerTransaction(contract) {
++  const root = fixtureRoot('staged transaction');
++  const projectDir = path.join(root, 'project with spaces');
++  const homeDir = path.join(root, 'home with spaces');
++  const projectSentinel = path.join(projectDir, 'operator.txt');
++  const settingsPath = path.join(homeDir, '.claude', 'settings.json');
++  try {
++    write(projectSentinel, 'operator bytes\n');
++    write(settingsPath, JSON.stringify({ operator: true }, null, 2) + '\n');
++    fs.chmodSync(projectSentinel, 0o640);
++    const sentinelMode = fs.statSync(projectSentinel).mode & 0o777;
++    const beforeProject = inventory(projectDir);
++    const beforeHome = inventory(homeDir);
++    const prepared = contract.prepareInstallerStage({ projectDir, homeDir });
++    write(path.join(prepared.stage_project_dir, 'published.txt'), 'sealed staged bytes\n');
++    write(
++      path.join(prepared.stage_home_dir, '.claude', 'settings.json'),
++      JSON.stringify({ operator: true, sgsd: true }, null, 2) + '\n',
++    );
++    const sealed = contract.sealInstallerStage(prepared.descriptor_path);
++    write(path.join(prepared.stage_project_dir, 'published.txt'), 'post-seal mutation\n');
++
++    process.env.SGSD_TEST_INSTALL_PUBLICATION_FAIL_AFTER = '1';
++    assert.throws(
++      () => contract.applyInstallerStage(prepared.descriptor_path),
++      /injected installer publication failure/,
++    );
++    assert.deepEqual(inventory(projectDir), beforeProject, 'rollback did not restore project bytes');
++    assert.deepEqual(inventory(homeDir), beforeHome, 'rollback did not restore profile bytes');
++    delete process.env.SGSD_TEST_INSTALL_PUBLICATION_FAIL_AFTER;
++
++    const applied = contract.applyInstallerStage(prepared.descriptor_path);
++    assert.equal(applied.actions.length, sealed.rows.length);
++    assert.equal(
++      fs.readFileSync(path.join(projectDir, 'published.txt'), 'utf8'),
++      'sealed staged bytes\n',
++      'publication did not consume immutable sealed bytes',
++    );
++    assert.deepEqual(
++      JSON.parse(fs.readFileSync(settingsPath, 'utf8')),
++      { operator: true, sgsd: true },
++      'profile publication did not preserve unrelated settings',
++    );
++    assert.equal(
++      fs.statSync(projectSentinel).mode & 0o777,
++      sentinelMode,
++      'unrelated file mode changed',
++    );
++  } finally {
++    delete process.env.SGSD_TEST_INSTALL_PUBLICATION_FAIL_AFTER;
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++}
++
+ async function emptyModuleTreeRealInstall() {
+   const contract = require(CONTRACT_PATH);
++  assertStagedInstallerTransaction(contract);
+   const root = fixtureRoot('real-install');
+   try {
++    const preparedProjectDir = path.join(root, 'prepared target project with spaces');
++    fs.mkdirSync(preparedProjectDir, { recursive: true });
++    const prepared = await contract.prepareProjectInstall({
++      projectDir: preparedProjectDir,
++      sgsdRoot: SUPER_GSD_ROOT,
++    });
++    const preparedApplication = contract.applyPreparedProjectInstall(prepared);
++    assert.equal(preparedApplication.ok, true);
++    const preparedReport = contract.inspectProjectInstall({
++      projectDir: preparedProjectDir,
++      sgsdRoot: SUPER_GSD_ROOT,
++    });
++    assert.equal(
++      preparedReport.requiredFiles.every((row) => row.status === 'current'),
++      true,
++      'prepareProjectInstall result did not compose directly with applyPreparedProjectInstall',
++    );
++
+     const projectDir = path.join(root, 'target project');
+     const decoy = path.join(root, 'decoy cwd');
+     const home = path.join(root, 'isolated home');
+diff --git a/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs b/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+index 0f9118b..77f29a2 100644
+--- a/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
++++ b/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+@@ -240,29 +240,22 @@ function resolveFixturePackageRoot(packageName) {
+   throw error;
+ }
+ 
+-function linkFixturePackage(packageName, sourceRoot, fixturePath) {
++function copyFixturePackageRoot(packageName, sourceRoot, fixturePath) {
+   fs.mkdirSync(path.dirname(fixturePath), { recursive: true });
+-  let mechanism = process.platform === 'win32' ? 'junction' : 'symlink';
+   try {
+-    fs.symlinkSync(sourceRoot, fixturePath, process.platform === 'win32' ? 'junction' : 'dir');
+-  } catch (linkError) {
+-    mechanism = 'copy';
+-    try {
+-      fs.cpSync(sourceRoot, fixturePath, { recursive: true });
+-    } catch (copyError) {
+-      const error = new Error(
+-        `fixture bare package provisioning failed: ${packageName}: `
+-        + `link=${linkError.message}; copy=${copyError.message}`,
+-      );
+-      error.code = 'FIXTURE_PACKAGE_PROVISION_FAILED';
+-      error.package = packageName;
+-      error.cause = copyError;
+-      throw error;
+-    }
++    fs.cpSync(sourceRoot, fixturePath, { recursive: true, dereference: true });
++  } catch (copyError) {
++    const error = new Error(
++      `fixture bare package root copy failed: ${packageName}: ${copyError.message}`,
++    );
++    error.code = 'FIXTURE_PACKAGE_PROVISION_FAILED';
++    error.package = packageName;
++    error.cause = copyError;
++    throw error;
+   }
+   return {
+     fixture_path: fixturePath,
+-    mechanism,
++    mechanism: 'copy',
+     package: packageName,
+     source_root: sourceRoot,
+   };
+@@ -273,7 +266,7 @@ function provisionFixtureHookPackages(fixtureRoot) {
+     const packageName = packageRow.package;
+     const sourceRoot = resolveFixturePackageRoot(packageName);
+     const fixturePath = path.join(fixtureRoot, 'node_modules', ...packageName.split('/'));
+-    return linkFixturePackage(packageName, sourceRoot, fixturePath);
++    return copyFixturePackageRoot(packageName, sourceRoot, fixturePath);
+   });
+ }
+ 
+@@ -311,7 +304,7 @@ function provisionFixtureSourcePackages(vendoredRoot) {
+   return fixturePackageRows().map((packageRow) => {
+     const packageName = packageRow.package;
+     const sourceRoot = resolveFixturePackageRoot(packageName);
+-    return linkFixturePackage(
++    return copyFixturePackageRoot(
+       packageName,
+       sourceRoot,
+       path.join(vendoredRoot, fixturePackageRelativePath(packageRow)),
+@@ -749,21 +742,16 @@ function assertFixtureBarePackageSupport() {
+     const provisioned = provisionFixtureHookPackages(root);
+     assert.deepEqual(provisioned.map((row) => row.package).sort(), expected);
+     for (const row of provisioned) {
+-      assert.ok(fs.existsSync(row.fixture_path), `fixture package link is missing: ${row.package}`);
+-      assert.ok(['junction', 'symlink', 'copy'].includes(row.mechanism),
+-        `fixture package used an unknown provisioning mechanism: ${row.package}`);
+-      if (row.mechanism === 'copy') {
+-        assert.equal(fs.lstatSync(row.fixture_path).isSymbolicLink(), false,
+-          `fixture package copy fallback remained a link: ${row.package}`);
+-      } else {
+-        assert.equal(fs.lstatSync(row.fixture_path).isSymbolicLink(), true,
+-          `fixture package was copied while linking was available: ${row.package}`);
+-        assert.equal(
+-          fs.realpathSync(row.fixture_path),
+-          fs.realpathSync(row.source_root),
+-          `fixture package link does not target the resolved package root: ${row.package}`,
+-        );
+-      }
++      assert.ok(fs.existsSync(row.fixture_path), `fixture package copy is missing: ${row.package}`);
++      assert.equal(row.mechanism, 'copy',
++        `fixture package did not copy its resolved package root: ${row.package}`);
++      assert.equal(fs.lstatSync(row.fixture_path).isSymbolicLink(), false,
++        `fixture package copy remained a link: ${row.package}`);
++      assert.notEqual(
++        fs.realpathSync(row.fixture_path),
++        fs.realpathSync(row.source_root),
++        `fixture package still resolves to the canonical package root: ${row.package}`,
++      );
+       assert.ok(
+         require.resolve(row.package, { paths: [path.join(root, 'consumer with spaces')] }),
+         `fixture package cannot be required: ${row.package}`,
+@@ -1428,6 +1416,7 @@ function realizeGlobalOverlayForStatic(value, hooksRoot) {
+ }
+ 
+ function assertInstallerSmokeOrder(installer) {
++  const installContract = fs.readFileSync(HOOK_INSTALL_CONTRACT_PATH, 'utf8');
+   const quote = String.fromCharCode(34);
+   const globalHookBatch = 'copy_files_to_root ' + quote + '$HOOKS_DIR' + quote
+     + ' ' + quote + '${hook_sources[@]}' + quote;
+@@ -1457,14 +1446,69 @@ function assertInstallerSmokeOrder(installer) {
+     /node \x22\$PREFLIGHT_SCRIPT\x22 --smoke-manifest/,
+     'installer retained a rejecting global hook smoke after profile publication',
+   );
++  const outerStageGate = installer.indexOf(
++    'if [ ' + quote + '$' + '{SGSD_INSTALL_STAGE_ACTIVE:-0}' + quote + ' != ' + quote + '1' + quote + ' ]',
++  );
++  const stagePreparation = installer.indexOf('--prepare-installer-stage', outerStageGate);
++  const stagedDispatch = installer.indexOf('SGSD_INSTALL_STAGE_ACTIVE=1', stagePreparation);
++  const stageSeal = installer.indexOf('--seal-installer-stage', stagedDispatch);
++  const externalPublication = installer.indexOf('--apply-installer-stage', stageSeal);
++  const outerStageExit = installer.indexOf('\n  exit 0\nfi', externalPublication);
+   const mainPrecheck = installer.lastIndexOf('  precheck_installation_refusals');
+   const mainPublication = installer.lastIndexOf('  publish_project_install_contract');
+   const bannerCall = installer.lastIndexOf('\nprint_banner');
+-  const globalDispatch = installer.lastIndexOf('\nif [ "$INSTALL_GLOBAL" = true ]');
++  const globalDispatch = installer.lastIndexOf('\nif [ ' + quote + '$INSTALL_GLOBAL' + quote + ' = true ]');
+   assert.ok(
+-    mainPrecheck >= 0 && mainPrecheck < mainPublication
++    outerStageGate >= 0 && outerStageGate < stagePreparation
++      && stagePreparation < stagedDispatch && stagedDispatch < stageSeal
++      && stageSeal < externalPublication && externalPublication < outerStageExit
++      && outerStageExit < mainPrecheck && mainPrecheck < mainPublication
+       && mainPublication < bannerCall && bannerCall < globalDispatch,
+-    'sealed candidate precheck/publication does not precede global profile dispatch in required order',
++    'installer does not finish the isolated rejecting dispatch before its single external publication seam',
++  );
++  assert.equal(
++    (installer.match(/--apply-installer-stage/g) || []).length,
++    1,
++    'installer has more than one external staged-publication entry point',
++  );
++  assert.doesNotMatch(
++    installer.slice(externalPublication, outerStageExit),
++    /precheck_|ensure_gsd_base|preflight_existing|repair_substrate|register_codex|\bnpm\b|\bbash\b|--seal-installer-stage/,
++    'installer can reject or dispatch work after external publication begins',
++  );
++  assert.deepEqual(
++    installer.slice(externalPublication, outerStageExit)
++      .split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
++    [
++      '--apply-installer-stage \\',
++      quote + '$INSTALL_STAGE_DESCRIPTOR' + quote + ' >/dev/null',
++      '[ ! -f ' + quote + '$INSTALL_STAGE_OUTPUT' + quote + ' ] || cat '
++        + quote + '$INSTALL_STAGE_OUTPUT' + quote + ' || true',
++      'cleanup_installer_stage',
++      'INSTALL_STAGE_DESCRIPTOR=' + quote + quote,
++      'trap - EXIT',
++    ],
++    'installer gained an unclassified operation after external publication begins',
++  );
++
++  const stageApplyFunction = installContract.indexOf('function applyInstallerStage');
++  const stageApplyEnd = installContract.indexOf('function discardInstallerStage', stageApplyFunction);
++  const preimageValidation = installContract.indexOf('describeStageTree(row.actual_path)', stageApplyFunction);
++  const sealedValidation = installContract.indexOf('describeStageTree(row.sealed_path)', preimageValidation);
++  const rollbackSnapshot = installContract.indexOf('copyStageTree(row.actual_path, snapshotPath)', sealedValidation);
++  const preparedJournal = installContract.indexOf('writeJournal(\'prepared\')', rollbackSnapshot);
++  const firstExternalWrite = installContract.indexOf('removeStagePath(row.actual_path)', preparedJournal);
++  assert.ok(
++    stageApplyFunction >= 0 && stageApplyFunction < preimageValidation
++      && preimageValidation < sealedValidation && sealedValidation < rollbackSnapshot
++      && rollbackSnapshot < preparedJournal && preparedJournal < firstExternalWrite
++      && firstExternalWrite < stageApplyEnd,
++    'staged publication does not validate bytes, snapshot rollback, and persist its journal before its first destination write',
++  );
++  assert.doesNotMatch(
++    installContract.slice(firstExternalWrite, stageApplyEnd),
++    /describeStageTree|prepareInstallerStage|sealInstallerStage|spawn|exec(?:File|Sync)?/,
++    'staged publication performs rejection-capable discovery or process dispatch after its first destination write',
+   );
+   assert.ok(globalMerge > globalDistribution, 'global settings merge is absent after sealed candidate smoke');
+ 
+@@ -1480,6 +1524,13 @@ function assertInstallerSmokeOrder(installer) {
+   const combinedDetectorCall = installer.indexOf('  detect_codex_hook_entry_sources', combinedPrecheckFunction);
+   const combinedCandidateCall = installer.indexOf('--prepare-candidate', combinedPrecheckFunction);
+   const combinedSubstrateCall = installer.indexOf('  precheck_substrate_capability', combinedPrecheckFunction);
++  const combinedPrecheck = installer.slice(combinedPrecheckFunction, combinedPrecheckEnd);
++  const publishFunction = installer.indexOf('publish_project_install_contract()');
++  const publishEnd = installer.indexOf('\n}\n', publishFunction);
++  const publishBody = installer.slice(publishFunction, publishEnd);
++  const cleanupFunction = installer.indexOf('cleanup_install_candidate()');
++  const cleanupEnd = installer.indexOf('\n}\n', cleanupFunction);
++  const cleanupBody = installer.slice(cleanupFunction, cleanupEnd);
+   // P168 replacement reason: the legacy unjournaled project copier assertions
+   // are superseded by a stronger sealed-candidate delegation assertion. Keeping
+   // the old batch-copy expectation would require the forbidden competing writer.
+@@ -1504,6 +1555,36 @@ function assertInstallerSmokeOrder(installer) {
+       && combinedSubstrateCall < combinedPrecheckEnd,
+     'combined refusal pre-check does not detect Codex, smoke the candidate, then check substrate before publication',
+   );
++  assert.equal(
++    (installer.match(/--prepare-candidate/g) || []).length,
++    1,
++    'installer exposes more than one candidate preparation command',
++  );
++  assert.match(
++    installer,
++    /INSTALL_CANDIDATE_STATE=\x22empty\x22/,
++    'installer lacks an explicit one-candidate lifecycle state',
++  );
++  assert.match(
++    combinedPrecheck,
++    /\[\[ \x22\$INSTALL_CANDIDATE_STATE\x22 == \x22prepared\x22 \]\]/,
++    'repeated refusal prechecks do not reuse the prepared candidate',
++  );
++  assert.match(
++    publishBody,
++    /local prepared_descriptor=\x22\$INSTALL_CANDIDATE_DESCRIPTOR\x22[\s\S]*--apply-candidate \x22\$prepared_descriptor\x22/,
++    'publication does not apply an immutable snapshot of the prepared descriptor',
++  );
++  assert.doesNotMatch(
++    publishBody,
++    /--prepare-candidate/,
++    'publication can prepare a replacement candidate',
++  );
++  assert.match(
++    cleanupBody,
++    /local prepared_descriptor=\x22\$INSTALL_CANDIDATE_DESCRIPTOR\x22[\s\S]*INSTALL_CANDIDATE_DESCRIPTOR=\x22\x22[\s\S]*--discard-candidate \x22\$prepared_descriptor\x22/,
++    'candidate cleanup does not release ownership before discarding its exact stage',
++  );
+   assert.doesNotMatch(
+     installer,
+     /CODEX_HOOK_DISTRIBUTION_INCOMPLETE/,
+@@ -1515,18 +1596,17 @@ function assertInstallerSmokeOrder(installer) {
+     const distributionCall = installer.indexOf('  distribute_project_hooks', functionStart);
+     const repairCall = installer.indexOf('  repair_substrate_capability', functionStart);
+     const codexCall = installer.indexOf('  register_codex_hooks', functionStart);
+-    // P168 replacement reason: the old post-distribution rejection assertion is
+-    // invalid once distribution consumes a pre-smoked sealed candidate. The
+-    // stronger assertion forbids any rejection-capable precheck after it.
++    // These legacy dispatches operate only inside the isolated stage. The outer
++    // assertion above is the external refuse-before-write contract.
+     assert.ok(
+       functionStart >= 0 && functionStart < distributionCall
+         && distributionCall < repairCall && repairCall < codexCall,
+-      `${functionName} does not preserve sealed publication before repair and registration`,
++      `${functionName} does not preserve staged distribution before staged repair and registration`,
+     );
+     assert.equal(
+       installer.slice(distributionCall, repairCall).includes('precheck_substrate_capability'),
+       false,
+-      `${functionName} performs a rejection-capable substrate precheck after publication`,
++      `${functionName} performs a redundant substrate precheck after staged distribution`,
+     );
+   }
+   const repairPaths = [
+@@ -1668,6 +1748,123 @@ async function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookReg
+     }),
+   }));
+   assert.deepEqual(policyDecision, [descriptor], 'clean policy decision was mistaken for a load failure');
++
++  let mixedDecisionError;
++  try {
++    await smokeHookRegistrations([descriptor], smokeAdapters({
++      cwd: smokeCwd,
++      home: smokeHome,
++      spawn: () => fakeSmokeChild(() => {}, {
++        status: 1,
++        stderr: '[validate-stop-contract] blocked: missing_report\nError: failed to load\n',
++      }),
++    }));
++  } catch (error) {
++    mixedDecisionError = error;
++  }
++  assert.ok(mixedDecisionError, 'policy decision prefix laundered a trailing load failure');
++  assert.match(mixedDecisionError.underlyingError.message, /failed to load/);
++
++  for (const dirtyDecision of [
++    '[validate-stop-contract] blocked: missing_report\u2028Error: failed to load',
++    '[validate-stop-contract] blocked: missing_reportError: failed to load',
++  ]) {
++    let dirtyDecisionError;
++    try {
++      await smokeHookRegistrations([descriptor], smokeAdapters({
++        cwd: smokeCwd,
++        home: smokeHome,
++        spawn: () => fakeSmokeChild(() => {}, {
++          status: 1,
++          stderr: dirtyDecision,
++        }),
++      }));
++    } catch (error) {
++      dirtyDecisionError = error;
++    }
++    assert.ok(dirtyDecisionError, 'non-clean policy output was accepted: ' + dirtyDecision);
++  }
++
++  const missingRequest = '../scripts/lib/real-message-marker.cjs';
++  let moduleError;
++  try {
++    await smokeHookRegistrations([descriptor], smokeAdapters({
++      cwd: smokeCwd,
++      home: smokeHome,
++      spawn: () => fakeSmokeChild(() => {}, {
++        status: 1,
++        stderr: [
++          'Error: Cannot find module \'' + missingRequest + '\'',
++          'Require stack:',
++          '- ' + path.join(smokeCwd, 'hook with spaces.cjs'),
++          '    at Function._resolveFilename (node:internal/modules/cjs/loader:1234:15)',
++        ].join('\n'),
++      }),
++    }));
++  } catch (error) {
++    moduleError = error;
++  }
++  assert.ok(moduleError, 'module load failure did not refuse installation');
++  assert.equal(moduleError.underlyingError.code, 'MODULE_NOT_FOUND');
++  assert.equal(moduleError.underlyingError.request, missingRequest);
++  assert.match(
++    moduleError.underlyingError.message,
++    /^Error: Cannot find module/,
++    'module disclosure replaced the real child error with a synthesized constant',
++  );
++  assert.doesNotMatch(
++    moduleError.underlyingError.message,
++    /Require stack:|_resolveFilename|node:internal|hook with spaces/,
++    'module disclosure retained raw stack frames',
++  );
++
++  let stackError;
++  try {
++    await smokeHookRegistrations([descriptor], smokeAdapters({
++      cwd: smokeCwd,
++      home: smokeHome,
++      spawn: () => fakeSmokeChild(() => {}, {
++        status: 1,
++        stderr: [
++          'Error: non-module-real-marker',
++          '    at runHook (' + path.join(smokeCwd, 'private hook.cjs') + ':10:2)',
++          '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)',
++        ].join('\n'),
++      }),
++    }));
++  } catch (error) {
++    stackError = error;
++  }
++  assert.ok(stackError, 'non-module load failure did not refuse installation');
++  assert.match(stackError.underlyingError.message, /Error: non-module-real-marker/);
++  assert.doesNotMatch(
++    stackError.underlyingError.message,
++    /runHook|private hook|processTicksAndRejections|node:internal/,
++    'non-module disclosure retained raw stack frames',
++  );
++
++  let sensitiveError;
++  try {
++    await smokeHookRegistrations([descriptor], smokeAdapters({
++      cwd: smokeCwd,
++      home: smokeHome,
++      spawn: () => fakeSmokeChild(() => {}, {
++        status: 1,
++        stderr: 'Error: sensitive-real-marker '
++          + '{tool_input:{api_key:TOP_SECRET}} at runHook ('
++          + path.join(smokeCwd, 'inline private hook.cjs') + ':10:2)',
++      }),
++    }));
++  } catch (error) {
++    sensitiveError = error;
++  }
++  assert.ok(sensitiveError, 'sensitive non-module failure did not refuse installation');
++  assert.match(sensitiveError.underlyingError.message, /Error: sensitive-real-marker/);
++  assert.doesNotMatch(
++    sensitiveError.underlyingError.message,
++    /TOP_SECRET|tool_input|api_key|runHook|inline private hook/,
++    'bounded disclosure retained a payload, secret, or inline stack frame',
++  );
+ }
+ 
+ async function runSmokeStatic() {

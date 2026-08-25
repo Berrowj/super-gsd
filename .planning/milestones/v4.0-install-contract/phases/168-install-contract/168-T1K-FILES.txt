@@ -1,0 +1,4 @@
+super-gsd/scripts/lib/hook-install-contract.cjs
+super-gsd/install.sh
+super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+super-gsd/tests/install-contract/assert-install-contract.cjs

@@ -11,6 +11,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [Tenant OneDrive folders are junctions](errors/onedrive-tenant-folders-are-junctions.md) — readdir isDirectory() is false on them; statSync follows the link (2026-08-25)
 
+- [codex-executor auth-denied false positive](errors/codex-executor-auth-denied-false-positive.md) — greps stderr for "auth"; kills healthy dispatches half-applied (2026-08-25)
+
 ## architecture/anti-patterns
 
 - [Anti-Pattern - Premature Loop Stopping](architecture/anti-patterns/anti-patterns-premature-stopping.md)
@@ -39,6 +41,12 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - [A plan-approved limit still fails goal-backward](architecture/anti-patterns/plan-accepted-limits-still-fail-goal-backward.md) - plan review and the verifier ask different questions; both can be right at once (P166 2026-08-22)
 
 - [A blind agent root cause is a hypothesis](architecture/anti-patterns/blind-agent-root-cause-is-a-hypothesis.md) - measure before dispatching a fix built on a non-executing agent's diagnosis; cost 4 rounds (P167)
+
+- [Refuse before writing, and mean it literally](architecture/anti-patterns/mutate-then-refuse.md) - 4x across P167-P168; rollback is not a substitute (2026-08-25)
+
+- [Never replace an observed error with a constant](architecture/anti-patterns/error-laundering-closed-vocabulary.md) - 3x; each cost a diagnosis cycle (2026-08-25)
+
+- [Bound the executor scope or it redesigns the system](architecture/anti-patterns/dont-rebuild-the-world-to-fix-an-ordering-bug.md) - 1458-line over-reach shipped nothing; name the forbidden design when re-dispatching (2026-08-25)
 
 ## architecture/decisions
 

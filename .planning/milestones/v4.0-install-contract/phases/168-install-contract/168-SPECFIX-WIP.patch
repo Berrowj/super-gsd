@@ -1,0 +1,411 @@
+diff --git a/.planning/memory/MEMORY.md b/.planning/memory/MEMORY.md
+index bd27b0e..25cf1dd 100644
+--- a/.planning/memory/MEMORY.md
++++ b/.planning/memory/MEMORY.md
+@@ -11,6 +11,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
+ 
+ - [Tenant OneDrive folders are junctions](errors/onedrive-tenant-folders-are-junctions.md) — readdir isDirectory() is false on them; statSync follows the link (2026-08-25)
+ 
++- [codex-executor auth-denied false positive](errors/codex-executor-auth-denied-false-positive.md) — greps stderr for "auth"; kills healthy dispatches half-applied (2026-08-25)
++
+ ## architecture/anti-patterns
+ 
+ - [Anti-Pattern - Premature Loop Stopping](architecture/anti-patterns/anti-patterns-premature-stopping.md)
+@@ -40,6 +42,12 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
+ 
+ - [A blind agent root cause is a hypothesis](architecture/anti-patterns/blind-agent-root-cause-is-a-hypothesis.md) - measure before dispatching a fix built on a non-executing agent's diagnosis; cost 4 rounds (P167)
+ 
++- [Refuse before writing, and mean it literally](architecture/anti-patterns/mutate-then-refuse.md) - 4x across P167-P168; rollback is not a substitute (2026-08-25)
++
++- [Never replace an observed error with a constant](architecture/anti-patterns/error-laundering-closed-vocabulary.md) - 3x; each cost a diagnosis cycle (2026-08-25)
++
++- [Bound the executor scope or it redesigns the system](architecture/anti-patterns/dont-rebuild-the-world-to-fix-an-ordering-bug.md) - 1458-line over-reach shipped nothing; name the forbidden design when re-dispatching (2026-08-25)
++
+ ## architecture/decisions
+ 
+ - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
+diff --git a/super-gsd/install.sh b/super-gsd/install.sh
+index 8e52344..4f6eda9 100644
+--- a/super-gsd/install.sh
++++ b/super-gsd/install.sh
+@@ -414,7 +414,7 @@ doctor() {
+   [ -d "$HOOKS_DIR" ] && log "Global hooks dir: present ($HOOKS_DIR)" || log "Global hooks dir: missing"
+ }
+ 
+-ensure_gsd_base() {
++precheck_gsd_base() {
+   if [ "$DRY_RUN" = true ]; then
+     if command -v node >/dev/null 2>&1; then
+       log "DRY RUN: Node.js available ($(node -v))"
+@@ -424,6 +424,9 @@ ensure_gsd_base() {
+   else
+     require_node_22
+   fi
++}
++
++ensure_gsd_base() {
+   if [ ! -d "$GSD_DIR" ]; then
+     echo ""
+     if [ "$DRY_RUN" = true ]; then
+@@ -476,8 +479,35 @@ process.stdin.on("end", () => {
+   [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /'
+ }
+ 
++precheck_global_installation() {
++  precheck_gsd_base
++  if [[ "$DRY_RUN" == true ]] && ! command -v node >/dev/null 2>&1; then
++    return 0
++  fi
++  local overlay_file="$SCRIPT_DIR/config/settings-overlay.json"
++  local merge_script="$SCRIPT_DIR/scripts/merge-settings.js"
++  local preflight_script="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
++  local settings_file="$CLAUDE_DIR/settings.json"
++
++  if [[ -f "$overlay_file" && -f "$merge_script" ]]; then
++    if [[ ! -f "$preflight_script" ]]; then
++      echo "ERROR: hook smoke helper missing: $preflight_script" >&2
++      return 1
++    fi
++    node --check "$merge_script"
++    node --check "$preflight_script"
++    node - "$overlay_file" "$settings_file" <<'NODE'
++const fs = require('fs');
++for (const filePath of process.argv.slice(2)) {
++  if (!fs.existsSync(filePath)) continue;
++  const source = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
++  if (source.trim()) JSON.parse(source);
++}
++NODE
++  fi
++}
++
+ install_global_assets() {
+-  precheck_installation_refusals
+   ensure_gsd_base
+   local -a global_executable_targets=()
+ 
+@@ -634,9 +664,6 @@ install_global_assets() {
+     log "  WARNING: $OVERLAY_FILE missing - skipping merge"
+   elif [ ! -f "$MERGE_SCRIPT" ]; then
+     log "  WARNING: $MERGE_SCRIPT missing - skipping merge"
+-  elif [ ! -f "$PREFLIGHT_SCRIPT" ]; then
+-    echo "ERROR: hook smoke helper missing: $PREFLIGHT_SCRIPT" >&2
+-    exit 1
+   elif [ "$DRY_RUN" = true ]; then
+     log "  DRY RUN: complete candidate already smoked every distributed hook"
+     log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE"
+@@ -821,18 +848,32 @@ preflight_existing_repo_local_hooks() {
+     >/dev/null
+ }
+ 
+-register_codex_hooks() {
+-  echo ""
+-  log "Registering project-local Codex hooks..."
+-  CODEX_HOOK_INSTALLER="$SCRIPT_DIR/tools/codex-hooks/install-hooks.cjs"
+-  if [ ! -f "$CODEX_HOOK_INSTALLER" ]; then
+-    echo "ERROR: Codex hook installer missing: $CODEX_HOOK_INSTALLER" >&2
+-    exit 1
++precheck_codex_hook_registration() {
++  local installer="$SCRIPT_DIR/tools/codex-hooks/install-hooks.cjs"
++  if [[ ! -f "$installer" ]]; then
++    echo "ERROR: Codex hook installer missing: $installer" >&2
++    return 1
+   fi
+   if ! command -v node >/dev/null 2>&1; then
+     echo "ERROR: Node.js is required to install project Codex hooks" >&2
+-    exit 1
++    return 1
+   fi
++  node --check "$installer"
++  node - "$installer" "$PROJECT_DIR" <<'NODE'
++const path = require('path');
++const installer = require(path.resolve(process.argv[2]));
++const report = installer.inspectProject({ projectDir: process.argv[3] });
++if (report.status === 'template-error' || report.status === 'malformed') {
++  process.stderr.write('ERROR: ' + report.error + '\n');
++  process.exit(1);
++}
++NODE
++}
++
++register_codex_hooks() {
++  echo ""
++  log "Registering project-local Codex hooks..."
++  CODEX_HOOK_INSTALLER="$SCRIPT_DIR/tools/codex-hooks/install-hooks.cjs"
+   if [ "$DRY_RUN" = true ]; then
+     log "DRY RUN: would safely merge SGSD registrations into $PROJECT_DIR/.codex/hooks.json"
+   else
+@@ -906,7 +947,6 @@ EOF
+ }
+ 
+ init_local_project() {
+-  precheck_installation_refusals
+   echo ""
+   log "Initializing project-local SGSD files only..."
+   if [ "$DRY_RUN" = true ]; then
+@@ -1015,9 +1055,6 @@ update_existing() {
+     return 0
+   fi
+ 
+-  precheck_installation_refusals
+-  preflight_existing_repo_local_hooks || return $?
+-
+   # 1. npm install — picks up new dependencies in package.json
+   if [ -f "$PROJECT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then
+     if [ "$DRY_RUN" = true ]; then
+@@ -1192,10 +1229,21 @@ if [ "$SAW_ACTION" = false ]; then
+   RUN_DOCTOR=true
+ fi
+ 
+-if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
+-    || { [ "$INSTALL_GLOBAL" = true ] && [ -d "$PROJECT_DIR/.planning" ]; }; then
++if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] || [ "$INSTALL_GLOBAL" = true ]; then
+   precheck_installation_refusals
+-  publish_project_install_contract
++  if [ "$INSTALL_GLOBAL" = true ]; then
++    precheck_global_installation
++  fi
++  if [ "$UPDATE_MODE" = true ]; then
++    preflight_existing_repo_local_hooks
++  fi
++  if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ]; then
++    precheck_codex_hook_registration
++  fi
++  if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
++      || { [ "$INSTALL_GLOBAL" = true ] && [ -d "$PROJECT_DIR/.planning" ]; }; then
++    publish_project_install_contract
++  fi
+ fi
+ 
+ print_banner
+diff --git a/super-gsd/scripts/lib/hook-registration-preflight.cjs b/super-gsd/scripts/lib/hook-registration-preflight.cjs
+index 4affa8e..0528d05 100644
+--- a/super-gsd/scripts/lib/hook-registration-preflight.cjs
++++ b/super-gsd/scripts/lib/hook-registration-preflight.cjs
+@@ -47,8 +47,30 @@ function boundedLine(value, maxBytes = 2048) {
+   return bytes.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
+ }
+ 
++function boundedText(value, maxBytes) {
++  const bytes = Buffer.from(String(value || ''), 'utf8');
++  if (bytes.length <= maxBytes) return bytes.toString('utf8');
++  return bytes.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
++}
++
++function sanitizedBoundedLine(value, maxBytes = 2048) {
++  let inRequireStack = false;
++  const kept = [];
++  for (const line of String(value || '').replace(/\r\n?/g, '\n').split('\n')) {
++    if (/^\s*Require stack:\s*$/i.test(line)) {
++      inRequireStack = true;
++      continue;
++    }
++    if (inRequireStack && /^\s*-\s+/.test(line)) continue;
++    inRequireStack = false;
++    if (/^\s*at\s+/.test(line)) continue;
++    kept.push(line);
++  }
++  return boundedLine(kept.join('\n'), maxBytes);
++}
++
+ function moduleFailureDetail(output, options = {}) {
+-  const message = boundedLine(output);
++  const message = sanitizedBoundedLine(output);
+   if (!/MODULE_NOT_FOUND|Cannot find module/.test(message)) return {
+     code: 'HOOK_PROCESS_FAILED',
+     request: null,
+@@ -68,13 +90,15 @@ function moduleFailureDetail(output, options = {}) {
+     code: 'MODULE_NOT_FOUND',
+     request,
+     path: resolvedPath,
+-    message: boundedLine(request ? `Cannot find module '${request}'` : 'module resolution failed'),
++    message,
+   };
+ }
+ 
+ function isCleanPolicyDecision(output) {
+-  return /^\[[a-z0-9_.:-]+\]\s+(?:[a-z0-9_.:-]+\s+)*(?:blocked|denied|refused):\s+\S.*$/i
+-    .test(boundedLine(output));
++  const decision = String(output || '').replace(/\r\n?/g, '\n').trim();
++  if (!decision || decision.includes('\n')) return false;
++  return /^\[[a-z0-9_.:-]+\]\s+(?:[a-z0-9_.:-]+\s+)*(?:blocked|denied|refused):\s+\S[^\r\n]*$/i
++    .test(decision);
+ }
+ 
+ function launchInvalid(event, hookId, scriptPath, detail) {
+@@ -587,7 +611,7 @@ function spawnSmokeHook(descriptor, options) {
+     const finish = (passed, launchError = null, status = null, signal = null) => {
+       if (settled) return;
+       settled = true;
+-      resolve({ passed, output: boundedLine(output), launchError, status, signal });
++      resolve({ passed, output: boundedText(output, 8192), launchError, status, signal });
+     };
+     try {
+       child = spawnProcess(
+diff --git a/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs b/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+index 0f9118b..201e30a 100644
+--- a/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
++++ b/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+@@ -1007,9 +1007,13 @@ function removeBrokenGlobalCoverage(sourceRoot, missingGlobalNames) {
+ 
+   const installerPath = path.join(sourceRoot, 'super-gsd', 'install.sh');
+   let installer = fs.readFileSync(installerPath, 'utf8');
+-  const currentPreflightCall = '  preflight_existing_repo_local_hooks || return $?\n';
+-  assert.ok(installer.includes(currentPreflightCall), 'production installer lost existing-project preflight');
+-  installer = installer.replace(currentPreflightCall, '');
++  const currentPreflightBlock = /  if \[ "\$UPDATE_MODE" = true \]; then\r?\n    preflight_existing_repo_local_hooks\r?\n  fi/;
++  assert.ok(currentPreflightBlock.test(installer), 'production installer lost existing-project preflight');
++  installer = installer.replace(currentPreflightBlock, [
++    '  if [ "$UPDATE_MODE" = true ]; then',
++    '    :',
++    '  fi',
++  ].join('\n'));
+   const manifestMatch = installer.match(/GLOBAL_HOOK_DEPLOYMENT_MANIFEST='([\s\S]*?)'\r?\n/);
+   assert.ok(manifestMatch, 'broken control lost the global deployment manifest');
+   const rows = manifestMatch[1].split(/\r?\n/).filter((row) => {
+@@ -1018,6 +1022,10 @@ function removeBrokenGlobalCoverage(sourceRoot, missingGlobalNames) {
+   });
+   const replacement = `GLOBAL_HOOK_DEPLOYMENT_MANIFEST='${rows.join('\n')}'\n`;
+   fs.writeFileSync(installerPath, installer.replace(manifestMatch[0], replacement), 'utf8');
++  assertFixtureProcessOk(
++    runFixtureProcess(process.env.SGSD_TEST_BASH || 'bash', ['-n', installerPath]),
++    'broken control install.sh syntax check',
++  );
+ }
+ 
+ function assertNoUpdaterTemp(projectRoot, settingsPath) {
+@@ -1458,13 +1466,17 @@ function assertInstallerSmokeOrder(installer) {
+     'installer retained a rejecting global hook smoke after profile publication',
+   );
+   const mainPrecheck = installer.lastIndexOf('  precheck_installation_refusals');
++  const mainGlobalPrecheck = installer.lastIndexOf('    precheck_global_installation');
++  const mainUpdatePreflight = installer.lastIndexOf('    preflight_existing_repo_local_hooks');
++  const mainCodexPrecheck = installer.lastIndexOf('    precheck_codex_hook_registration');
+   const mainPublication = installer.lastIndexOf('  publish_project_install_contract');
+-  const bannerCall = installer.lastIndexOf('\nprint_banner');
+-  const globalDispatch = installer.lastIndexOf('\nif [ "$INSTALL_GLOBAL" = true ]');
+   assert.ok(
+-    mainPrecheck >= 0 && mainPrecheck < mainPublication
+-      && mainPublication < bannerCall && bannerCall < globalDispatch,
+-    'sealed candidate precheck/publication does not precede global profile dispatch in required order',
++    mainPrecheck >= 0
++      && mainPrecheck < mainGlobalPrecheck
++      && mainGlobalPrecheck < mainUpdatePreflight
++      && mainUpdatePreflight < mainCodexPrecheck
++      && mainCodexPrecheck < mainPublication,
++    'dispatcher does not finish every rejection-capable install check before first publication',
+   );
+   assert.ok(globalMerge > globalDistribution, 'global settings merge is absent after sealed candidate smoke');
+ 
+@@ -1532,37 +1544,38 @@ function assertInstallerSmokeOrder(installer) {
+   const repairPaths = [
+     ['install_global_assets()', '  ensure_gsd_base'],
+     ['init_local_project()', '  echo'],
+-    ['update_existing()', '  preflight_existing_repo_local_hooks'],
++    ['update_existing()', '  echo'],
+   ];
+   const repairCalls = installer.match(/^[ \t]+repair_substrate_capability$/gm) || [];
+   assert.equal(repairCalls.length, repairPaths.length, 'installer has an unenumerated substrate repair entry point');
+   for (const [functionName, firstWriterBoundary] of repairPaths) {
+     const functionStart = installer.indexOf(functionName);
+     const functionEnd = installer.indexOf('\n}\n', functionStart);
+-    const combinedPrecheckCall = installer.indexOf('  precheck_installation_refusals', functionStart);
+     const firstWriter = installer.indexOf(firstWriterBoundary, functionStart);
+     const repairCall = installer.indexOf('repair_substrate_capability', functionStart);
++    const functionBody = installer.slice(functionStart, functionEnd);
+     assert.ok(
+       functionStart >= 0 && functionEnd > functionStart
+-        && combinedPrecheckCall > functionStart && combinedPrecheckCall < firstWriter
+-        && firstWriter < functionEnd && repairCall > combinedPrecheckCall && repairCall < functionEnd,
+-      `${functionName} can reach substrate repair before the complete refusal set precedes its first writer`,
++        && firstWriter > functionStart && firstWriter < functionEnd
++        && repairCall > firstWriter && repairCall < functionEnd
++        && !/precheck_installation_refusals|precheck_substrate_capability|precheck_global_installation|preflight_existing_repo_local_hooks|precheck_codex_hook_registration/.test(functionBody),
++      `${functionName} reintroduced a rejection-capable check after dispatcher preflight`,
+     );
+   }
+   assert.match(
+     installer,
+-    /install_global_assets\(\) \{\r?\n  precheck_installation_refusals\r?\n  ensure_gsd_base/,
+-    'global installation does not make the combined refusal pre-check unconditional before its first writer',
++    /install_global_assets\(\) \{\r?\n  ensure_gsd_base/,
++    'global installation reintroduced a local rejection check after dispatcher preflight',
+   );
+   assert.match(
+     installer,
+-    /init_local_project\(\) \{\r?\n  precheck_installation_refusals\r?\n  echo/,
+-    'project initialization does not make the combined refusal pre-check unconditional before its first writer',
++    /init_local_project\(\) \{\r?\n  echo/,
++    'project initialization reintroduced a local rejection check after dispatcher preflight',
+   );
+   assert.match(
+     installer,
+-    /return 0\r?\n  fi\r?\n\r?\n  precheck_installation_refusals\r?\n  preflight_existing_repo_local_hooks/,
+-    'project update can pass its no-project return and write before the combined refusal pre-check',
++    /if \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    preflight_existing_repo_local_hooks\r?\n  fi\r?\n  if \[ \x22\$INIT_LOCAL\x22 = true \] \|\| \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    precheck_codex_hook_registration/,
++    'update and Codex rejection checks are not both in the pre-publication dispatcher',
+   );
+   assert.doesNotMatch(
+     installer,
+@@ -1668,6 +1681,61 @@ async function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookReg
+     }),
+   }));
+   assert.deepEqual(policyDecision, [descriptor], 'clean policy decision was mistaken for a load failure');
++
++  let taintedPolicyError;
++  try {
++    await smokeHookRegistrations([descriptor], smokeAdapters({
++      cwd: smokeCwd,
++      home: smokeHome,
++      spawn: () => fakeSmokeChild(() => {}, {
++        status: 1,
++        stderr: '[validate-stop-contract] blocked: missing_report\nError: failed to load\n'
++          + '    at Object.<anonymous> (C:\\private\\hook.cjs:7:3)\n',
++      }),
++    }));
++  } catch (error) {
++    taintedPolicyError = error;
++  }
++  assert.ok(taintedPolicyError, 'policy prefix laundered a trailing load failure');
++  assert.equal(taintedPolicyError.underlyingError.code, 'HOOK_PROCESS_FAILED');
++  assert.ok(
++    taintedPolicyError.underlyingError.message.includes('Error: failed to load'),
++    'tainted policy refusal omitted the trailing load failure',
++  );
++  assert.doesNotMatch(
++    taintedPolicyError.underlyingError.message,
++    /C:\\private\\hook\.cjs|\bat Object\.<anonymous>/,
++    'tainted policy refusal disclosed a stack frame',
++  );
++
++  let moduleError;
++  try {
++    await smokeHookRegistrations([descriptor], smokeAdapters({
++      cwd: smokeCwd,
++      home: smokeHome,
++      spawn: () => fakeSmokeChild(() => {}, {
++        status: 1,
++        stderr: 'Error: Cannot find module \'../scripts/lib/missing.cjs\'\n'
++          + 'loader retained marker\nRequire stack:\n- C:\\private\\hook.cjs\n'
++          + '    at Module._resolveFilename (node:internal/modules/cjs/loader:1:2)\n',
++      }),
++    }));
++  } catch (error) {
++    moduleError = error;
++  }
++  assert.ok(moduleError, 'module load failure did not refuse installation');
++  assert.equal(moduleError.underlyingError.code, 'MODULE_NOT_FOUND');
++  assert.equal(moduleError.underlyingError.request, '../scripts/lib/missing.cjs');
++  assert.match(
++    moduleError.underlyingError.message,
++    /Error: Cannot find module .*missing\.cjs.*loader retained marker/,
++    'module refusal discarded real loader diagnostics',
++  );
++  assert.doesNotMatch(
++    moduleError.underlyingError.message,
++    /Require stack:|C:\\private\\hook\.cjs|\bat Module\._resolveFilename/,
++    'module refusal disclosed stack frames',
++  );
+ }
+ 
+ async function runSmokeStatic() {
