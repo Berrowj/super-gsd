@@ -1130,6 +1130,12 @@ function runPreflightStatic() {
   );
   const fixture = createFixture('substrate-precheck');
   try {
+    fs.mkdirSync(path.join(fixture.root, '.planning'), { recursive: true });
+    assert.equal(
+      audit.runAudit({ projectDir: fixture.projectRoot }).project_dir,
+      path.resolve(fixture.projectRoot),
+      'explicit project destination was overridden by ancestor .planning discovery',
+    );
     retainClarityNine(fixture.vendoredRoot);
     const snapshot = () => relativeFiles(fixture.root).map((relative) => [
       relative,
@@ -1214,13 +1220,41 @@ function assertInstallerSmokeOrder(installer) {
 
   const distributionFunction = installer.indexOf('distribute_project_hooks()');
   const repoDistribution = installer.indexOf(projectHookBatch, distributionFunction);
-  const codexDistribution = installer.indexOf('$PROJECT_DIR/super-gsd/tools/codex-hooks/$name', distributionFunction);
+  const codexDetectorDefinitions = installer.match(/^detect_codex_hook_entry_sources\(\) \{/gm) || [];
+  const codexDetectorFunction = installer.indexOf('detect_codex_hook_entry_sources()');
+  const codexDistribution = installer.indexOf('$PROJECT_DIR/super-gsd/tools/codex-hooks/$name', codexDetectorFunction);
+  const codexCopy = installer.indexOf(
+    'copy_files_to_root ' + quote + '$PROJECT_DIR/super-gsd/tools/codex-hooks' + quote
+      + ' ' + quote + '${CODEX_HOOK_ENTRY_SOURCES[@]}' + quote,
+    distributionFunction,
+  );
   const codexMissingRefusal = installer.indexOf('hook_registration_missing $missing_target', codexDistribution);
+  const distributionDetectorCall = installer.indexOf('  detect_codex_hook_entry_sources', distributionFunction);
+  const distributionRefusalCall = installer.indexOf('  refuse_missing_codex_hook_entry_sources', distributionFunction);
   const substratePrecheckFunction = installer.indexOf('precheck_substrate_capability()');
+  const combinedPrecheckFunction = installer.indexOf('precheck_installation_refusals()');
+  const combinedPrecheckEnd = installer.indexOf('\n}\n', combinedPrecheckFunction);
+  const combinedDetectorCall = installer.indexOf('  detect_codex_hook_entry_sources', combinedPrecheckFunction);
+  const combinedSubstrateCall = installer.indexOf('  precheck_substrate_capability', combinedPrecheckFunction);
   assert.ok(distributionFunction >= 0 && distributionFunction < repoDistribution, 'repo regular-file hook distribution is missing');
-  assert.ok(repoDistribution < codexDistribution, 'Codex entries are copied before the repo hook inventory');
+  assert.equal(codexDetectorDefinitions.length, 1, 'Codex hook entry source detector is missing or duplicated');
+  assert.ok(codexDetectorFunction >= 0 && codexDetectorFunction < codexDistribution, 'shared Codex entry detector lacks its source inventory');
   assert.ok(codexDistribution < codexMissingRefusal, 'Codex distribution refusal does not name missing targets');
+  assert.ok(repoDistribution < codexCopy, 'Codex entries are copied before the repo hook inventory');
+  assert.ok(
+    distributionFunction < distributionDetectorCall
+      && distributionDetectorCall < distributionRefusalCall
+      && distributionRefusalCall < repoDistribution,
+    'project hook distribution does not detect and refuse missing Codex entries before its first writer',
+  );
   assert.ok(substratePrecheckFunction >= 0, 'installer lacks a non-mutating substrate capability pre-check');
+  assert.ok(
+    combinedPrecheckFunction >= 0
+      && combinedPrecheckFunction < combinedDetectorCall
+      && combinedDetectorCall < combinedSubstrateCall
+      && combinedSubstrateCall < combinedPrecheckEnd,
+    'combined refusal pre-check does not share Codex detection before substrate detection',
+  );
   assert.doesNotMatch(
     installer,
     /CODEX_HOOK_DISTRIBUTION_INCOMPLETE/,
@@ -1230,7 +1264,7 @@ function assertInstallerSmokeOrder(installer) {
   for (const functionName of ['init_local_project()', 'update_existing()']) {
     const functionStart = installer.indexOf(functionName);
     const distributionCall = installer.indexOf('  distribute_project_hooks', functionStart);
-    const precheckCall = installer.indexOf('  precheck_substrate_capability', functionStart);
+    const precheckCall = installer.indexOf('  precheck_substrate_capability', distributionCall);
     const repairCall = installer.indexOf('  repair_substrate_capability', functionStart);
     const codexCall = installer.indexOf('  register_codex_hooks', functionStart);
     assert.ok(
@@ -1239,6 +1273,41 @@ function assertInstallerSmokeOrder(installer) {
       `${functionName} does not pre-check all refusals between distribution and mutating repair`,
     );
   }
+  const repairPaths = [
+    ['install_global_assets()', '  ensure_gsd_base'],
+    ['init_local_project()', '  echo'],
+    ['update_existing()', '  preflight_existing_repo_local_hooks'],
+  ];
+  const repairCalls = installer.match(/^[ \t]+repair_substrate_capability$/gm) || [];
+  assert.equal(repairCalls.length, repairPaths.length, 'installer has an unenumerated substrate repair entry point');
+  for (const [functionName, firstWriterBoundary] of repairPaths) {
+    const functionStart = installer.indexOf(functionName);
+    const functionEnd = installer.indexOf('\n}\n', functionStart);
+    const combinedPrecheckCall = installer.indexOf('  precheck_installation_refusals', functionStart);
+    const firstWriter = installer.indexOf(firstWriterBoundary, functionStart);
+    const repairCall = installer.indexOf('repair_substrate_capability', functionStart);
+    assert.ok(
+      functionStart >= 0 && functionEnd > functionStart
+        && combinedPrecheckCall > functionStart && combinedPrecheckCall < firstWriter
+        && firstWriter < functionEnd && repairCall > combinedPrecheckCall && repairCall < functionEnd,
+      `${functionName} can reach substrate repair before the complete refusal set precedes its first writer`,
+    );
+  }
+  assert.match(
+    installer,
+    /install_global_assets\(\) \{\r?\n  precheck_installation_refusals\r?\n  ensure_gsd_base/,
+    'global installation does not make the combined refusal pre-check unconditional before its first writer',
+  );
+  assert.match(
+    installer,
+    /init_local_project\(\) \{\r?\n  precheck_installation_refusals\r?\n  echo/,
+    'project initialization does not make the combined refusal pre-check unconditional before its first writer',
+  );
+  assert.match(
+    installer,
+    /return 0\r?\n  fi\r?\n\r?\n  precheck_installation_refusals\r?\n  preflight_existing_repo_local_hooks/,
+    'project update can pass its no-project return and write before the combined refusal pre-check',
+  );
   assert.doesNotMatch(
     installer,
     /\$SCRIPT_DIR\/hooks\/\x22?\*\.(?:js|cjs|sh)/,

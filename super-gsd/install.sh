@@ -470,6 +470,7 @@ process.stdin.on("end", () => {
 }
 
 install_global_assets() {
+  precheck_installation_refusals
   ensure_gsd_base
   local -a global_executable_targets=()
 
@@ -677,12 +678,62 @@ process.stdout.write([...names].sort().join('\n'));
 NODE
 }
 
+detect_codex_hook_entry_sources() {
+  CODEX_HOOK_CONFIG="$SCRIPT_DIR/config/codex-hooks.json"
+  if [[ ! -f "$CODEX_HOOK_CONFIG" ]]; then
+    echo "ERROR: Codex hook config missing: $CODEX_HOOK_CONFIG" >&2
+    exit 1
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR: Node.js is required to resolve project Codex hook entries" >&2
+    exit 1
+  fi
+  CODEX_ENTRY_NAMES="$(configured_codex_hook_entry_names "$CODEX_HOOK_CONFIG")"
+  if [[ -z "$CODEX_ENTRY_NAMES" ]]; then
+    echo "ERROR: Codex hook config contains no executable entries: $CODEX_HOOK_CONFIG" >&2
+    exit 1
+  fi
+
+  CODEX_HOOK_COUNT=0
+  CODEX_HOOK_MISSING_TARGETS=""
+  CODEX_HOOK_ENTRY_SOURCES=()
+  local name source_entry target_entry
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    source_entry="$SCRIPT_DIR/tools/codex-hooks/$name"
+    target_entry="$PROJECT_DIR/super-gsd/tools/codex-hooks/$name"
+    if [[ ! -f "$source_entry" ]]; then
+      if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
+        CODEX_HOOK_MISSING_TARGETS="$CODEX_HOOK_MISSING_TARGETS
+$target_entry"
+      else
+        CODEX_HOOK_MISSING_TARGETS="$target_entry"
+      fi
+      continue
+    fi
+    CODEX_HOOK_ENTRY_SOURCES+=("$source_entry")
+    CODEX_HOOK_COUNT=$((CODEX_HOOK_COUNT + 1))
+  done <<< "$CODEX_ENTRY_NAMES"
+}
+
+refuse_missing_codex_hook_entry_sources() {
+  [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]] || return 0
+  while IFS= read -r missing_target; do
+    [[ -n "$missing_target" ]] || continue
+    printf '%s\n' "hook_registration_missing $missing_target [Codex/project-entry]" >&2
+  done <<< "$CODEX_HOOK_MISSING_TARGETS"
+  return 1
+}
+
 distribute_project_hooks() {
+  detect_codex_hook_entry_sources
+  refuse_missing_codex_hook_entry_sources || exit 1
+
   echo ""
   log "Distributing project-local Claude and Codex hook entries..."
   PROJECT_HOOKS_DIR="$PROJECT_DIR/super-gsd/hooks"
   PROJECT_HOOK_COUNT=0
-  local name hook source_entry target_entry
+  local name hook
   local -a project_hook_sources=()
   local -a project_executable_targets=()
   for hook in "$SCRIPT_DIR/hooks/"*; do
@@ -699,40 +750,7 @@ distribute_project_hooks() {
     chmod +x "${project_executable_targets[@]}"
   fi
 
-  CODEX_HOOK_CONFIG="$SCRIPT_DIR/config/codex-hooks.json"
-  if [[ ! -f "$CODEX_HOOK_CONFIG" ]]; then
-    echo "ERROR: Codex hook config missing: $CODEX_HOOK_CONFIG" >&2
-    exit 1
-  fi
-  if ! command -v node >/dev/null 2>&1; then
-    echo "ERROR: Node.js is required to resolve project Codex hook entries" >&2
-    exit 1
-  fi
-  CODEX_ENTRY_NAMES="$(configured_codex_hook_entry_names "$CODEX_HOOK_CONFIG")"
-  if [[ -z "$CODEX_ENTRY_NAMES" ]]; then
-    echo "ERROR: Codex hook config contains no executable entries: $CODEX_HOOK_CONFIG" >&2
-    exit 1
-  fi
-  CODEX_HOOK_COUNT=0
-  CODEX_HOOK_MISSING_TARGETS=""
-  local -a codex_entry_sources=()
-  while IFS= read -r name; do
-    [[ -n "$name" ]] || continue
-    source_entry="$SCRIPT_DIR/tools/codex-hooks/$name"
-    target_entry="$PROJECT_DIR/super-gsd/tools/codex-hooks/$name"
-    if [[ ! -f "$source_entry" ]]; then
-      if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
-        CODEX_HOOK_MISSING_TARGETS="$CODEX_HOOK_MISSING_TARGETS
-$target_entry"
-      else
-        CODEX_HOOK_MISSING_TARGETS="$target_entry"
-      fi
-      continue
-    fi
-    codex_entry_sources+=("$source_entry")
-    CODEX_HOOK_COUNT=$((CODEX_HOOK_COUNT + 1))
-  done <<< "$CODEX_ENTRY_NAMES"
-  copy_files_to_root "$PROJECT_DIR/super-gsd/tools/codex-hooks" "${codex_entry_sources[@]}"
+  copy_files_to_root "$PROJECT_DIR/super-gsd/tools/codex-hooks" "${CODEX_HOOK_ENTRY_SOURCES[@]}"
   log "  $PROJECT_HOOK_COUNT Claude hooks and $CODEX_HOOK_COUNT Codex entries distributed"
 }
 
@@ -756,18 +774,17 @@ precheck_substrate_capability() {
   fi
 
   local refused=false
-  if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
-    while IFS= read -r missing_target; do
-      [[ -n "$missing_target" ]] || continue
-      printf '%s\n' "hook_registration_missing $missing_target [Codex/project-entry]" >&2
-    done <<< "$CODEX_HOOK_MISSING_TARGETS"
-    refused=true
-  fi
+  refuse_missing_codex_hook_entry_sources || refused=true
   if [[ "$precheck_failed" == true ]]; then
     [[ -z "$precheck_output" ]] || printf '%s\n' "$precheck_output" >&2
     refused=true
   fi
   [[ "$refused" == false ]] || exit 1
+}
+
+precheck_installation_refusals() {
+  detect_codex_hook_entry_sources
+  precheck_substrate_capability
 }
 
 preflight_existing_repo_local_hooks() {
@@ -876,6 +893,7 @@ EOF
 }
 
 init_local_project() {
+  precheck_installation_refusals
   echo ""
   log "Initializing project-local SGSD files only..."
   if [ "$DRY_RUN" = true ]; then
@@ -985,6 +1003,7 @@ update_existing() {
     return 0
   fi
 
+  precheck_installation_refusals
   preflight_existing_repo_local_hooks || return $?
 
   # 1. npm install — picks up new dependencies in package.json

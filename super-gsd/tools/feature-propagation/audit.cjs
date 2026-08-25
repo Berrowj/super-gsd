@@ -1335,10 +1335,12 @@ function auditCodexHooks(ctx) {
   }
 }
 
-function mkContext(projectDir) {
+function mkContext(explicitProjectDir) {
   const root = sgsdRoot();
   return {
-    projectDir: findPlanningRoot(projectDir || process.cwd()),
+    projectDir: explicitProjectDir == null
+      ? findPlanningRoot(process.cwd())
+      : path.resolve(explicitProjectDir),
     sgsdRoot: root,
     canonicalAgentsDir: path.join(root, 'agents'),
     canonicalSkillsDir: path.join(root, 'skills'),
@@ -1636,7 +1638,7 @@ function main(argv) {
     process.exit(out.ok ? 0 : 1);
     return;
   }
-  const projectDir = argValue(args, '--project-dir') || process.cwd();
+  const projectDir = argValue(args, '--project-dir');
   if (args.indexOf('--check-substrate-capability') !== -1) {
     const result = checkSubstrateHookRegistrations(mkContext(projectDir), {
       repairProjectHooks: args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1,
