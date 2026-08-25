@@ -680,11 +680,11 @@ function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
     };
   }
   try {
+    if (options.repairProjectHooks) smokeRepoHookOverlay(ctx);
     installSubstrateRuntime(ctx, actions);
     const key = witnessStore.provisionWitnessKey(ctx.projectDir, process.env);
     if (key.created) actions.push({ action: 'provision_substrate_witness_key', status: 'created' });
     if (options.allowGlobalRepair) removeGlobalWitnessRegistrations(actions);
-    if (options.repairProjectHooks) smokeRepoHookOverlay(ctx);
     mergeSettingsFiles(
       REPO_HOOK_OVERLAY,
       path.join(ctx.projectDir, '.claude', 'settings.json'),

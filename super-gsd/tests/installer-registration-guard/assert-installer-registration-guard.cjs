@@ -2374,6 +2374,65 @@ function runSgsdUpdateClarityRecovery() {
   }
 }
 
+function runWitnessRepairSmokeNoMutation() {
+  const audit = require(path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs'));
+  const fixture = createDistributionFixture('witness-repair-smoke-no-mutation');
+  const savedProfileEnv = Object.fromEntries(
+    ['HOME', 'USERPROFILE', 'APPDATA', 'XDG_CONFIG_HOME'].map((name) => [name, process.env[name]]),
+  );
+  try {
+    const targetHooksRoot = path.join(fixture.projectRoot, 'super-gsd', 'hooks');
+    fs.mkdirSync(targetHooksRoot, { recursive: true });
+    for (const name of SHIPPED_HOOK_NAMES) {
+      fs.copyFileSync(path.join(fixture.vendoredRoot, 'hooks', name), path.join(targetHooksRoot, name));
+    }
+    const targetCodexRoot = path.join(fixture.projectRoot, 'super-gsd', 'tools', 'codex-hooks');
+    fs.mkdirSync(targetCodexRoot, { recursive: true });
+    for (const name of EXPECTED_CODEX_ENTRY_NAMES) {
+      fs.copyFileSync(path.join(fixture.vendoredRoot, 'tools', 'codex-hooks', name), path.join(targetCodexRoot, name));
+    }
+
+    const repoOverlay = JSON.parse(readBytes(REPO_OVERLAY_PATH).toString('utf8'));
+    writeJson(fixture.repoSettings, sentinelSettings('repair-smoke-project'));
+    const globalSettings = sentinelSettings('repair-smoke-global');
+    globalSettings.hooks.PreToolUse = [deepClone(repoOverlay.hooks.PreToolUse[0])];
+    writeJson(fixture.globalSettings, globalSettings);
+
+    fs.writeFileSync(
+      path.join(targetHooksRoot, 'sgsd-quality-gate.js'),
+      "#!/usr/bin/env node\n'use strict';\nprocess.exitCode = 23;\n",
+      'utf8',
+    );
+    const targetBroker = path.join(fixture.projectRoot, 'super-gsd', 'tools', 'substrate-capability-broker.cjs');
+    assert.equal(fs.existsSync(targetBroker), false, 'fixture unexpectedly starts with the substrate broker installed');
+
+    process.env.HOME = fixture.homeRoot;
+    process.env.USERPROFILE = fixture.homeRoot;
+    process.env.APPDATA = path.join(fixture.homeRoot, 'AppData', 'Roaming');
+    process.env.XDG_CONFIG_HOME = path.join(fixture.homeRoot, '.config');
+    const snapshot = () => relativeFiles(fixture.root).map((relative) => [
+      relative,
+      sha256(readBytes(path.join(fixture.root, relative))),
+    ]);
+    const before = snapshot();
+    const actions = [];
+    const repair = audit._internals.repairClaudeSubstrateWitness({
+      projectDir: fixture.projectRoot,
+      sgsdRoot: fixture.vendoredRoot,
+    }, actions, { allowGlobalRepair: true, repairProjectHooks: true });
+
+    assert.equal(repair.ok, false, 'failing repo hook overlay smoke did not refuse witness repair');
+    assert.deepEqual(repair.reasons, ['witness_repair_failed']);
+    assert.deepEqual(actions, [], 'failed repo hook overlay smoke recorded repair mutations');
+    assert.deepEqual(snapshot(), before, 'failed repo hook overlay smoke changed fixture bytes');
+  } finally {
+    for (const [name, value] of Object.entries(savedProfileEnv)) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+    removeFixture(fixture);
+  }
+}
+
 const CASES = Object.freeze({
   'preflight-static': runPreflightStatic,
   'smoke-static': runSmokeStatic,
@@ -2385,6 +2444,7 @@ const CASES = Object.freeze({
   'hook-distribution-all-types': runHookDistributionAllTypes,
   'hook-manifest-completeness': runHookManifestCompleteness,
   'brokered-substrate-capability': runBrokeredSubstrateCapability,
+  'witness-repair-smoke-no-mutation': runWitnessRepairSmokeNoMutation,
   'sgsd-update-clarity-shape': runSgsdUpdateClarityRecovery,
   'sgsd-update-clarity-recovery': runSgsdUpdateClarityRecovery,
 });
