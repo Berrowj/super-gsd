@@ -356,6 +356,12 @@ async function emptyModuleTreeRealInstall() {
     assertSpawn(result, 'real empty-tree installation failed');
     const report = contract.inspectProjectInstall({ projectDir, sgsdRoot: SUPER_GSD_ROOT });
     assert.equal(report.requiredFiles.every((row) => row.status === 'current'), true);
+    assert.equal(report.requiredFiles.filter(
+      (row) => row.relative_path.startsWith('hooks/'),
+    ).length, 17, 'real install did not deliver all 17 hook files');
+    assert.equal(report.requiredFiles.filter(
+      (row) => row.relative_path.startsWith('scripts/lib/'),
+    ).length, 9, 'real install did not deliver all 9 scripts/lib modules');
     assert.deepEqual(inventory(decoy), [], 'explicit project install touched decoy cwd');
     assert.ok(finalHookExecutions(projectDir, env) > 0, 'no final installed hook was executed');
 
@@ -411,10 +417,208 @@ async function unresolvedModuleRefusesBeforeWrite() {
   }
 }
 
+function seedProjectInstall(report) {
+  for (const row of report.requiredFiles) {
+    write(row.target_path, fs.readFileSync(row.source_path));
+  }
+}
+
+function gitRun(args, cwd) {
+  const result = run('git', args, { cwd });
+  assertSpawn(result, 'git ' + args.join(' ') + ' failed');
+  return result.stdout.trim();
+}
+
+async function doctorRealGitWorktreeStaleness() {
+  const contract = require(CONTRACT_PATH);
+  const root = fixtureRoot('doctor worktree');
+  try {
+    const fakeRevision = 'a'.repeat(40);
+    const formatted = contract.formatProjectInstallStatus(Object.freeze({
+      ok: false,
+      project_dir: path.join(root, 'formatter project'),
+      canonical_source_revision: fakeRevision,
+      requiredFiles: [
+        { kind: 'hook', relative_path: 'hooks\\missing.cjs', status: 'missing',
+          expected_sha256: '1'.repeat(64), actual_sha256: null },
+        { kind: 'hook', relative_path: 'hooks/stale.cjs', status: 'stale',
+          expected_sha256: '2'.repeat(64), actual_sha256: '3'.repeat(64) },
+        { kind: 'module', relative_path: 'scripts\\lib\\missing.cjs', status: 'missing',
+          expected_sha256: '4'.repeat(64), actual_sha256: null },
+        { kind: 'module', relative_path: 'scripts/lib/stale.cjs', status: 'stale',
+          expected_sha256: '5'.repeat(64), actual_sha256: '6'.repeat(64) },
+        { kind: 'hook', relative_path: 'hooks/current.cjs', status: 'current',
+          expected_sha256: '7'.repeat(64), actual_sha256: '7'.repeat(64) },
+        { kind: 'module', relative_path: 'scripts/lib/current.cjs', status: 'current',
+          expected_sha256: '8'.repeat(64), actual_sha256: '8'.repeat(64) },
+      ],
+    }));
+    assert.match(formatted, /Project install status: drift/);
+    assert.equal(formatted.includes('Canonical source revision: ' + fakeRevision), true);
+    assert.equal(formatted.includes(
+      'hook path=hooks/missing.cjs expected_sha256=' + '1'.repeat(64)
+      + ' actual_sha256=<missing>',
+    ), true);
+    assert.equal(formatted.includes(
+      'hook path=hooks/stale.cjs expected_sha256=' + '2'.repeat(64)
+      + ' actual_sha256=' + '3'.repeat(64),
+    ), true);
+    assert.equal(formatted.includes(
+      'module path=scripts/lib/missing.cjs expected_sha256=' + '4'.repeat(64)
+      + ' actual_sha256=<missing>',
+    ), true);
+    assert.equal(formatted.includes(
+      'module path=scripts/lib/stale.cjs expected_sha256=' + '5'.repeat(64)
+      + ' actual_sha256=' + '6'.repeat(64),
+    ), true);
+    assert.match(formatted, /Current rows: hooks=1 modules=1 total=2\/6/);
+    assert.doesNotMatch(formatted, /hooks\/current\.cjs|scripts\/lib\/current\.cjs/);
+
+    const repository = path.join(root, 'primary repository');
+    const worktree = path.join(root, 'linked worktree project');
+    const decoy = path.join(root, 'decoy cwd');
+    const home = path.join(root, 'isolated home');
+    fs.mkdirSync(repository, { recursive: true });
+    fs.mkdirSync(decoy, { recursive: true });
+    gitRun(['init', '--initial-branch=main'], repository);
+    gitRun(['config', 'user.email', 'doctor-fixture@example.invalid'], repository);
+    gitRun(['config', 'user.name', 'Doctor Fixture'], repository);
+    write(path.join(repository, '.planning', 'config.json'), '{}\n');
+    gitRun(['add', '.planning/config.json'], repository);
+    gitRun(['commit', '-m', 'seed doctor fixture'], repository);
+    gitRun(['worktree', 'add', '-b', 'doctor-linked-fixture', worktree], repository);
+    assert.equal(fs.statSync(path.join(repository, '.git')).isDirectory(), true,
+      'primary repository does not have .git directory shape');
+    assert.equal(fs.statSync(path.join(worktree, '.git')).isFile(), true,
+      'linked worktree does not have .git file shape');
+
+    const normalReport = contract.inspectProjectInstall({
+      projectDir: repository,
+      sgsdRoot: SUPER_GSD_ROOT,
+    });
+    seedProjectInstall(normalReport);
+    const seededWorktree = contract.inspectProjectInstall({
+      projectDir: worktree,
+      sgsdRoot: SUPER_GSD_ROOT,
+    });
+    seedProjectInstall(seededWorktree);
+    const missingHook = seededWorktree.requiredFiles.find(
+      (row) => row.kind === 'hook' && row.relative_path.startsWith('hooks/'),
+    );
+    const modules = seededWorktree.requiredFiles.filter(
+      (row) => row.kind === 'module' && row.relative_path.startsWith('scripts/lib/'),
+    );
+    assert.ok(missingHook, 'fixture has no project hook row');
+    assert.ok(modules.length >= 2, 'fixture has fewer than two transitive module rows');
+    const [staleModule, currentModule] = modules;
+    fs.rmSync(missingHook.target_path);
+    fs.appendFileSync(staleModule.target_path, '\nstale doctor fixture\n');
+
+    const expected = contract.inspectProjectInstall({
+      projectDir: worktree,
+      sgsdRoot: SUPER_GSD_ROOT,
+    });
+    assert.equal(expected.missing.length, 1);
+    assert.equal(expected.stale.length, 1);
+    assert.equal(expected.missing[0].relative_path, missingHook.relative_path);
+    assert.equal(expected.stale[0].relative_path, staleModule.relative_path);
+    assert.equal(expected.current.some(
+      (row) => row.relative_path === currentModule.relative_path,
+    ), true);
+
+    const env = isolatedEnv(home);
+    const bash = process.env.SGSD_TEST_BASH || 'bash';
+    const sourceRevision = gitRun(['rev-parse', 'HEAD'], path.dirname(SUPER_GSD_ROOT));
+    const normalHead = gitRun(['rev-parse', 'HEAD'], repository);
+    const normalBefore = inventory(root);
+    const normalDoctor = run(bash, [INSTALL_PATH, '--doctor', '--project-dir', repository], {
+      cwd: decoy,
+      env,
+    });
+    if (normalDoctor.error) throw normalDoctor.error;
+    assert.equal(normalDoctor.status, 0,
+      'normal-repository doctor failed\nstdout:\n' + normalDoctor.stdout
+      + '\nstderr:\n' + normalDoctor.stderr);
+    assert.match(normalDoctor.stdout, /Project install status: current/);
+    assert.equal(normalDoctor.stdout.includes('Project git HEAD: ' + normalHead), true);
+    assert.match(normalDoctor.stdout, /SGSD GitHub master: (?:[0-9a-f]{40}|unavailable)/);
+    assert.match(normalDoctor.stdout, /Freshness: /);
+    assert.deepEqual(inventory(root), normalBefore, 'normal-repository doctor changed fixture bytes');
+
+    const before = inventory(root);
+    const firstDoctor = run(bash, [INSTALL_PATH, '--doctor', '--project-dir', worktree], {
+      cwd: decoy,
+      env,
+    });
+    if (firstDoctor.error) throw firstDoctor.error;
+    assert.equal(firstDoctor.status, 10,
+      'drifted worktree doctor exit mismatch\nstdout:\n' + firstDoctor.stdout
+      + '\nstderr:\n' + firstDoctor.stderr);
+    const linkedHead = gitRun(['rev-parse', 'HEAD'], worktree);
+    assert.equal(firstDoctor.stdout.includes('Project git HEAD: ' + linkedHead), true);
+    assert.doesNotMatch(firstDoctor.stdout, /Project git HEAD: not a git repo/);
+    assert.match(firstDoctor.stdout, /SGSD GitHub master: (?:[0-9a-f]{40}|unavailable)/);
+    assert.match(firstDoctor.stdout, /Freshness: /);
+    assert.equal(firstDoctor.stdout.includes('Canonical source revision: ' + sourceRevision), true);
+    assert.equal(firstDoctor.stdout.includes(
+      'hook path=' + missingHook.relative_path
+      + ' expected_sha256=' + missingHook.expected_sha256
+      + ' actual_sha256=<missing>',
+    ), true);
+    assert.equal(firstDoctor.stdout.includes(
+      'module path=' + staleModule.relative_path
+      + ' expected_sha256=' + staleModule.expected_sha256
+      + ' actual_sha256=' + expected.stale[0].actual_sha256,
+    ), true);
+    assert.equal(firstDoctor.stdout.includes(currentModule.relative_path), false,
+      'doctor named a current module as behind');
+    assert.deepEqual(inventory(root), before, 'linked-worktree doctor changed fixture bytes');
+
+    const conflictBefore = inventory(root);
+    const conflictingDoctor = run(bash, [
+      INSTALL_PATH, '--doctor', '--update', '--project-dir', worktree,
+    ], { cwd: decoy, env });
+    if (conflictingDoctor.error) throw conflictingDoctor.error;
+    assert.notEqual(conflictingDoctor.status, 0, 'doctor/update usage conflict was accepted');
+    assert.deepEqual(inventory(root), conflictBefore, 'doctor/update conflict changed fixture bytes');
+
+    const primaryBeforeUpdate = inventory(repository);
+    const updated = run(bash, [
+      INSTALL_PATH, '--update', '--skip-cockpit-deps', '--project-dir', worktree,
+    ], { cwd: decoy, env });
+    assertSpawn(updated, 'production worktree update failed');
+    const repaired = contract.inspectProjectInstall({
+      projectDir: worktree,
+      sgsdRoot: SUPER_GSD_ROOT,
+    });
+    assert.equal(repaired.ok, true);
+    assert.equal(repaired.requiredFiles.every(
+      (row) => row.expected_sha256 === row.actual_sha256,
+    ), true);
+    assert.deepEqual(inventory(repository), primaryBeforeUpdate,
+      'explicit worktree update changed the primary checkout');
+    assert.deepEqual(inventory(decoy), [], 'explicit worktree update changed the decoy cwd');
+
+    const finalDoctor = run(bash, [INSTALL_PATH, '--doctor', '--project-dir', worktree], {
+      cwd: decoy,
+      env,
+    });
+    assertSpawn(finalDoctor, 'current worktree doctor failed');
+    assert.match(finalDoctor.stdout, /Project install status: current/);
+    assert.match(finalDoctor.stdout, /Missing hooks: 0/);
+    assert.match(finalDoctor.stdout, /Stale hooks: 0/);
+    assert.match(finalDoctor.stdout, /Missing modules: 0/);
+    assert.match(finalDoctor.stdout, /Stale modules: 0/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
 const CASES = Object.freeze({
   'generated-transitive-manifest': generatedTransitiveManifest,
   'empty-module-tree-real-install': emptyModuleTreeRealInstall,
   'unresolved-module-refuses-before-write': unresolvedModuleRefusesBeforeWrite,
+  'doctor-real-git-worktree-staleness': doctorRealGitWorktreeStaleness,
 });
 
 async function main(argv) {

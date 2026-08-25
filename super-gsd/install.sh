@@ -353,8 +353,23 @@ doctor() {
   echo ""
   log "Doctor mode is read-only."
 
+  local install_status=2
+  local install_output=""
   if command -v node >/dev/null 2>&1; then
     log "Node.js: $(node -v)"
+    local canonical_source_revision
+    canonical_source_revision="$(git -C "$SCRIPT_DIR/.." rev-parse HEAD 2>/dev/null || true)"
+    [ -n "$canonical_source_revision" ] || canonical_source_revision="unavailable"
+    if install_output="$(node "$INSTALL_CONTRACT_SCRIPT" --format-project-status --project-dir "$PROJECT_DIR" --canonical-source-revision "$canonical_source_revision" 2>&1)"; then
+      install_status=0
+    else
+      install_status=$?
+    fi
+    printf '%s\n' "$install_output" | sed 's/^/  [super-gsd] /'
+    case "$install_status" in
+      0|10) ;;
+      *) install_status=2 ;;
+    esac
   else
     log "Node.js: missing"
   fi
@@ -385,18 +400,23 @@ doctor() {
     log "Codex CLI: missing"
   fi
 
-  if [ -d "$PROJECT_DIR/.git" ]; then
-    LOCAL_HEAD="$( ( cd "$PROJECT_DIR" && git rev-parse HEAD ) 2>/dev/null || true )"
+  if git -C "$PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    LOCAL_HEAD="$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null || true)"
     REMOTE_HEAD="$(git ls-remote https://github.com/Berrowj/super-gsd.git refs/heads/master 2>/dev/null | awk '{print $1}' || true)"
     log "Project git HEAD: ${LOCAL_HEAD:-unknown}"
     log "SGSD GitHub master: ${REMOTE_HEAD:-unavailable}"
     if [ -n "$LOCAL_HEAD" ] && [ -n "$REMOTE_HEAD" ] && [ "$LOCAL_HEAD" = "$REMOTE_HEAD" ]; then
       log "Freshness: local repo matches SGSD GitHub master"
-    elif [ -n "$REMOTE_HEAD" ]; then
+    elif [ -n "$LOCAL_HEAD" ] && [ -n "$REMOTE_HEAD" ]; then
       log "Freshness: local repo differs from SGSD GitHub master"
+    elif [ -z "$REMOTE_HEAD" ]; then
+      log "Freshness: GitHub master unavailable; local install verdict unchanged"
+    else
+      log "Freshness: local Git HEAD unavailable; local install verdict unchanged"
     fi
   else
     log "Project git HEAD: not a git repo"
+    log "Freshness: local Git comparison unavailable; local install verdict unchanged"
   fi
 
   if [ -f "$PROJECT_DIR/.planning/config.json" ]; then
@@ -412,6 +432,7 @@ doctor() {
   [ -d "$AGENTS_DIR" ] && log "Global agents dir: present ($AGENTS_DIR)" || log "Global agents dir: missing"
   [ -d "$COMMANDS_DIR" ] && log "Global commands dir: present ($COMMANDS_DIR)" || log "Global commands dir: missing"
   [ -d "$HOOKS_DIR" ] && log "Global hooks dir: present ($HOOKS_DIR)" || log "Global hooks dir: missing"
+  return "$install_status"
 }
 
 precheck_gsd_base() {
@@ -1223,6 +1244,15 @@ done
 if [ "$INSTALL_COMMIT_GATE" = true ] && [ "$UNINSTALL_COMMIT_GATE" = true ]; then
   echo "[SGSD] commit-gate installer usage_conflict: choose install or uninstall, not both" >&2
   exit 1
+fi
+
+if [ "$RUN_DOCTOR" = true ]; then
+  if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
+      || [ "$INSTALL_GLOBAL" = true ] || [ "$ENABLE_AUTOAPPROVE" = true ] \
+      || [ "$INSTALL_COMMIT_GATE" = true ] || [ "$UNINSTALL_COMMIT_GATE" = true ]; then
+    echo "ERROR: --doctor cannot be combined with a writing action" >&2
+    exit 1
+  fi
 fi
 
 if [ "$SAW_ACTION" = false ]; then

@@ -521,6 +521,7 @@ function inspectProjectInstall(options = {}) {
     throw error;
   }
   const rootByDependency = new Map();
+  const rootSources = new Set(graph.entries.map((entry) => entry.source_path));
   for (const entry of graph.entries) {
     for (const relative of entry.required_files) {
       if (!rootByDependency.has(relative)) rootByDependency.set(relative, []);
@@ -532,6 +533,7 @@ function inspectProjectInstall(options = {}) {
     try { actual = digest(fs.readFileSync(row.target_path)); } catch (_) { /* Missing target. */ }
     return {
       ...row,
+      kind: rootSources.has(row.relative_path) ? 'hook' : 'module',
       root_source_path: rootByDependency.get(row.relative_path).sort()[0],
       expected_sha256: row.sha256,
       actual_sha256: actual,
@@ -554,6 +556,7 @@ function inspectProjectInstall(options = {}) {
     ok: requiredFiles.every((row) => row.status === 'current'),
     project_dir: projectDir,
     sgsd_root: graph.sgsd_root,
+    canonical_source_revision: options.canonicalSourceRevision || null,
     graph,
     manifest_drift,
     entries: entryStatus,
@@ -562,6 +565,47 @@ function inspectProjectInstall(options = {}) {
     stale: requiredFiles.filter((row) => row.status === 'stale'),
     current: requiredFiles.filter((row) => row.status === 'current'),
   };
+}
+
+function formatProjectInstallStatus(report) {
+  if (!report || !Array.isArray(report.requiredFiles)) {
+    throw new TypeError('formatProjectInstallStatus requires an inspectProjectInstall report');
+  }
+  const rows = report.requiredFiles.map((row) => {
+    if (row.kind !== 'hook' && row.kind !== 'module') {
+      throw new TypeError('project install status row has no hook/module kind');
+    }
+    return { ...row, relative_path: posix(row.relative_path) };
+  });
+  const lines = [
+    'Project install status: ' + (report.ok ? 'current' : 'drift'),
+    'Project directory: ' + posix(path.resolve(report.project_dir)),
+    'Canonical source revision: '
+      + boundedMessage(report.canonical_source_revision || 'unavailable'),
+  ];
+  for (const [status, heading] of [
+    ['missing', 'Missing'],
+    ['stale', 'Stale'],
+  ]) {
+    for (const [kind, label] of [['hook', 'hooks'], ['module', 'modules']]) {
+      const selected = rows.filter((row) => row.status === status && row.kind === kind);
+      lines.push(heading + ' ' + label + ': ' + selected.length);
+      for (const row of selected) {
+        lines.push('  ' + kind + ' path=' + row.relative_path
+          + ' expected_sha256=' + row.expected_sha256
+          + ' actual_sha256=' + (row.actual_sha256 || '<missing>'));
+      }
+    }
+  }
+  const currentHooks = rows.filter(
+    (row) => row.status === 'current' && row.kind === 'hook',
+  ).length;
+  const currentModules = rows.filter(
+    (row) => row.status === 'current' && row.kind === 'module',
+  ).length;
+  lines.push('Current rows: hooks=' + currentHooks + ' modules=' + currentModules
+    + ' total=' + (currentHooks + currentModules) + '/' + rows.length);
+  return lines.join('\n') + '\n';
 }
 
 function copyCandidateRows(report, candidateRoot) {
@@ -833,6 +877,16 @@ async function cli(argv) {
     }
     return 0;
   }
+  if (argv.includes('--format-project-status')) {
+    const report = inspectProjectInstall({
+      sgsdRoot,
+      manifestPath,
+      projectDir,
+      canonicalSourceRevision: argValue(argv, '--canonical-source-revision') || 'unavailable',
+    });
+    process.stdout.write(formatProjectInstallStatus(report));
+    return report.ok ? 0 : 10;
+  }
   if (argv.includes('--inspect-project')) {
     const report = inspectProjectInstall({ sgsdRoot, manifestPath, projectDir });
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
@@ -857,7 +911,8 @@ async function cli(argv) {
     return 0;
   }
   process.stderr.write('Usage: hook-install-contract.cjs --check-manifest|--write-manifest'
-    + '|--prepare-candidate --project-dir DIR|--apply-candidate FILE|--inspect-project\n');
+    + '|--prepare-candidate --project-dir DIR|--apply-candidate FILE'
+    + '|--inspect-project|--format-project-status\n');
   return 64;
 }
 
@@ -884,6 +939,7 @@ module.exports = {
   applyProjectInstall,
   applyPreparedProjectInstall,
   computeHookDependencyGraph,
+  formatProjectInstallStatus,
   inspectProjectInstall,
   prepareProjectInstall,
   renderManifestDependencies,
