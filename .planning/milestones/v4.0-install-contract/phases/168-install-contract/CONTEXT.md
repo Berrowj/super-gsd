@@ -75,3 +75,25 @@ not assume the earlier "canonical master is behind" finding still holds; re-chec
 - Whether one fleet controller should span repositories, which is currently
   per-repository by design.
 - Merging `luminaria-hogback` to master.
+
+## Defect reproduced 2026-08-25, before any planning
+
+`bash super-gsd/install.sh --doctor` in this checkout prints:
+
+    [super-gsd] Project git HEAD: not a git repo
+
+This checkout is a git repository. `git rev-parse --short HEAD` returns `58ced07`.
+
+Cause: `install.sh:381` guards the freshness check with `[ -d "$PROJECT_DIR/.git" ]`.
+In a git worktree `.git` is a FILE containing a gitdir pointer, not a directory, so the
+guard is false. The whole block is skipped, including the `git ls-remote` comparison
+against SGSD GitHub master at `:383` and the `Freshness:` lines at `:387-389`.
+
+Consequence: in any worktree-based checkout, SGSD never tells the operator whether the
+repository is behind master, and reports it is not a git repository at all. This is
+precisely the "how do I know it is stale" signal the operator says is missing. The fix
+is to test `[ -e "$PROJECT_DIR/.git" ]` or to use `git rev-parse --git-dir`, but it
+belongs to this phase's plan, not to an ad-hoc patch.
+
+This defect was found by running the command rather than by reading the operator's
+paraphrase. Apply the same discipline to `/sgsd-update` before designing for it.
