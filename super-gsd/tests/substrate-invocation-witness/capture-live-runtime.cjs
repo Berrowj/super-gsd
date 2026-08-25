@@ -30,17 +30,9 @@ if (CLI_BOOTSTRAP) {
   process.exitCode = 1;
   process.once('exit', (status) => {
     let captureExitFailure = null;
-    if (status === 0 && CLI_BOOTSTRAP.captureRequested) {
-      if (!CLI_BOOTSTRAP.evidencePath || !fs.existsSync(CLI_BOOTSTRAP.evidencePath)) {
-        captureExitFailure = 'evidence_file_missing_at_exit';
-      } else {
-        try {
-          const evidence = readJson(CLI_BOOTSTRAP.evidencePath, 'evidence_json_invalid_at_exit');
-          verifyEvidence(evidence, CLI_BOOTSTRAP.projectRoot);
-        } catch (_) {
-          captureExitFailure = 'evidence_file_invalid_at_exit';
-        }
-      }
+    if (status === 0 && CLI_BOOTSTRAP.captureRequested
+        && (!CLI_BOOTSTRAP.evidencePath || !fs.existsSync(CLI_BOOTSTRAP.evidencePath))) {
+      captureExitFailure = 'evidence_file_missing_at_exit';
     }
     if (CLI_BOOTSTRAP.completed && !captureExitFailure) return;
     process.exitCode = 1;
@@ -71,6 +63,11 @@ const OVERSIZED_HIT_CHARS = 16001;
 const RETAINED_HIT_CHARS = 16000;
 const DEFAULT_TIMEOUT_MS = 300000;
 const AUTH_ENV_KEYS = Object.freeze(['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+const SECRET_AUTH_SCHEME = /\b((?:bearer|basic)\s+)[a-z0-9._~+/=-]+/gi;
+const SECRET_DIAGNOSTIC_ASSIGNMENT = /(["']?(?:ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|api[_-]?key|authorization|credential|oauth(?:_token)?|password|secret|session(?:_id)?|token)["']?\s*[:=]\s*)("(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^\s,;}\]]+)/gi;
+const SECRET_PRIVATE_KEY_BLOCK = /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?(?:-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|$)/gi;
+const SECRET_URI_CREDENTIALS = /(https?:\/\/)[^\s/@:]+(?::[^\s/@]*)?@/gi;
+const SECRET_TOKEN_SHAPE = /\b(?:(?:sk|gh[opusr]|github_pat|xox[baprs]|glpat|npm|pypi)[-_][a-z0-9._-]{12,}|AKIA[A-Z0-9]{16}|eyJ[a-z0-9_-]{8,}\.eyJ[a-z0-9_-]{8,}\.[a-z0-9_-]{12,})\b/gi;
 const FIXTURE_RELATIVE_PATH = path.join(
   'super-gsd', 'tests', 'substrate-invocation-witness', 'fixture-vtp-mcp-server.cjs',
 );
@@ -2487,8 +2484,57 @@ function verifyEvidence(evidence, projectRoot) {
 }
 
 function safeFailureReason(error) {
-  const reason = error && typeof error.message === 'string' ? error.message : 'harness_internal_error';
-  return /^[a-z0-9_:.-]+$/i.test(reason) ? reason.slice(0, 240) : 'harness_internal_error';
+  if (error instanceof HarnessFailure) return error.message;
+  const message = unexpectedFailureMessage(error);
+  const redacted = redactFailureText(message).replace(/\s*[\r\n]+\s*/g, ' | ').trim();
+  return redacted ? redacted.slice(0, 4096) : 'harness_internal_error';
+}
+
+function unexpectedFailureMessage(error) {
+  if (error && typeof error.message === 'string' && error.message.trim()) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  if (error && typeof error.name === 'string' && error.name.trim()) return error.name;
+  if (error === null || error === undefined) return '';
+  try {
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== '{}') return 'Unexpected thrown value: ' + serialized;
+  } catch (_) {}
+  try {
+    const rendered = String(error);
+    if (rendered && rendered !== '[object Object]') return 'Unexpected thrown value: ' + rendered;
+  } catch (_) {}
+  return '';
+}
+
+function redactFailureText(value) {
+  return String(value || '')
+    .replace(SECRET_PRIVATE_KEY_BLOCK, '<redacted:secret>')
+    .replace(SECRET_AUTH_SCHEME, '$1<redacted:secret>')
+    .replace(SECRET_DIAGNOSTIC_ASSIGNMENT, (_match, prefix, secretValue) => {
+      const quote = secretValue[0] === '"' || secretValue[0] === "'" ? secretValue[0] : '';
+      return prefix + quote + '<redacted:secret>' + quote;
+    })
+    .replace(SECRET_URI_CREDENTIALS, '$1<redacted:secret>@')
+    .replace(SECRET_TOKEN_SHAPE, '<redacted:secret>');
+}
+
+function unexpectedFailureStackFrames(error) {
+  if (error instanceof HarnessFailure || !error || typeof error.stack !== 'string') return [];
+  return redactFailureText(error.stack)
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((line) => line.slice(0, 4096));
+}
+
+function writeFailureDiagnostics(mode, error) {
+  const prefix = 'P167_T5_' + mode;
+  fs.writeSync(2, prefix + ' FAIL ' + safeFailureReason(error) + '\n');
+  for (const frame of unexpectedFailureStackFrames(error)) {
+    fs.writeSync(2, prefix + ' STACK ' + frame + '\n');
+  }
 }
 
 async function main(argv) {
@@ -2512,18 +2558,12 @@ async function main(argv) {
     return 0;
   } catch (error) {
     const mode = options && options.mode ? options.mode.toUpperCase() : 'HARNESS';
-    fs.writeSync(2, 'P167_T5_' + mode + ' FAIL ' + safeFailureReason(error) + '\n');
+    writeFailureDiagnostics(mode, error);
     return 1;
   }
 }
-
 module.exports = {
-  EVIDENCE_SCHEMA_VERSION,
-  captureAll,
-  collectCurrentSourceFacts,
   parseArgs,
-  parseStreamEvents,
-  verifyEvidence,
 };
 
 if (require.main === module) {
@@ -2538,6 +2578,6 @@ if (require.main === module) {
     CLI_BOOTSTRAP.completed = true;
     CLI_BOOTSTRAP.failureReported = true;
     process.exitCode = 1;
-    fs.writeSync(2, 'P167_T5_' + mode + ' FAIL ' + safeFailureReason(error) + '\n');
+    writeFailureDiagnostics(mode, error);
   });
 }

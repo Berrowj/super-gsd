@@ -11,7 +11,8 @@
 //
 // Modes:
 //   --audit        read-only, default
-//   --repair-safe install/refresh global SGSD agents + project config only
+//   --repair-safe install/refresh global SGSD agents, project config, substrate
+//                 witness source/hooks/key, brokered capability, and derived grants
 //   --repair      repair-safe plus backup project-local agent shadows
 //   --self-test   deterministic assertions
 //
@@ -29,6 +30,11 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const { mergeSettingsFiles } = require('../../scripts/merge-settings.js');
 const witnessStore = require('../../scripts/lib/substrate-invocation-witness-store.cjs');
+const {
+  enumerateHookRegistrations,
+  preflightHookDescriptors,
+  realizeRepoLocalHookOverlay,
+} = require('../../scripts/lib/hook-registration-preflight.cjs');
 
 const CODEX_HOOK_INSTALLER = path.resolve(__dirname, '..', 'codex-hooks', 'install-hooks.cjs');
 const REPO_HOOK_OVERLAY = path.resolve(__dirname, '..', '..', 'config', 'repo-settings-overlay.json');
@@ -592,6 +598,36 @@ function inProcessNodeCheck(scriptPath) {
   }
 }
 
+function repoHookSourcePath(ctx, scriptPath) {
+  const relative = path.relative(ctx.projectDir, scriptPath);
+  const segments = relative.split(path.sep);
+  if (!relative || path.isAbsolute(relative) || segments[0] === '..'
+      || segments[0].toLowerCase() !== 'super-gsd') return scriptPath;
+  return path.join(ctx.sgsdRoot, ...segments.slice(1));
+}
+
+function checkSubstrateHookRegistrations(ctx, options = {}) {
+  if (!options.repairProjectHooks) return { ok: true, reasons: [], detail: null };
+  try {
+    const overlay = JSON.parse(fs.readFileSync(REPO_HOOK_OVERLAY, 'utf8'));
+    const descriptors = enumerateHookRegistrations(realizeRepoLocalHookOverlay(overlay, ctx.projectDir));
+    preflightHookDescriptors(descriptors, {
+      isFile: (scriptPath) => {
+        const sourcePath = repoHookSourcePath(ctx, scriptPath);
+        return exists(sourcePath) && fs.statSync(sourcePath).isFile();
+      },
+      nodeCheck: (scriptPath) => inProcessNodeCheck(repoHookSourcePath(ctx, scriptPath)),
+    });
+    return { ok: true, reasons: [], detail: null };
+  } catch (error) {
+    return {
+      ok: false,
+      reasons: ['hook_registration_preflight_failed'],
+      detail: error && error.message ? error.message : 'unknown',
+    };
+  }
+}
+
 function removeGlobalWitnessRegistrations(actions) {
   const settingsPath = path.join(homeDir(), '.claude', 'settings.json');
   const settings = readJson(settingsPath);
@@ -634,6 +670,15 @@ function smokeRepoHookOverlay(ctx) {
 }
 
 function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
+  const registrationCheck = options.registrationCheck
+    || checkSubstrateHookRegistrations(ctx, options);
+  if (!registrationCheck.ok) {
+    return {
+      ok: false,
+      reasons: ['witness_repair_failed'],
+      detail: registrationCheck.detail,
+    };
+  }
   try {
     installSubstrateRuntime(ctx, actions);
     const key = witnessStore.provisionWitnessKey(ctx.projectDir, process.env);
@@ -1308,9 +1353,16 @@ function runAudit(opts) {
   const repairMode = opts && opts.repair === true;
   const safeRepair = repairMode || (opts && opts.repairSafe === true);
   const substrateRepair = opts && opts.repairSubstrateCapability === true;
-  const repairCapability = safeRepair || substrateRepair;
+  const requestedCapabilityRepair = safeRepair || substrateRepair;
+  const registrationCheck = requestedCapabilityRepair
+    ? checkSubstrateHookRegistrations(ctx, {
+      repairProjectHooks: opts && opts.repairProjectHooks === true,
+    })
+    : { ok: true, reasons: [], detail: null };
+  const repairCapability = requestedCapabilityRepair && registrationCheck.ok;
   const allowGlobalRepair = safeRepair || (opts && opts.allowGlobalRepair === true);
-  const repairGlobalAgents = safeRepair || (substrateRepair && allowGlobalRepair);
+  const repairGlobalAgents = registrationCheck.ok
+    && (safeRepair || (substrateRepair && allowGlobalRepair));
 
   let repairedGlobalAgents = [];
   let repairedGlobalSkills = [];
@@ -1319,13 +1371,18 @@ function runAudit(opts) {
     repairedGlobalAgents = installGlobalSgsdAgents(ctx, actions, false, SUBSTRATE_GLOBAL_AGENT_NAMES);
     repairedLegacyAgents = installGlobalLegacyAgentPatches(ctx, actions, false, SUBSTRATE_LEGACY_AGENT_NAMES);
   }
-  let witnessRepair = { ok: true, reasons: [] };
+  let witnessRepair = registrationCheck.ok ? { ok: true, reasons: [] } : {
+    ok: false,
+    reasons: ['witness_repair_failed'],
+    detail: registrationCheck.detail,
+  };
   let capabilityRepair = { ok: true, reasons: [] };
   let claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
   if (repairCapability) {
     witnessRepair = repairClaudeSubstrateWitness(ctx, actions, {
       allowGlobalRepair,
       repairProjectHooks: opts && opts.repairProjectHooks === true,
+      registrationCheck,
     });
   }
   claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
@@ -1580,6 +1637,14 @@ function main(argv) {
     return;
   }
   const projectDir = argValue(args, '--project-dir') || process.cwd();
+  if (args.indexOf('--check-substrate-capability') !== -1) {
+    const result = checkSubstrateHookRegistrations(mkContext(projectDir), {
+      repairProjectHooks: args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1,
+    });
+    if (!result.ok && result.detail) process.stdout.write(result.detail + '\n');
+    process.exit(result.ok ? 0 : 2);
+    return;
+  }
   if (args.indexOf('--repair-substrate-capability') !== -1) {
     const snap = runAudit({
       projectDir,
@@ -1640,6 +1705,7 @@ module.exports = {
     auditCodexHooks,
     auditClaudeSubstrateWitness,
     auditClaudeSubstrateCapability,
+    checkSubstrateHookRegistrations,
     repairClaudeSubstrateWitness,
     repairClaudeSubstrateCapability,
     setFrontmatterTool,

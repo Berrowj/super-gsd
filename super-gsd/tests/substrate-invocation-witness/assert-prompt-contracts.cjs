@@ -99,12 +99,10 @@ function assertFailClosedContract(surface) {
   assert.match(body, /Do not summarise it, quote it, persist it, or\s+retry it/);
   assert.match(body, /post-call acceptance\s+both succeed/);
   assert.match(body, /hook-authored degradation_notes/);
-  assert.match(body, /Never cap or truncate raw response text in this prompt; T1 PostToolUse alone enforces the pre-model boundary/);
   assert.match(body, /does not prevent a same-user\s+actor from writing a different prompt, registration, or direct upstream call/);
   assert.doesNotMatch(ownedText, /\bsource_types\b/);
   assert.doesNotMatch(ownedText, /\blimit\b/);
   assert.doesNotMatch(ownedText, /\btool_use_id\b/);
-  assert.doesNotMatch(body, /truncate it in memory|first 16000 JavaScript characters|capSubstrateResponse/);
 }
 
 function loadCanonicalSurface(spec) {

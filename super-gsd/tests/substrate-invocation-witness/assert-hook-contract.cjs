@@ -656,7 +656,7 @@ function defineHookTests() {
     assert.strictEqual(JSON.stringify(rewritten.envelope).includes(rawMarker), false);
   });
 
-  test('PostToolUse passes unparseable MCP output through untouched and signs the terminal state', () => {
+  test('PostToolUse replaces unparseable MCP output with bounded failure', () => {
     const beforeSpool = new Set(spoolFiles());
     const pre = hookPayload('PreToolUse', 'malformed-response');
     hook.processHookPayload(pre, { env: fixture.env });
@@ -668,24 +668,16 @@ function defineHookTests() {
       hook_event_name: 'PostToolUse',
       tool_response: original,
     }, { env: fixture.env });
-    assert.strictEqual(result, null);
+    const rewritten = replacementDomain(result);
+    assert.strictEqual(rewritten.domain.reason, 'substrate_witness_rewrite_failed:malformed_response');
+    assert.strictEqual(JSON.stringify(rewritten.envelope).includes(rawMarker), false);
     assert.strictEqual(JSON.stringify(original), before);
-    const conditionPath = path.join(
-      fixture.project,
-      '.planning',
-      'metrics',
-      'substrate-invocation-witness-posttool.jsonl',
-    );
-    assert.strictEqual(fs.existsSync(conditionPath), false);
     const created = spoolFiles().filter((file) => !beforeSpool.has(file));
     assert.strictEqual(created.length, 1);
     const row = JSON.parse(fs.readFileSync(created[0], 'utf8'));
-    assert.strictEqual(row.state, 'post_passthrough');
-    assert.strictEqual(typeof row.passthrough_at, 'number');
-    assert.deepStrictEqual(row.passthrough, {
-      reason: 'malformed_response',
-      response_sha256: sha256(Buffer.from(JSON.stringify(original), 'utf8')),
-    });
+    assert.strictEqual(row.state, 'pre_allowed');
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(row, 'passthrough_at'), false);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(row, 'passthrough'), false);
     assert.strictEqual(row.rewritten_at, null);
     assert.strictEqual(row.rewrite, null);
     assert.throws(() => store.consumeRewrittenWitness({
@@ -694,6 +686,26 @@ function defineHookTests() {
       sessionId: pre.session_id,
       payloadDigest: composer.substratePayloadDigest(pre.tool_input),
     }), /substrate_witness_not_rewritten/);
+  });
+
+  test('PostToolUse replaces a capping failure without exposing raw output', () => {
+    const pre = hookPayload('PreToolUse', 'capping-failure');
+    hook.processHookPayload(pre, { env: fixture.env });
+    const rawMarker = 'RAW_CAPPING_FAILURE_MARKER';
+    const originalCap = composer.capSubstrateResponse;
+    composer.capSubstrateResponse = () => { throw new Error('fixture_cap_failed'); };
+    try {
+      const result = hook.processHookPayload({
+        ...pre,
+        hook_event_name: 'PostToolUse',
+        tool_response: mcpEnvelope({ hits: [{ text: rawMarker }] }),
+      }, { env: fixture.env });
+      const rewritten = replacementDomain(result);
+      assert.strictEqual(rewritten.domain.reason, 'substrate_witness_rewrite_failed:state_transition_failed');
+      assert.strictEqual(JSON.stringify(rewritten.envelope).includes(rawMarker), false);
+    } finally {
+      composer.capSubstrateResponse = originalCap;
+    }
   });
 
   test('PostToolUse exposes no response-shape diagnostic surface', () => {

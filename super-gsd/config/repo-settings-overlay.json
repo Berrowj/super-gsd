@@ -5,7 +5,7 @@
       {
         "sgsd_managed": true,
         "sgsd_hook_id": "pre-tool-use-substrate-invocation-witness",
-        "sgsd_source_sha256": "85fb7355fe6b435913373a51ad7422745d4f188b43be7d013f2ded7d04e063a5",
+        "sgsd_source_sha256": "5640a8ed92467cde81c80b95b747f3dd55285c2bdc338e26dc1c353db1fc1642",
         "matcher": "mcp__vtp-kb__vtp_search_substrate",
         "hooks": [{
           "type": "command",
@@ -61,7 +61,7 @@
       {
         "sgsd_managed": true,
         "sgsd_hook_id": "post-tool-use-substrate-invocation-witness",
-        "sgsd_source_sha256": "85fb7355fe6b435913373a51ad7422745d4f188b43be7d013f2ded7d04e063a5",
+        "sgsd_source_sha256": "5640a8ed92467cde81c80b95b747f3dd55285c2bdc338e26dc1c353db1fc1642",
         "matcher": "mcp__vtp-kb__vtp_search_substrate",
         "hooks": [{
           "type": "command",

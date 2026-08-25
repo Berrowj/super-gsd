@@ -1121,6 +1121,45 @@ function runPreflightStatic() {
   assert.deepEqual(operatorRowsBytes(globalSettings), globalOperatorBefore, 'global operator rows changed during coverage lookup');
   assert.equal(JSON.stringify(covered).includes('operator-pathological'), false, 'operator row was mentioned by preflight');
   assert.equal(JSON.stringify(covered).includes('operator garbage command'), false, 'pathological operator row was mentioned by preflight');
+
+  const audit = require(path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs'));
+  assert.equal(
+    typeof audit._internals.checkSubstrateHookRegistrations,
+    'function',
+    'feature propagation audit lacks the shared non-mutating substrate registration check',
+  );
+  const fixture = createFixture('substrate-precheck');
+  try {
+    retainClarityNine(fixture.vendoredRoot);
+    const snapshot = () => relativeFiles(fixture.root).map((relative) => [
+      relative,
+      sha256(readBytes(path.join(fixture.root, relative))),
+    ]);
+    const before = snapshot();
+    const result = audit._internals.checkSubstrateHookRegistrations({
+      projectDir: fixture.projectRoot,
+      sgsdRoot: fixture.vendoredRoot,
+    }, { repairProjectHooks: true });
+    const expectedLines = REPO_REGISTRATIONS
+      .filter(([, hookId]) => hookId !== 'session-start-governance')
+      .map(([event, hookId, relative]) => (
+        `hook_registration_missing ${path.resolve(fixture.projectRoot, relative)} [${event}/${hookId}]`
+      ));
+    assert.equal(result.ok, false, 'incomplete substrate registration sources passed the read-only check');
+    assert.deepEqual(result.detail.split(/\r?\n/), expectedLines, 'read-only check did not return the complete refusal set');
+    assert.deepEqual(snapshot(), before, 'read-only substrate registration check mutated its fixture');
+    const repairActions = [];
+    const repair = audit._internals.repairClaudeSubstrateWitness({
+      projectDir: fixture.projectRoot,
+      sgsdRoot: fixture.vendoredRoot,
+    }, repairActions, { repairProjectHooks: true });
+    assert.equal(repair.ok, false, 'repair path bypassed the shared registration refusal');
+    assert.deepEqual(repair.detail.split(/\r?\n/), expectedLines, 'repair and read-only checks disagreed');
+    assert.deepEqual(repairActions, [], 'repair mutated capability state after the shared refusal was known');
+    assert.deepEqual(snapshot(), before, 'repair path mutated its fixture after the shared refusal was known');
+  } finally {
+    removeFixture(fixture);
+  }
 }
 
 function realizeGlobalOverlayForStatic(value, hooksRoot) {
@@ -1177,19 +1216,27 @@ function assertInstallerSmokeOrder(installer) {
   const repoDistribution = installer.indexOf(projectHookBatch, distributionFunction);
   const codexDistribution = installer.indexOf('$PROJECT_DIR/super-gsd/tools/codex-hooks/$name', distributionFunction);
   const codexMissingRefusal = installer.indexOf('hook_registration_missing $missing_target', codexDistribution);
+  const substratePrecheckFunction = installer.indexOf('precheck_substrate_capability()');
   assert.ok(distributionFunction >= 0 && distributionFunction < repoDistribution, 'repo regular-file hook distribution is missing');
   assert.ok(repoDistribution < codexDistribution, 'Codex entries are copied before the repo hook inventory');
   assert.ok(codexDistribution < codexMissingRefusal, 'Codex distribution refusal does not name missing targets');
+  assert.ok(substratePrecheckFunction >= 0, 'installer lacks a non-mutating substrate capability pre-check');
+  assert.doesNotMatch(
+    installer,
+    /CODEX_HOOK_DISTRIBUTION_INCOMPLETE/,
+    'installer retained deferred Codex refusal state across the mutating repair boundary',
+  );
   assert.doesNotMatch(installer, /register_repo_local_hooks/, 'installer retained a second repo settings merge path');
   for (const functionName of ['init_local_project()', 'update_existing()']) {
     const functionStart = installer.indexOf(functionName);
     const distributionCall = installer.indexOf('  distribute_project_hooks', functionStart);
+    const precheckCall = installer.indexOf('  precheck_substrate_capability', functionStart);
     const repairCall = installer.indexOf('  repair_substrate_capability', functionStart);
     const codexCall = installer.indexOf('  register_codex_hooks', functionStart);
     assert.ok(
       functionStart >= 0 && functionStart < distributionCall
-        && distributionCall < repairCall && repairCall < codexCall,
-      `${functionName} does not perform one distribution and repair before Codex registration`,
+        && distributionCall < precheckCall && precheckCall < repairCall && repairCall < codexCall,
+      `${functionName} does not pre-check all refusals between distribution and mutating repair`,
     );
   }
   assert.doesNotMatch(
@@ -1375,7 +1422,8 @@ async function runSmokeStatic() {
   assert.equal(maxActive, SMOKE_CONCURRENCY, 'hook smoke did not exercise four-way bounded concurrency');
   assert.equal(calls.length, descriptors.length, 'a deployed descriptor was skipped or spawned twice');
   descriptors.forEach((descriptor) => {
-    const call = calls.find((candidate) => candidate.args[0] === descriptor.scriptPath);
+    const call = calls.find((candidate) => candidate.args[0] === descriptor.scriptPath
+      && JSON.parse(candidate.input).hook_event_name === descriptor.event);
     assert.ok(call, `hook smoke omitted ${descriptor.scriptPath}`);
     const payload = JSON.parse(call.input);
     assert.equal(call.command, descriptor.interpreter === 'node' ? 'fixture-node' : 'fixture-bash');
@@ -1669,7 +1717,9 @@ function commitClarityUpdateSource(seedRoot, missingRows) {
     'sgsd-intent-classifier.cjs',
     'sgsd-quality-gate.js',
   ]);
-  for (const [, , relative] of missingRows) fs.rmSync(path.join(seedRoot, relative));
+  for (const relative of new Set(missingRows.map(([, , item]) => item))) {
+    fs.rmSync(path.join(seedRoot, relative));
+  }
   fs.chmodSync(path.join(seedSuperGsd, 'install.sh'), 0o755);
   fs.chmodSync(path.join(seedSuperGsd, 'scripts', 'sgsd-update.sh'), 0o755);
 
@@ -1688,6 +1738,7 @@ function commitClarityUpdateSource(seedRoot, missingRows) {
     path.join('hooks', 'sgsd-session-start.js'),
     path.join('hooks', 'sgsd-intent-classifier.cjs'),
     path.join('hooks', 'sgsd-quality-gate.js'),
+    path.join('hooks', 'sgsd-substrate-invocation-witness.cjs'),
     path.join('tools', 'codex-hooks', 'block-secret-leak.cjs'),
   ]) {
     const target = path.join(seedSuperGsd, relative);

@@ -309,20 +309,8 @@ function runStdio(env = process.env) {
   });
   return 0;
 }
-
 module.exports = {
-  FIXTURE_SCHEMA_VERSION,
-  OVERSIZED_HIT_CHARS,
-  RETAINED_HIT_CHARS,
-  SERVER_NAME,
-  TOOL_NAME,
   buildDomainResult,
-  buildToolResult,
-  createLineRouter,
-  handleMessage,
-  loadConfiguration,
-  makeOversizedText,
-  payloadDigest,
 };
 
 if (require.main === module) process.exitCode = runStdio(process.env);

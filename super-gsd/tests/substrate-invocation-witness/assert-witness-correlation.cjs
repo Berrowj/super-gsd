@@ -417,11 +417,11 @@ test('preserves P166 rejection order and does not consume on forged records', ()
   assert.strictEqual(accept(envelope, { sessionId }).ok, true);
 });
 
-test('rejects an unchanged PostToolUse passthrough as not rewritten', () => {
-  const envelope = prepared('P167 passthrough is not rewrite evidence');
-  const sessionId = 'session-passthrough';
-  const prePayload = seedPre(envelope, { id: 'passthrough', sessionId });
-  const passthrough = hook.processHookPayload({
+test('rejects a bounded PostToolUse failure as not rewritten', () => {
+  const envelope = prepared('P167 bounded failure is not rewrite evidence');
+  const sessionId = 'session-bounded-failure';
+  const prePayload = seedPre(envelope, { id: 'bounded-failure', sessionId });
+  const boundedFailure = hook.processHookPayload({
     ...prePayload,
     hook_event_name: 'PostToolUse',
     tool_response: [{ type: 'text', text: 'upstream status text' }],
@@ -429,7 +429,12 @@ test('rejects an unchanged PostToolUse passthrough as not rewritten', () => {
     env: fixture.env,
     expectedEvent: 'PostToolUse',
   });
-  assert.strictEqual(passthrough, null);
+  const replacement = boundedFailure.hookSpecificOutput.updatedMCPToolOutput;
+  assert.strictEqual(replacement.isError, true);
+  assert.deepStrictEqual(JSON.parse(replacement.content[0].text), {
+    ok: false,
+    reason: 'substrate_witness_rewrite_failed:malformed_response',
+  });
   assert.throws(
     () => accept(envelope, { sessionId }),
     /vtp_prompt_substrate_contract_invalid:substrate_witness_not_rewritten/,

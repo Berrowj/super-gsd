@@ -449,6 +449,19 @@ repair_substrate_capability() {
   [ "$INIT_LOCAL" = true ] && repair_args+=(--init-local)
   [ "$UPDATE_MODE" = true ] && repair_args+=(--update)
   if ! repair_output="$(node "$audit_script" "${repair_args[@]}" 2>&1)"; then
+    local repair_detail
+    repair_detail="$(printf '%s\n' "$repair_output" | node -e '
+let input = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => { input += chunk; });
+process.stdin.on("end", () => {
+  try {
+    const parsed = JSON.parse(input);
+    if (parsed && typeof parsed.detail === "string") process.stdout.write(parsed.detail);
+  } catch (_) {}
+});
+')" || repair_detail=""
+    [ -z "$repair_detail" ] || printf '%s\n' "$repair_detail" | sed 's/^/  /' >&2
     [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /' >&2
     echo "ERROR: substrate enforcement was not current; refusing grant-bearing agent installation" >&2
     return 1
@@ -720,14 +733,41 @@ $target_entry"
     CODEX_HOOK_COUNT=$((CODEX_HOOK_COUNT + 1))
   done <<< "$CODEX_ENTRY_NAMES"
   copy_files_to_root "$PROJECT_DIR/super-gsd/tools/codex-hooks" "${codex_entry_sources[@]}"
+  log "  $PROJECT_HOOK_COUNT Claude hooks and $CODEX_HOOK_COUNT Codex entries distributed"
+}
+
+precheck_substrate_capability() {
+  local audit_script="$SCRIPT_DIR/tools/feature-propagation/audit.cjs"
+  local precheck_output=""
+  local precheck_failed=false
+  if [[ ! -f "$audit_script" ]]; then
+    precheck_failed=true
+    precheck_output="ERROR: substrate capability audit missing: $audit_script"
+  elif ! command -v node >/dev/null 2>&1; then
+    precheck_failed=true
+    precheck_output="ERROR: Node.js is required to check the substrate witness capability"
+  else
+    local -a precheck_args=(--check-substrate-capability --project-dir "$PROJECT_DIR")
+    [[ "$INIT_LOCAL" == true ]] && precheck_args+=(--init-local)
+    [[ "$UPDATE_MODE" == true ]] && precheck_args+=(--update)
+    if ! precheck_output="$(node "$audit_script" "${precheck_args[@]}" 2>&1)"; then
+      precheck_failed=true
+    fi
+  fi
+
+  local refused=false
   if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
     while IFS= read -r missing_target; do
       [[ -n "$missing_target" ]] || continue
       printf '%s\n' "hook_registration_missing $missing_target [Codex/project-entry]" >&2
     done <<< "$CODEX_HOOK_MISSING_TARGETS"
-    exit 1
+    refused=true
   fi
-  log "  $PROJECT_HOOK_COUNT Claude hooks and $CODEX_HOOK_COUNT Codex entries distributed"
+  if [[ "$precheck_failed" == true ]]; then
+    [[ -z "$precheck_output" ]] || printf '%s\n' "$precheck_output" >&2
+    refused=true
+  fi
+  [[ "$refused" == false ]] || exit 1
 }
 
 preflight_existing_repo_local_hooks() {
@@ -877,6 +917,7 @@ init_local_project() {
 
   ensure_memory_tree
   distribute_project_hooks
+  precheck_substrate_capability
   repair_substrate_capability
   register_codex_hooks
 
@@ -975,6 +1016,7 @@ update_existing() {
   # ensure_memory_tree is idempotent; existing entries are left untouched.
   ensure_memory_tree
   distribute_project_hooks
+  precheck_substrate_capability
   repair_substrate_capability
   register_codex_hooks
 
