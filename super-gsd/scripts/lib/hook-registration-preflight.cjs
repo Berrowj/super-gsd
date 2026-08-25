@@ -10,6 +10,7 @@ const CHECK_TIMEOUT_MS = 5_000;
 const SMOKE_TIMEOUT_FLOOR_MS = 15_000;
 const SMOKE_TIMEOUT_MS = SMOKE_TIMEOUT_FLOOR_MS;
 const SMOKE_CONCURRENCY = 4;
+const SMOKE_OUTPUT_MAX_BYTES = 8192;
 const SMOKE_MANIFEST_MODE = '--smoke-manifest';
 const SMOKE_REPO_OVERLAY_MODE = '--smoke-repo-overlay';
 const PREFLIGHT_PROJECT_SETTINGS_MODE = '--preflight-project-settings';
@@ -48,7 +49,7 @@ function boundedLine(value, maxBytes = 2048) {
 }
 
 function boundedText(value, maxBytes) {
-  const bytes = Buffer.from(String(value || ''), 'utf8');
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(String(value || ''), 'utf8');
   if (bytes.length <= maxBytes) return bytes.toString('utf8');
   return bytes.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
 }
@@ -640,11 +641,35 @@ function spawnSmokeHook(descriptor, options) {
   return new Promise((resolve) => {
     let child;
     let settled = false;
-    let output = '';
+    const outputChunks = [];
+    let outputByteLength = 0;
+    let outputTruncated = false;
+    const captureOutput = (chunk) => {
+      if (outputTruncated) return;
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk || ''), 'utf8');
+      if (bytes.length === 0) return;
+      const remaining = SMOKE_OUTPUT_MAX_BYTES - outputByteLength;
+      if (bytes.length <= remaining) {
+        outputChunks.push(bytes);
+        outputByteLength += bytes.length;
+        return;
+      }
+      outputTruncated = true;
+      const retained = bytes.subarray(0, remaining + 1);
+      outputChunks.push(retained);
+      outputByteLength += retained.length;
+    };
     const finish = (passed, launchError = null, status = null, signal = null) => {
       if (settled) return;
       settled = true;
-      resolve({ passed, output: boundedText(output, 8192), launchError, status, signal });
+      resolve({
+        passed,
+        output: boundedText(Buffer.concat(outputChunks, outputByteLength), SMOKE_OUTPUT_MAX_BYTES),
+        outputTruncated,
+        launchError,
+        status,
+        signal,
+      });
     };
     try {
       child = spawnProcess(
@@ -660,10 +685,10 @@ function spawnSmokeHook(descriptor, options) {
         },
       );
       if (child.stdout && typeof child.stdout.on === 'function') {
-        child.stdout.on('data', (chunk) => { if (output.length < 8192) output += chunk; });
+        child.stdout.on('data', captureOutput);
       }
       if (child.stderr && typeof child.stderr.on === 'function') {
-        child.stderr.on('data', (chunk) => { if (output.length < 8192) output += chunk; });
+        child.stderr.on('data', captureOutput);
       }
       child.once('error', (error) => finish(false, error));
       child.once('close', (status, signal) => (
@@ -736,6 +761,7 @@ async function smokeHookRegistrations(descriptors, adapters = {}) {
       });
       if (detail.code === 'MODULE_NOT_FOUND') return detail;
       if (!result.launchError && !result.signal && result.status !== null
+        && !result.outputTruncated
         && isCleanPolicyDecision(raw)) {
         return null;
       }
@@ -831,6 +857,7 @@ if (require.main === module) {
 module.exports = {
   CHECK_TIMEOUT_MS,
   SMOKE_CONCURRENCY,
+  SMOKE_OUTPUT_MAX_BYTES,
   SMOKE_TIMEOUT_FLOOR_MS,
   SMOKE_TIMEOUT_MS,
   HookRegistrationPreflightError,

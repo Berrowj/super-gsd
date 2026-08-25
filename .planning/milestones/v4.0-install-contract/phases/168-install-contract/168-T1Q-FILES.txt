@@ -1,0 +1,2 @@
+super-gsd/scripts/lib/hook-registration-preflight.cjs
+super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs

@@ -1712,8 +1712,12 @@ function fakeSmokeChild(onInput, result, onComplete = () => {}) {
     end(input) {
       onInput(input);
       setImmediate(() => {
-        if (result.stdout) child.stdout.emit('data', result.stdout);
-        if (result.stderr) child.stderr.emit('data', result.stderr);
+        for (const chunk of Array.isArray(result.stdout) ? result.stdout : [result.stdout]) {
+          if (chunk) child.stdout.emit('data', chunk);
+        }
+        for (const chunk of Array.isArray(result.stderr) ? result.stderr : [result.stderr]) {
+          if (chunk) child.stderr.emit('data', chunk);
+        }
         onComplete();
         if (result.error) child.emit('error', result.error);
         else child.emit('close', result.status, result.signal || null);
@@ -1723,7 +1727,13 @@ function fakeSmokeChild(onInput, result, onComplete = () => {}) {
   return child;
 }
 
-async function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookRegistrations) {
+async function assertSmokeFailures(
+  descriptor,
+  smokeCwd,
+  smokeHome,
+  smokeHookRegistrations,
+  smokeOutputMaxBytes,
+) {
   for (const failedResult of [
     { error: Object.assign(new Error('do-not-leak-spawn'), { code: 'EPERM' }), status: null },
     { signal: 'SIGTERM', status: null, stderr: 'do-not-leak-signal' },
@@ -1793,6 +1803,62 @@ async function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookReg
     'tainted policy refusal disclosed a stack frame',
   );
 
+  assert.equal(
+    Number.isSafeInteger(smokeOutputMaxBytes) && smokeOutputMaxBytes > 0,
+    true,
+    'smoke output boundary test is not driven by the production capture limit',
+  );
+  const policyPrefix = '[validate-stop-contract] blocked: missing_report ';
+  const policyPrefixBytes = Buffer.byteLength(policyPrefix, 'utf8');
+  assert.ok(policyPrefixBytes < smokeOutputMaxBytes, 'policy prefix does not fit inside smoke capture');
+  const splitPolicyText = policyPrefix
+    + 'x'.repeat(smokeOutputMaxBytes - policyPrefixBytes - Buffer.byteLength('é') - 1)
+    + 'é\n';
+  const splitPolicyBytes = Buffer.from(splitPolicyText, 'utf8');
+  assert.equal(
+    splitPolicyBytes.length,
+    smokeOutputMaxBytes,
+    'split UTF-8 fixture is not exactly the production smoke capture limit',
+  );
+  const splitPolicyDecision = await smokeHookRegistrations([descriptor], smokeAdapters({
+    cwd: smokeCwd,
+    home: smokeHome,
+    spawn: () => fakeSmokeChild(() => {}, {
+      status: 1,
+      stderr: [
+        splitPolicyBytes.subarray(0, splitPolicyBytes.length - 2),
+        splitPolicyBytes.subarray(splitPolicyBytes.length - 2, splitPolicyBytes.length - 1),
+        splitPolicyBytes.subarray(splitPolicyBytes.length - 1),
+      ],
+    }),
+  }));
+  assert.deepEqual(
+    splitPolicyDecision,
+    [descriptor],
+    'complete policy output was falsely marked truncated at a split UTF-8 boundary',
+  );
+  const clippedPolicyPrefix = policyPrefix + 'x'.repeat(smokeOutputMaxBytes - policyPrefixBytes);
+  assert.equal(
+    Buffer.byteLength(clippedPolicyPrefix, 'utf8'),
+    smokeOutputMaxBytes,
+    'boundary fixture does not place the load failure immediately beyond smoke capture',
+  );
+  let truncatedPolicyError;
+  try {
+    await smokeHookRegistrations([descriptor], smokeAdapters({
+      cwd: smokeCwd,
+      home: smokeHome,
+      spawn: () => fakeSmokeChild(() => {}, {
+        status: 1,
+        stderr: clippedPolicyPrefix + '\nError: failed to load beyond capture\n',
+      }),
+    }));
+  } catch (error) {
+    truncatedPolicyError = error;
+  }
+  assert.ok(truncatedPolicyError, 'truncated policy output did not refuse installation');
+  assert.equal(truncatedPolicyError.underlyingError.code, 'HOOK_PROCESS_FAILED');
+
   let moduleError;
   try {
     await smokeHookRegistrations([descriptor], smokeAdapters({
@@ -1826,6 +1892,7 @@ async function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookReg
 async function runSmokeStatic() {
   const {
     SMOKE_CONCURRENCY,
+    SMOKE_OUTPUT_MAX_BYTES,
     SMOKE_TIMEOUT_FLOOR_MS,
     SMOKE_TIMEOUT_MS,
     enumerateHookRegistrations,
@@ -1963,7 +2030,13 @@ async function runSmokeStatic() {
     }
   });
 
-  await assertSmokeFailures(repoDescriptors[0], smokeCwd, smokeHome, smokeHookRegistrations);
+  await assertSmokeFailures(
+    repoDescriptors[0],
+    smokeCwd,
+    smokeHome,
+    smokeHookRegistrations,
+    SMOKE_OUTPUT_MAX_BYTES,
+  );
 }
 
 function runVendoredNineHook() {
