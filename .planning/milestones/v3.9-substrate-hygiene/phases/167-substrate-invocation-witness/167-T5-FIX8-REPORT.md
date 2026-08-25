@@ -8,9 +8,9 @@ node super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs --cap
 
 It will print `PROGRESS: actual_post_tool_response_shape=<redacted-shape>`. Return that line for the parser and passthrough repair. The capture is expected to remain red at the existing valid-result assertion.
 
-FILES_CHANGED: [super-gsd/hooks/sgsd-substrate-invocation-witness.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/hooks/sgsd-substrate-invocation-witness.cjs) (modified)  
-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs) (modified)  
-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs) (modified)  
+FILES_CHANGED: [super-gsd/hooks/sgsd-substrate-invocation-witness.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/hooks/sgsd-substrate-invocation-witness.cjs) (modified)  
+FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs) (modified)  
+FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs) (modified)  
 VERIFICATION: `node super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs` -> exit 0, baseline 34/34  
 VERIFICATION: `node super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs` -> exit 1, expected RED: descriptor missing  
 VERIFICATION: `node --check super-gsd/hooks/sgsd-substrate-invocation-witness.cjs` -> exit 0  

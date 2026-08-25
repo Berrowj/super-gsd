@@ -1,4 +1,4 @@
-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs:100) (modified)
+FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs:100) (modified)
 
 VERIFICATION: PowerShell exact-event seeded hook smoke, six overlay descriptors -> exit 0  
 VERIFICATION: seeded repair continuation -> exit 0 (`witness_status=current`, `capability_status=current`, `substrate_granted=true`)  

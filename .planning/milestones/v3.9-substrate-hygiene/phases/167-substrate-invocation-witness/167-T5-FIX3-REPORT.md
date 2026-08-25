@@ -1,4 +1,4 @@
-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs:157) (modified)
+FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs:157) (modified)
 
 VERIFICATION: payload-contract RED probe -> exit 1, `exact_digest_contract_mode_missing`  
 VERIFICATION: `node --check super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs` -> exit 0  
@@ -16,4 +16,4 @@ DEVIATIONS: Semantic-only equality was not adopted. Exact serialization digest i
 
 BLOCKERS: none
 
-ONE_LINER: Git Bash resolved `env` to `C:\Users\jack.berrow\.local\bin\env`, a shell initialization snippet that ignores its arguments and exits 0, so Node never launched and no output streams were destroyed.
+ONE_LINER: Git Bash resolved `env` to `<HOME>\.local\bin\env`, a shell initialization snippet that ignores its arguments and exits 0, so Node never launched and no output streams were destroyed.

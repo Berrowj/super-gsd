@@ -1,7 +1,7 @@
 PROGRESS: instrumentation FINISH PASS  
 PROGRESS: root_cause_capture BLOCKED ORCHESTRATOR_REQUIRED
 
-Added failure-only fd 2 diagnostics to [capture-live-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs). It now prints redacted expected/actual payloads, key/type/digest comparison, and fixture rows.
+Added failure-only fd 2 diagnostics to [capture-live-runtime.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs). It now prints redacted expected/actual payloads, key/type/digest comparison, and fixture rows.
 
 Active-path and absent-guard assertions were untouched. No evidence file was fabricated. No commit was made.
 

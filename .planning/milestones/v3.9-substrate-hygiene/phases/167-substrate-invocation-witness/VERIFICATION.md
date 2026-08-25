@@ -25,7 +25,7 @@ The bypass is explicitly recorded as `bypass_succeeded`: both paths reached the 
 --- codex stderr ---
 OpenAI Codex v0.146.0
 --------
-workdir: C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+workdir: <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 model: gpt-5.6-sol
 provider: openai
 approval: never
@@ -125,7 +125,7 @@ Max 300 words after the contract lines.
 codex
 I’m treating this as a goal-backward phase audit, not a code review. I’m first applying the mandatory `using-superpowers` workflow, then I’ll anchor the verdict in canonical P167 state, the locked plan, the full phase diff, live evidence, and shipped tests/propagation paths.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\using-superpowers\\SKILL.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\operator\\.codex\\skills\\using-superpowers\\SKILL.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1038ms:
 ---
 name: using-superpowers
@@ -245,20 +245,20 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -267,7 +267,7 @@ At line:1 char:1
 codex
 The startup workflow’s Codex mapping is relevant here, so I’m loading that referenced instruction before examining phase artifacts. No implementation-oriented skill applies: the requested work is strictly read-only, and the dedicated SGSD skills cover status, release, cockpit, tokens, or gate-failure triage—not goal-backward phase verification.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\using-superpowers\\references\\codex-tools.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\operator\\.codex\\skills\\using-superpowers\\references\\codex-tools.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1025ms:
 # Codex Tool Mapping
 
@@ -329,20 +329,20 @@ the user to use the App's native controls:
 The agent can still run tests, stage files, and output suggested branch
 names, commit messages, and PR descriptions for the user to copy.
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -353,7 +353,7 @@ At line:1 char:1
   • Audit live-runtime denial, result capping/preservation, hook absence, and bypass semantics
   • Check P166/P154/P152 regressions and issue the exact verdict contract
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$state = Get-Content '"'.planning\\STATE.md'; "'$state[0..([Math]::Min(80,$state.Length-1))]; rg --files .planning | rg '"'("'^|['"\\\\/])167-|P167|167-substrate'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$state = Get-Content '"'.planning\\STATE.md'; "'$state[0..([Math]::Min(80,$state.Length-1))]; rg --files .planning | rg '"'("'^|['"\\\\/])167-|P167|167-substrate'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 4054ms:
 .planning\tmp\167-plan2.log
 .planning\tmp\167-plan.log
@@ -561,20 +561,20 @@ exec
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\CONTEXT.md
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-VERIFIER-PROMPT.md
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-TYPE-COERCION-REPORT.md
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -588,7 +588,7 @@ At line:2 char:44
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content '.planning\\STATE.md' -TotalCount 100; Get-Item '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\CONTEXT.md', '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md', '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-PHASE-DIFF.patch', '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-REAL-MCP-HOOK-EVIDENCE.json' | Select-Object Name,Length" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content '.planning\\STATE.md' -TotalCount 100; Get-Item '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\CONTEXT.md', '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md', '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-PHASE-DIFF.patch', '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-REAL-MCP-HOOK-EVIDENCE.json' | Select-Object Name,Length" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 2706ms:
 ---
 gsd_state_version: 1.0
@@ -699,20 +699,20 @@ CONTEXT.md                        3510
 167-REAL-MCP-HOOK-EVIDENCE.json  31996
 
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -721,7 +721,7 @@ At line:1 char:1
 codex
 Canonical state confirms P167 is the active phase following P166’s explicit deferred markdown-prompt gap. I’ve found the complete evidence set; next I’m extracting the exact six SACs and the claims each task was meant to establish before checking implementation and runtime evidence independently.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\CONTEXT.md'; rg -n -A 90 -B 12 'semantic_acceptance_criteria:|intent:|"'^  goal:|''^<task|<name>|SAC-|Acceptance'"' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\CONTEXT.md'; rg -n -A 90 -B 12 'semantic_acceptance_criteria:|intent:|"'^  goal:|''^<task|<name>|SAC-|Acceptance'"' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 679ms:
 # P167 Substrate Invocation Witness
 
@@ -1120,7 +1120,7 @@ technical one.
 942-controls, not the non-invocation boundary.
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md' | Select-Object -Skip 26 -First 220" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md' | Select-Object -Skip 26 -First 220" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 926ms:
 semantic_acceptance_criteria:
   - input: >
@@ -1344,7 +1344,7 @@ tasks:
       them. Never print or copy key material into project evidence. Key each
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-REAL-MCP-HOOK-EVIDENCE.json'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-REAL-MCP-HOOK-EVIDENCE.json'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 632ms:
 {
   "schema_version": "sgsd.p167.real-mcp-hook-evidence.v1",
@@ -2238,7 +2238,7 @@ exec
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n '"'^diff --git'"' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-PHASE-DIFF.patch'; rg -n -i -A 8 -B 8 'content:\\s*\\[|tool_response|updatedMCPToolOutput|array|legitimate|good result|rewrite_failed|fail-safe|fail safe|every valid' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness' -g '*.md' -g '*.patch'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n '"'^diff --git'"' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-PHASE-DIFF.patch'; rg -n -i -A 8 -B 8 'content:\\s*\\[|tool_response|updatedMCPToolOutput|array|legitimate|good result|rewrite_failed|fail-safe|fail safe|every valid' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness' -g '*.md' -g '*.patch'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 779ms:
 1:diff --git a/super-gsd/agents/sgsd-board-researcher.md b/super-gsd/agents/sgsd-board-researcher.md
 61:diff --git a/super-gsd/agents/sgsd-vtp-enrichment.md b/super-gsd/agents/sgsd-vtp-enrichment.md
@@ -7514,9 +7514,9 @@ exec
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-8-
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md:9:It will print `PROGRESS: actual_post_tool_response_shape=<redacted-shape>`. Return that line for the parser and passthrough repair. The capture is expected to remain red at the existing valid-result assertion.
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-10-
-.planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-11-FILES_CHANGED: [super-gsd/hooks/sgsd-substrate-invocation-witness.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/hooks/sgsd-substrate-invocation-witness.cjs) (modified)  
-.planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-12-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs) (modified)  
-.planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-13-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs) (modified)  
+.planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-11-FILES_CHANGED: [super-gsd/hooks/sgsd-substrate-invocation-witness.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/hooks/sgsd-substrate-invocation-witness.cjs) (modified)  
+.planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-12-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs) (modified)  
+.planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-13-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs) (modified)  
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-14-VERIFICATION: `node super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs` -> exit 0, baseline 34/34  
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-15-VERIFICATION: `node super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs` -> exit 1, expected RED: descriptor missing  
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX8-REPORT.md-16-VERIFICATION: `node --check super-gsd/hooks/sgsd-substrate-invocation-witness.cjs` -> exit 0  
@@ -8452,7 +8452,7 @@ exec
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\RESEARCH.md-13-BLOCKING_UNKNOWNS: none before planning; a real MCP denial-and-rewrite run remains mandatory completion evidence.
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n 'Array\\.isArray|tool_response|updatedMCPToolOutput|post_passthrough|rewrite_failed|extract|parse|content' 'super-gsd\\hooks\\sgsd-substrate-invocation-witness.cjs'; Get-Content 'super-gsd\\hooks\\sgsd-substrate-invocation-witness.cjs' | Select-Object -Skip 1 -First 360" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n 'Array\\.isArray|tool_response|updatedMCPToolOutput|post_passthrough|rewrite_failed|extract|parse|content' 'super-gsd\\hooks\\sgsd-substrate-invocation-witness.cjs'; Get-Content 'super-gsd\\hooks\\sgsd-substrate-invocation-witness.cjs' | Select-Object -Skip 1 -First 360" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1254ms:
 47:    reason: 'substrate_witness_rewrite_failed:' + reason,
 52:      updatedMCPToolOutput: {
@@ -8840,7 +8840,7 @@ module.exports = {
 if (require.main === module) runCli(process.argv.slice(2));
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 12 -B 8 'bare|passthrough|unparseable|unchanged|good|legitimate|malformed response|post_passthrough|updatedMCPToolOutput|16000|16001' 'super-gsd\\tests\\substrate-invocation-witness\\assert-hook-contract.cjs'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-SPEC-REVIEW2-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-FIX14-REPORT.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 12 -B 8 'bare|passthrough|unparseable|unchanged|good|legitimate|malformed response|post_passthrough|updatedMCPToolOutput|16000|16001' 'super-gsd\\tests\\substrate-invocation-witness\\assert-hook-contract.cjs'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-SPEC-REVIEW2-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-FIX14-REPORT.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 849ms:
 182-    content: [{ type: 'text', text: JSON.stringify(domain) }],
 183-    isError: false,
@@ -9089,7 +9089,7 @@ ONE_LINER: `post_passthrough` records unchanged delivery and its reason without 
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -l -i 'bare content|runtime response shape|response-shape|expected.*content|tool_response.*array|every valid search' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness' -g '*REPORT.md'; Get-Content 'super-gsd\\tests\\substrate-invocation-witness\\assert-hook-contract.cjs' | Select-Object -Skip 654 -First 48" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -l -i 'bare content|runtime response shape|response-shape|expected.*content|tool_response.*array|every valid search' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness' -g '*REPORT.md'; Get-Content 'super-gsd\\tests\\substrate-invocation-witness\\assert-hook-contract.cjs' | Select-Object -Skip 654 -First 48" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 825ms:
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-ATC-REPORT.md
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX14-REPORT.md
@@ -9144,7 +9144,7 @@ exec
       tool_response: [{ type: 'text', text: 'upstream status text' }],
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-ATC-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-FIX9-REPORT.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-ATC-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-FIX9-REPORT.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 633ms:
 FINDINGS: 3
 CRITICAL: 0
@@ -9193,9 +9193,9 @@ ONE_LINER: PostToolUse now accepts bare content arrays and `{content:[...]}` env
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-ATCFIX2-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-ATCFIX-REPORT.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-ATCFIX2-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-ATCFIX-REPORT.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 871ms:
-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs:100) (modified)
+FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs:100) (modified)
 
 VERIFICATION: PowerShell exact-event seeded hook smoke, six overlay descriptors -> exit 0  
 VERIFICATION: seeded repair continuation -> exit 0 (`witness_status=current`, `capability_status=current`, `substrate_granted=true`)  
@@ -9248,7 +9248,7 @@ The six SACs are now extracted verbatim. The live evidence contains all three re
   • Audit live-runtime denial, result capping/preservation, hook absence, and bypass semantics
   • Check P166/P154/P152 regressions and issue the exact verdict contract
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'git rev-parse HEAD; git status --short; git diff --name-status 950422a..HEAD; git diff --stat 950422a..HEAD' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'git rev-parse HEAD; git status --short; git diff --name-status 950422a..HEAD; git diff --stat 950422a..HEAD' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1627ms:
 879aa4c20531d68a7e790284bc3ece23f91e7752
 ?? .planning/memory/architecture/anti-patterns/waste-waiting-p154-narrative-age-sec.md
@@ -9491,12 +9491,12 @@ A	super-gsd/tools/substrate-capability-broker.cjs
 codex
 The live count `active_invocations: 1` is not being treated as self-sufficient proof: it supports denial only because the same capture also records two transcript tool attempts, two successful Pre hook lifecycles, one Post lifecycle, exactly one fixture `tools/call`, matching payload digests, and the invalid tool result as an error. I’m now running the independent evidence verifier and checking the shipped source/hash pins against that capture.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs --verify --project-dir . --evidence-file .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs --verify --project-dir . --evidence-file .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 783ms:
 P167_T5_VERIFY PASS {"ok":true,"schema_version":"sgsd.p167.real-mcp-hook-evidence.v1","active_invocations":1,"absent_invocations":0,"same_user_bypass_invocations":2}
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 8 -B 5 'active_invocations|absent_invocations|same_user_bypass_invocations|fixture_payload_accepted|result_is_error|boundary_result|replacement_observed|raw_result_delivered|discarded_marker_absent|substrate_tool_use_count|tools_call_count|witness_status.*consumed|denied' 'super-gsd\\tests\\substrate-invocation-witness\\capture-live-runtime.cjs'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 8 -B 5 'active_invocations|absent_invocations|same_user_bypass_invocations|fixture_payload_accepted|result_is_error|boundary_result|replacement_observed|raw_result_delivered|discarded_marker_absent|substrate_tool_use_count|tools_call_count|witness_status.*consumed|denied' 'super-gsd\\tests\\substrate-invocation-witness\\capture-live-runtime.cjs'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 678ms:
 62-const BYPASS_ALTERNATE_QUERY_MARKER = 'p167 same user alternate registration non v2';
 63-const BYPASS_DIRECT_QUERY_MARKER = 'p167 same user direct stdio non v2';
@@ -9885,7 +9885,7 @@ exec
 2493-
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tests\\substrate-invocation-witness\\capture-live-runtime.cjs' | Select-Object -Skip 1140 -First 135; Get-Content 'super-gsd\\tests\\substrate-invocation-witness\\capture-live-runtime.cjs' | Select-Object -Skip 1985 -First 175" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tests\\substrate-invocation-witness\\capture-live-runtime.cjs' | Select-Object -Skip 1140 -First 135; Get-Content 'super-gsd\\tests\\substrate-invocation-witness\\capture-live-runtime.cjs' | Select-Object -Skip 1985 -First 175" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 911ms:
   const scenario = createDisposableScenario(
     context.tempRoot,
@@ -10199,7 +10199,7 @@ function verifyAbsentGuard(absent, current) {
     && stale.reason.length <= 200
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T1-SPEC-REVIEW-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T1-ATC-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T2-SPEC-REVIEW-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T2-ATC-FIX5-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T3-SPEC-REVIEW-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T3-ATC-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T4-SPEC-REVIEW2-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T4-ATCFIX-REPORT.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T1-SPEC-REVIEW-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T1-ATC-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T2-SPEC-REVIEW-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T2-ATC-FIX5-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T3-SPEC-REVIEW-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T3-ATC-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T4-SPEC-REVIEW2-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T4-ATCFIX-REPORT.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 766ms:
 FINDINGS: 1
 CRITICAL: 0
@@ -10388,7 +10388,7 @@ ONE_LINER: `--repair-substrate-capability` now repairs witness registrations/run
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T4-ATC-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-FIX-REGRESS-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-FIX-FALSEPASS-REPORT.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T4-ATC-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-FIX-REGRESS-REPORT.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-FIX-FALSEPASS-REPORT.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 708ms:
 FINDINGS: 2
 CRITICAL: 1
@@ -10452,7 +10452,7 @@ ONE_LINER: Rollback now fails unless the first of two dirty documents commits, t
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 45 -B 12 'acceptPromptSubstrateCallRecord|consumeRewrittenWitness|tool_use_id|CLAUDE_CODE_SESSION_ID|substrate_witness' 'super-gsd\\scripts\\lib\\vtp-context-composer.cjs'; rg -n -A 65 -B 12 'function consumeRewrittenWitness|function transitionWitnessToPostPassthrough|function transitionWitnessToRewritten|atomic|renameSync|CLAUDE' 'super-gsd\\scripts\\lib\\substrate-invocation-witness-store.cjs'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 45 -B 12 'acceptPromptSubstrateCallRecord|consumeRewrittenWitness|tool_use_id|CLAUDE_CODE_SESSION_ID|substrate_witness' 'super-gsd\\scripts\\lib\\vtp-context-composer.cjs'; rg -n -A 65 -B 12 'function consumeRewrittenWitness|function transitionWitnessToPostPassthrough|function transitionWitnessToRewritten|atomic|renameSync|CLAUDE' 'super-gsd\\scripts\\lib\\substrate-invocation-witness-store.cjs'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 818ms:
 1-'use strict';
 2-
@@ -11135,7 +11135,7 @@ exec
 662-}
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 35 -B 12 'project_claude_substrate_witness_missing_or_stale|repair-substrate-capability|substrate_witness_unavailable|substrate_granted|raw-substrate|private upstream|private_upstream|witness_status|capability_status|P167|PRE_HOOK_ID|POST_HOOK_ID|rawSubstrate|raw_substrate' 'super-gsd\\tools\\feature-propagation\\audit.cjs'; rg -n -A 35 -B 12 'PRE_HOOK_ID|POST_HOOK_ID|inspectWitnessReadiness|tools/list|tools/call|SUBSTRATE|unavailable' 'super-gsd\\tools\\substrate-capability-broker.cjs'; rg -n -A 16 -B 8 'substrate_witness_unavailable|VTP_STATUS|accept-substrate-call-record|readiness|vtp_search_substrate' 'super-gsd\\agents\\sgsd-vtp-enrichment.md' 'super-gsd\\agents\\sgsd-board-researcher.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 35 -B 12 'project_claude_substrate_witness_missing_or_stale|repair-substrate-capability|substrate_witness_unavailable|substrate_granted|raw-substrate|private upstream|private_upstream|witness_status|capability_status|P167|PRE_HOOK_ID|POST_HOOK_ID|rawSubstrate|raw_substrate' 'super-gsd\\tools\\feature-propagation\\audit.cjs'; rg -n -A 35 -B 12 'PRE_HOOK_ID|POST_HOOK_ID|inspectWitnessReadiness|tools/list|tools/call|SUBSTRATE|unavailable' 'super-gsd\\tools\\substrate-capability-broker.cjs'; rg -n -A 16 -B 8 'substrate_witness_unavailable|VTP_STATUS|accept-substrate-call-record|readiness|vtp_search_substrate' 'super-gsd\\agents\\sgsd-vtp-enrichment.md' 'super-gsd\\agents\\sgsd-board-researcher.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1109ms:
 32-
 33-const CODEX_HOOK_INSTALLER = path.resolve(__dirname, '..', 'codex-hooks', 'install-hooks.cjs');
@@ -12077,7 +12077,7 @@ super-gsd\agents\sgsd-vtp-enrichment.md-129-- `status: api_error` → orchestrat
 super-gsd\agents\sgsd-vtp-enrichment.md-130-</output_format>
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -Skip 1360 -First 310; Get-Content 'super-gsd\\tools\\substrate-capability-broker.cjs' | Select-Object -Skip 255 -First 90" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -Skip 1360 -First 310; Get-Content 'super-gsd\\tools\\substrate-capability-broker.cjs' | Select-Object -Skip 255 -First 90" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1282ms:
   }
   if (safeRepair) repairedGlobalSkills = installGlobalSgsdSkills(ctx, actions);
@@ -12461,7 +12461,7 @@ module.exports = {
       try { watcher.close(); } catch (_) {}
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -Skip 1240 -First 145; Get-Content 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -Skip 1025 -First 95" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -Skip 1240 -First 145; Get-Content 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -Skip 1025 -First 95" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1485ms:
   const names = [
     'vtp-health.jsonl',
@@ -12705,7 +12705,7 @@ function auditGlobalSgsdSkills(ctx) {
   }
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\agents\\sgsd-vtp-enrichment.md' -TotalCount 12; Get-Content 'super-gsd\\agents\\sgsd-board-researcher.md' -TotalCount 12; rg -n 'SUBSTRATE_GLOBAL_AGENT_NAMES|SUBSTRATE_LEGACY_AGENT_NAMES|REQUIRED_LEGACY_AGENT_PATCHES' 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -First 20" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\agents\\sgsd-vtp-enrichment.md' -TotalCount 12; Get-Content 'super-gsd\\agents\\sgsd-board-researcher.md' -TotalCount 12; rg -n 'SUBSTRATE_GLOBAL_AGENT_NAMES|SUBSTRATE_LEGACY_AGENT_NAMES|REQUIRED_LEGACY_AGENT_PATCHES' 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -First 20" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1006ms:
 ---
 name: sgsd-vtp-enrichment
@@ -12744,7 +12744,7 @@ You are the Researcher on a decision board.
 1489:    add('legacy_agent_patches_declared', REQUIRED_LEGACY_AGENT_PATCHES.length === 3 && REQUIRED_LEGACY_AGENT_PATCHES.some((r) => r.name === 'gsd-planner.md'), REQUIRED_LEGACY_AGENT_PATCHES.map((r) => r.name).join(','));
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -Skip 68 -First 165" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tools\\feature-propagation\\audit.cjs' | Select-Object -Skip 68 -First 165" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 916ms:
 const REQUIRED_VTP_AGENTS = Object.freeze([
   'sgsd-vtp-enrichment.md',
@@ -12913,7 +12913,7 @@ const CORE_CONFIG_DEFAULTS = Object.freeze({
     planner_reasoning_effort: 'xhigh',
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n \"test\\('\" 'super-gsd\\tests\\substrate-invocation-witness\\assert-propagation.cjs'; rg -n -A 16 -B 10 'project_claude_substrate_witness_missing_or_stale|repair-safe|missingPost|substrate_witness_unavailable|byte-idempotent|byte.*preserv|substrate_grant' 'super-gsd\\tests\\substrate-invocation-witness\\assert-propagation.cjs'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n \"test\\('\" 'super-gsd\\tests\\substrate-invocation-witness\\assert-propagation.cjs'; rg -n -A 16 -B 10 'project_claude_substrate_witness_missing_or_stale|repair-safe|missingPost|substrate_witness_unavailable|byte-idempotent|byte.*preserv|substrate_grant' 'super-gsd\\tests\\substrate-invocation-witness\\assert-propagation.cjs'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 579ms:
 269-    });
 270-    const overlay = JSON.parse(read(path.join(REPO_ROOT, 'super-gsd', 'config', 'repo-settings-overlay.json')));
@@ -12981,7 +12981,7 @@ exec
 392-    audit.runAudit({ projectDir: project, repairSafe: true });
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tests\\substrate-invocation-witness\\assert-propagation.cjs' | Select-Object -Skip 235 -First 285" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tests\\substrate-invocation-witness\\assert-propagation.cjs' | Select-Object -Skip 235 -First 285" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 744ms:
     const repaired = spawnSync(process.execPath, [
       AUDIT_PATH,
@@ -13270,7 +13270,7 @@ exec
     let committedLocalBytes = null;
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -i -A 8 -B 8 'P152|shadow|P154|P166|ten-suite|10/10|frozen' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness' -g '*REPORT.md' | Select-Object -Last 500" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -i -A 8 -B 8 'P152|shadow|P154|P166|ten-suite|10/10|frozen' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness' -g '*REPORT.md' | Select-Object -Last 500" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 652ms:
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T1-SPEC-REVIEW-REPORT.md-13-unexpected non-substrate tools to be denied or rewritten rather than ignored.
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T1-SPEC-REVIEW-REPORT.md-14-The test omits `expectedEvent`, so it passes for the wrong reason. The exact
@@ -13557,7 +13557,7 @@ exec
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX14-REPORT.md-29-ONE_LINER: `post_passthrough` records unchanged delivery and its reason without satisfying acceptance; bypass now requires fixture acceptance, a non-error result, and no matching witness row, independent of payload exactness.
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX14-REPORT.md-30-```
 --
-.planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-ATCFIX2-REPORT.md-1-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs:100) (modified)
+.planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-ATCFIX2-REPORT.md-1-FILES_CHANGED: [super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs](<HOME>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs:100) (modified)
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-ATCFIX2-REPORT.md-2-
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-ATCFIX2-REPORT.md-3-VERIFICATION: PowerShell exact-event seeded hook smoke, six overlay descriptors -> exit 0  
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-ATCFIX2-REPORT.md-4-VERIFICATION: seeded repair continuation -> exit 0 (`witness_status=current`, `capability_status=current`, `substrate_granted=true`)  
@@ -13594,7 +13594,7 @@ exec
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-FIX13-REPORT.md-25-```
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 55 -B 8 'frozen_files|before_sha256|after_sha256|VTP_RESPONSE_MAX_BYTES|verifyFrozen' 'super-gsd\\tests\\substrate-invocation-witness\\capture-live-runtime.cjs'; git diff --quiet 950422a -- 'super-gsd/schemas/vtp-mcp-input-schemas.v1.json' '.planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json'; if ("'$LASTEXITCODE -eq 0) { '"'FROZEN_DIFF: CLEAN' } else { 'FROZEN_DIFF: CHANGED' }; git diff --name-only 950422a..HEAD -- 'super-gsd/tests/triage-runtime' 'super-gsd/scripts/lib/kb-lookup-triage*' '.planning/milestones/v3.6-vtp-bridge/phases/152-*'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -A 55 -B 8 'frozen_files|before_sha256|after_sha256|VTP_RESPONSE_MAX_BYTES|verifyFrozen' 'super-gsd\\tests\\substrate-invocation-witness\\capture-live-runtime.cjs'; git diff --quiet 950422a -- 'super-gsd/schemas/vtp-mcp-input-schemas.v1.json' '.planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json'; if ("'$LASTEXITCODE -eq 0) { '"'FROZEN_DIFF: CLEAN' } else { 'FROZEN_DIFF: CHANGED' }; git diff --name-only 950422a..HEAD -- 'super-gsd/tests/triage-runtime' 'super-gsd/scripts/lib/kb-lookup-triage*' '.planning/milestones/v3.6-vtp-bridge/phases/152-*'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1095ms:
 306-  requireCondition(registrations.PostToolUse.source_sha256 === hookSha, 'overlay_post_source_hash_drift');
 307-  return {
@@ -13931,7 +13931,7 @@ exec
 FROZEN_DIFF: CLEAN
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg --files super-gsd/tests | rg -i 'shadow|kb.*triage|triage.*kb'; rg -n -i 'KB shadow|shadow proof|assert.*shadow' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-FIX14-REPORT.md' '.planning\\tmp\\167-*' -g '*.log' -g '*.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg --files super-gsd/tests | rg -i 'shadow|kb.*triage|triage.*kb'; rg -n -i 'KB shadow|shadow proof|assert.*shadow' '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-T5-FIX14-REPORT.md' '.planning\\tmp\\167-*' -g '*.log' -g '*.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-24T22:28:49.633379Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 0.9 seconds
 Output:
@@ -13945,7 +13945,7 @@ super-gsd/tests\kb-triage-shadow\assert-shadow.cjs
 rg: .planning\tmp\167-*: The filename, directory name, or volume label syntax is incorrect. (os error 123)
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tests\\kb-triage-shadow\\assert-shadow.cjs' -TotalCount 80; rg -n 'process.argv|mkdtemp|writeFile|PASS|FAIL' 'super-gsd\\tests\\kb-triage-shadow\\assert-shadow.cjs' | Select-Object -Last 40" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\tests\\kb-triage-shadow\\assert-shadow.cjs' -TotalCount 80; rg -n 'process.argv|mkdtemp|writeFile|PASS|FAIL' 'super-gsd\\tests\\kb-triage-shadow\\assert-shadow.cjs' | Select-Object -Last 40" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 982ms:
 #!/usr/bin/env node
 'use strict';
@@ -14032,15 +14032,15 @@ try {
 codex
 The runtime-shape repair is real in the shipped hook: it accepts both the measured bare `[...]` response and the older `{content:[...]}` envelope, preserves the outer shape and untouched blocks, and caps only the parsed substrate domain. If parsing is impossible it returns no replacement—so Claude receives the original good result unchanged—and records `post_passthrough`, which acceptance cannot consume. I’m doing a final independent regression pass over the P166 boundaries, frozen P154 evidence, and P152 shadow proof.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case caller-coverage' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case caller-coverage' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case cap-shapes' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case cap-shapes' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs --case real-evidence --evidence-file .planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs --case real-evidence --evidence-file .planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/kb-triage-shadow/assert-shadow.cjs' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'node super-gsd/tests/kb-triage-shadow/assert-shadow.cjs' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-24T22:29:09.594155Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 1.3 seconds
 Output:
@@ -14048,9 +14048,9 @@ node:fs:3054
   return binding.mkdtemp(prefix, options.encoding);
                  ^
 
-Error: EPERM: operation not permitted, mkdtemp 'C:\Users\jack.berrow\AppData\Local\Temp\sgsd-kb-triage-shadow-XXXXXX'
+Error: EPERM: operation not permitted, mkdtemp '<HOME>\AppData\Local\Temp\sgsd-kb-triage-shadow-XXXXXX'
     at Object.mkdtempSync (node:fs:3054:18)
-    at Object.<anonymous> (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\kb-triage-shadow\assert-shadow.cjs:64:17)
+    at Object.<anonymous> (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\kb-triage-shadow\assert-shadow.cjs:64:17)
     at Module._compile (node:internal/modules/cjs/loader:1781:14)
     at Object..js (node:internal/modules/cjs/loader:1913:10)
     at Module.load (node:internal/modules/cjs/loader:1505:32)
@@ -14061,7 +14061,7 @@ Error: EPERM: operation not permitted, mkdtemp 'C:\Users\jack.berrow\AppData\Loc
   errno: -4048,
   code: 'EPERM',
   syscall: 'mkdtemp',
-  path: 'C:\\Users\\jack.berrow\\AppData\\Local\\Temp\\sgsd-kb-triage-shadow-XXXXXX'
+  path: 'C:\\Users\\operator\\AppData\\Local\\Temp\\sgsd-kb-triage-shadow-XXXXXX'
 }
 
 Node.js v22.23.1
@@ -14071,9 +14071,9 @@ node:fs:3054
   return binding.mkdtemp(prefix, options.encoding);
                  ^
 
-Error: EPERM: operation not permitted, mkdtemp 'C:\Users\jack.berrow\AppData\Local\Temp\sgsd-kb-triage-shadow-XXXXXX'
+Error: EPERM: operation not permitted, mkdtemp '<HOME>\AppData\Local\Temp\sgsd-kb-triage-shadow-XXXXXX'
     at Object.mkdtempSync (node:fs:3054:18)
-    at Object.<anonymous> (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\kb-triage-shadow\assert-shadow.cjs:64:17)
+    at Object.<anonymous> (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\kb-triage-shadow\assert-shadow.cjs:64:17)
     at Module._compile (node:internal/modules/cjs/loader:1781:14)
     at Object..js (node:internal/modules/cjs/loader:1913:10)
     at Module.load (node:internal/modules/cjs/loader:1505:32)
@@ -14084,28 +14084,28 @@ Error: EPERM: operation not permitted, mkdtemp 'C:\Users\jack.berrow\AppData\Loc
   errno: -4048,
   code: 'EPERM',
   syscall: 'mkdtemp',
-  path: 'C:\\Users\\jack.berrow\\AppData\\Local\\Temp\\sgsd-kb-triage-shadow-XXXXXX'
+  path: 'C:\\Users\\operator\\AppData\\Local\\Temp\\sgsd-kb-triage-shadow-XXXXXX'
 }
 
 Node.js v22.23.1
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '& node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case caller-coverage; Write-Output "EXIT_CODE=$LASTEXITCODE"; exit 0' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '& node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case caller-coverage; Write-Output "EXIT_CODE=$LASTEXITCODE"; exit 0' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '& node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case cap-shapes; Write-Output "EXIT_CODE=$LASTEXITCODE"; exit 0' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '& node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case cap-shapes; Write-Output "EXIT_CODE=$LASTEXITCODE"; exit 0' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '& node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance; Write-Output "EXIT_CODE=$LASTEXITCODE"; exit 0' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '& node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance; Write-Output "EXIT_CODE=$LASTEXITCODE"; exit 0' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '& node super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs --case real-evidence --evidence-file .planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json; Write-Output "EXIT_CODE=$LASTEXITCODE"; exit 0' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '& node super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs --case real-evidence --evidence-file .planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json; Write-Output "EXIT_CODE=$LASTEXITCODE"; exit 0' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1350ms:
 EXIT_CODE=1
-[FAIL] Error: EPERM: operation not permitted, mkdtemp 'C:\Users\jack.berrow\AppData\Local\Temp\p167-prompt-witness-XXXXXX'
+[FAIL] Error: EPERM: operation not permitted, mkdtemp '<HOME>\AppData\Local\Temp\p167-prompt-witness-XXXXXX'
     at Object.mkdtempSync (node:fs:3054:18)
-    at createPromptWitnessFixture (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:378:19)
-    at withPromptWitnessFixture (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:408:26)
-    at assertPromptRecordAcceptance (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:992:10)
-    at main (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1534:5)
-    at Object.<anonymous> (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1548:1)
+    at createPromptWitnessFixture (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:378:19)
+    at withPromptWitnessFixture (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:408:26)
+    at assertPromptRecordAcceptance (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:992:10)
+    at main (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1534:5)
+    at Object.<anonymous> (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1548:1)
     at Module._compile (node:internal/modules/cjs/loader:1781:14)
     at Object..js (node:internal/modules/cjs/loader:1913:10)
     at Module.load (node:internal/modules/cjs/loader:1505:32)
@@ -14113,15 +14113,15 @@ EXIT_CODE=1
 
  succeeded in 1576ms:
 EXIT_CODE=1
-[FAIL] EPERM: operation not permitted, mkdtemp 'C:\Users\jack.berrow\AppData\Local\Temp\sgsd-mcp-arg-contract-XXXXXX'
+[FAIL] EPERM: operation not permitted, mkdtemp '<HOME>\AppData\Local\Temp\sgsd-mcp-arg-contract-XXXXXX'
 
  succeeded in 1693ms:
 EXIT_CODE=1
-[FAIL] Error: EPERM: operation not permitted, mkdtemp 'C:\Users\jack.berrow\AppData\Local\Temp\sgsd-vtp-caller-coverage-XXXXXX'
+[FAIL] Error: EPERM: operation not permitted, mkdtemp '<HOME>\AppData\Local\Temp\sgsd-vtp-caller-coverage-XXXXXX'
     at Object.mkdtempSync (node:fs:3054:18)
-    at assertCallerCoverage (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:328:23)
-    at main (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1527:39)
-    at Object.<anonymous> (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1548:1)
+    at assertCallerCoverage (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:328:23)
+    at main (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1527:39)
+    at Object.<anonymous> (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1548:1)
     at Module._compile (node:internal/modules/cjs/loader:1781:14)
     at Object..js (node:internal/modules/cjs/loader:1913:10)
     at Module.load (node:internal/modules/cjs/loader:1505:32)
@@ -14131,11 +14131,11 @@ EXIT_CODE=1
 
  succeeded in 1678ms:
 EXIT_CODE=1
-[FAIL] Error: EPERM: operation not permitted, mkdtemp 'C:\Users\jack.berrow\AppData\Local\Temp\sgsd-vtp-bridge-cap-XXXXXX'
+[FAIL] Error: EPERM: operation not permitted, mkdtemp '<HOME>\AppData\Local\Temp\sgsd-vtp-bridge-cap-XXXXXX'
     at Object.mkdtempSync (node:fs:3054:18)
-    at assertCapShapes (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:703:25)
-    at main (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1538:39)
-    at Object.<anonymous> (C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1548:1)
+    at assertCapShapes (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:703:25)
+    at main (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1538:39)
+    at Object.<anonymous> (<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tests\vtp-substrate-policy\assert-vtp-substrate-policy.cjs:1548:1)
     at Module._compile (node:internal/modules/cjs/loader:1781:14)
     at Object..js (node:internal/modules/cjs/loader:1913:10)
     at Module.load (node:internal/modules/cjs/loader:1505:32)
@@ -14146,7 +14146,7 @@ EXIT_CODE=1
 codex
 The sandbox blocks temp-directory creation, so fresh execution of the temp-writing regression suites stops at `mkdtemp` before assertions. That is an environment limitation, not a test failure. I’m compensating with the existing unsandboxed pass records, a clean frozen-file comparison, the current live-evidence verifier, and a direct base-to-HEAD audit of the P166 production diff.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "git diff -U8 950422a -- 'super-gsd/scripts/lib/vtp-context-composer.cjs'; git diff --numstat 950422a -- 'super-gsd/schemas/vtp-mcp-input-schemas.v1.json' '.planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json' 'super-gsd/tests/kb-triage-shadow/assert-shadow.cjs' 'super-gsd/hooks/sgsd-intent-classifier.cjs'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "git diff -U8 950422a -- 'super-gsd/scripts/lib/vtp-context-composer.cjs'; git diff --numstat 950422a -- 'super-gsd/schemas/vtp-mcp-input-schemas.v1.json' '.planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json' 'super-gsd/tests/kb-triage-shadow/assert-shadow.cjs' 'super-gsd/hooks/sgsd-intent-classifier.cjs'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1097ms:
 diff --git a/super-gsd/scripts/lib/vtp-context-composer.cjs b/super-gsd/scripts/lib/vtp-context-composer.cjs
 index d0256fc..d0bfa1e 100644
@@ -14371,7 +14371,7 @@ index d0256fc..d0bfa1e 100644
    extractRowFields,
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\scripts\\lib\\vtp-context-composer.cjs' | Select-Object -Skip 315 -First 95; git show 950422a:super-gsd/scripts/lib/vtp-context-composer.cjs | Select-Object -Skip 315 -First 95" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd\\scripts\\lib\\vtp-context-composer.cjs' | Select-Object -Skip 315 -First 95; git show 950422a:super-gsd/scripts/lib/vtp-context-composer.cjs | Select-Object -Skip 315 -First 95" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-24T22:30:00.988880Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 0.9 seconds
 Output:
@@ -14759,13 +14759,13 @@ function buildSubstrateArgs(intentFamily, input) {
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\tmp\\167-phaseatc.log' -Tail 160; Get-Content '.planning\\tmp\\167-regress.log' -Tail 120; Get-Content '.planning\\tmp\\167-falsepass.log' -Tail 120" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\tmp\\167-phaseatc.log' -Tail 160; Get-Content '.planning\\tmp\\167-regress.log' -Tail 120; Get-Content '.planning\\tmp\\167-falsepass.log' -Tail 120" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 542ms:
 codex-executor: OK ƒ?" .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-FIX-REGRESS-REPORT.md (1190B), codex took 406682ms
 codex-executor: OK ƒ?" .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-FIX-FALSEPASS-REPORT.md (1215B), codex took 633065ms
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-FIX-FALSEPASS-REPORT.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-FIX-FALSEPASS-REPORT.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 565ms:
 FILES_CHANGED: super-gsd/tools/feature-propagation/audit.cjs (modified)  
 FILES_CHANGED: super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs (modified)  
@@ -14786,7 +14786,7 @@ ONE_LINER: Rollback now fails unless the first of two dirty documents commits, t
 codex
 The evidence now supports all six SACs, including the deliberately successful bypass characterization. Before issuing a PASS claim, I’m applying the `verification-before-completion` checklist so the verdict distinguishes fresh evidence, supplied unsandboxed evidence, and the same-user residual without overclaiming.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\verification-before-completion\\SKILL.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw 'C:\\Users\\operator\\.codex\\skills\\verification-before-completion\\SKILL.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 675ms:
 ---
 name: verification-before-completion
@@ -14930,11 +14930,11 @@ This is non-negotiable.
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "node -e \"const a=require('assert'); const c=require('./super-gsd/scripts/lib/vtp-context-composer.cjs'); const valid={query:'abc',source_types:['research_paper','wiki_page'],limit:5}; a.equal(c.validateSubstrateToolInput(valid),true); a.equal(c.validateSubstrateToolInput({query:'abc'}),false); const exact='e'.repeat(16000),over='o'.repeat(16001); const r=c.capSubstrateResponse({hits:[{text:exact},{text:over}],evidence:{hits:[{text:over}]}}); a.equal(r.response.hits[0].text,exact); a.equal(r.response.hits[1].text.length,16000); a.equal(r.response.evidence.hits[0].text.length,16000); a.equal(r.degradation_notes.length,2); console.log('P166_PURE PASS')\"" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "node -e \"const a=require('assert'); const c=require('./super-gsd/scripts/lib/vtp-context-composer.cjs'); const valid={query:'abc',source_types:['research_paper','wiki_page'],limit:5}; a.equal(c.validateSubstrateToolInput(valid),true); a.equal(c.validateSubstrateToolInput({query:'abc'}),false); const exact='e'.repeat(16000),over='o'.repeat(16001); const r=c.capSubstrateResponse({hits:[{text:exact},{text:over}],evidence:{hits:[{text:over}]}}); a.equal(r.response.hits[0].text,exact); a.equal(r.response.hits[1].text.length,16000); a.equal(r.response.evidence.hits[0].text.length,16000); a.equal(r.degradation_notes.length,2); console.log('P166_PURE PASS')\"" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "node -e \"const a=require('assert'),fs=require('fs'); const c=require('./super-gsd/hooks/sgsd-intent-classifier.cjs'); const r=c.parseRegistryYaml(fs.readFileSync(c.REGISTRY_SOURCE_PATH,'utf8')).routes.find(x=>x.id==='kb-lookup-triage'); const p={hook_event_name:'UserPromptSubmit',mode:'manual'}; a(c.matchesShadowRoute(r,'what did ada say about fixing the customs flow',null,p)); a("'!c.matchesShadowRoute(r,'"'fix the meeting notes',null,p)); a("'!c.matchesShadowRoute(r,'"'build the auth module',null,p)); console.log('P152_SHADOW_PURE PASS')\"" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "node -e \"const a=require('assert'),fs=require('fs'); const c=require('./super-gsd/hooks/sgsd-intent-classifier.cjs'); const r=c.parseRegistryYaml(fs.readFileSync(c.REGISTRY_SOURCE_PATH,'utf8')).routes.find(x=>x.id==='kb-lookup-triage'); const p={hook_event_name:'UserPromptSubmit',mode:'manual'}; a(c.matchesShadowRoute(r,'what did ada say about fixing the customs flow',null,p)); a("'!c.matchesShadowRoute(r,'"'fix the meeting notes',null,p)); a("'!c.matchesShadowRoute(r,'"'build the auth module',null,p)); console.log('P152_SHADOW_PURE PASS')\"" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "git diff --quiet 950422a -- 'super-gsd/schemas/vtp-mcp-input-schemas.v1.json' '.planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json' 'super-gsd/tests/kb-triage-shadow/assert-shadow.cjs' 'super-gsd/hooks/sgsd-intent-classifier.cjs'; if ("'$LASTEXITCODE -eq 0) { Write-Output '"'FROZEN_P152_DIFF PASS' } else { Write-Output 'FROZEN_P152_DIFF FAIL'; exit 1 }" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "git diff --quiet 950422a -- 'super-gsd/schemas/vtp-mcp-input-schemas.v1.json' '.planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json' 'super-gsd/tests/kb-triage-shadow/assert-shadow.cjs' 'super-gsd/hooks/sgsd-intent-classifier.cjs'; if ("'$LASTEXITCODE -eq 0) { Write-Output '"'FROZEN_P152_DIFF PASS' } else { Write-Output 'FROZEN_P152_DIFF FAIL'; exit 1 }" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 963ms:
 P152_SHADOW_PURE PASS
 
