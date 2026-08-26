@@ -21,6 +21,13 @@ Three occurrences, each costing at least one diagnosis round trip.
    not tell why an install failed and had to call the module directly to obtain
    `EBUSY: resource busy or locked, read`.
 
+4. The witness hook's `catch (_)` turned MODULE_NOT_FOUND into
+   `project_runtime_unavailable`, and the loadability classifier then ACCEPTED that deny
+   as a clean policy decision — so the install smoke passed over a runtime that could not
+   load, and the doctor said 32/32 current. Laundering defeated a safety gate, not just a
+   diagnosis. Fixed 0c66b6c: the deny carries the bounded real error, and a
+   runtime-unavailable/module-resolution deny is a load FAILURE to the smoke.
+
 The operator saw the same failure on a live Linux box as four generic codes
 (`pretooluse_missing, direct_grant, upstream_missing, witness_repair_failed`) when the
 truth was one unresolvable module path.

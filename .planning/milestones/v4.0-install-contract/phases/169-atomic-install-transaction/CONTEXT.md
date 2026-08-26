@@ -83,3 +83,14 @@ freshness line compares the PROJECT's HEAD against SGSD GitHub master and prints
 comparison for an explicit-project doctor is the canonical source clone HEAD (or the
 project's `.super-gsd-version` pin) against master. Cosmetic, fold into this phase's
 doctor touchpoints rather than a standalone dispatch.
+
+## Closure blind spots, field-verified 2026-08-26 and fixed at 0c66b6c
+
+A require-lexer has exactly three blind spots, and devcp hit all three at once:
+computed requires (`path.join(__dirname,...)` into a vendored node_modules), runtime
+assets (`fs.readFileSync` of a schema JSON at module load), and spawn roots (a shell hook
+spawning `decision-state.cjs`). The fix: symbolic reduction follows the computed require
+and delivers the resolved vendored package closure; one declared-roots list (in the
+contract module, generation fails if a root is missing) covers assets and spawn roots,
+whose require closures are then walked normally. Any future "hook works on the dev box,
+dies in the field" report should be checked against these three categories first.
