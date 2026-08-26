@@ -94,3 +94,31 @@ and delivers the resolved vendored package closure; one declared-roots list (in 
 contract module, generation fails if a root is missing) covers assets and spawn roots,
 whose require closures are then walked normally. Any future "hook works on the dev box,
 dies in the field" report should be checked against these three categories first.
+
+## Field confirmation 2 (devcp, 2026-08-26): live enforcement proven on Linux
+
+At dd58adf: update exit 0, pin written, composer / decision-state /
+skill-routing-registry / vtp-readiness all load from the delivered tree, no loader:1479.
+The closure delivered ajv plus six vendored deps (argparse and js-yaml beyond my expected
+four — computed, so the extra consumers were followed correctly).
+
+First live proof of the whole enforcement chain on a second platform: a malformed
+substrate call was denied pre-transport with the named reason
+`substrate_witness_denied:invalid_v2_payload`; a conforming call was ALLOWED and spooled
+an HMAC-signed `pre_allowed` witness row with payload/source/session digests and a
+15-minute expiry. The PostToolUse rewrite remains unverified there only because the
+upstream vtp-kb MCP returned HTTP 401 (its own auth; known Clarity-side SDK transport
+regression needing an interactive /mcp reconnect per session). Once reconnected, one
+conforming search closes the last link: capped result plus a `rewritten` row.
+
+## Two minors from the report, backlog not dispatch
+
+1. `tools/plan-schema/` is delivered as node_modules only; `validate.cjs`,
+   `validate.test.cjs`, `package.json` and fixtures stay canonical-source-only. Nothing
+   installed references them, but the `/sgsd-write-plan` skill documents calling
+   `validate.cjs` mechanically; on machines where skills run against the project rather
+   than the source clone that would 404. Decide deliberately: either the skill pins the
+   canonical-source path, or `validate.cjs` joins the declared roots.
+2. devcp's session banner reports `Phase: MISSING / Phase source: absent` for a
+   milestone whose STATE names phase `v30-07` — the Clarity repo's own phase-token
+   scheme, predates this work; a resolver tokenization question, not a delivery one.
