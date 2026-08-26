@@ -28,6 +28,36 @@ function loadProjectRuntime(projectRoot) {
   };
 }
 
+function boundedOneLine(value, maxBytes = 512) {
+  const oneLine = String(value || '')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const bytes = Buffer.from(oneLine, 'utf8');
+  if (bytes.length <= maxBytes) return oneLine;
+  return bytes.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
+}
+
+function runtimeLoadFailureReason(error) {
+  const rawCode = error && error.code ? error.code : 'RUNTIME_LOAD_FAILED';
+  const code = String(rawCode).replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 64)
+    || 'RUNTIME_LOAD_FAILED';
+  const rawMessage = error && typeof error.message === 'string'
+    ? error.message
+    : 'project runtime failed to load';
+  const kept = [];
+  for (const line of rawMessage.replace(/\r\n?/g, '\n').split('\n')) {
+    if (/^\s*Require stack:\s*$/i.test(line) || /^\s*at\s+/.test(line)) break;
+    if (/^\s*-\s+/.test(line) && kept.length > 0) break;
+    kept.push(line);
+  }
+  const message = boundedOneLine(kept.join(' ')) || 'project runtime failed to load';
+  return 'project_runtime_unavailable;underlying_error=' + JSON.stringify({
+    code,
+    message,
+  });
+}
+
 function preDecision(decision, reason) {
   const output = {
     hookEventName: 'PreToolUse',
@@ -264,10 +294,11 @@ function processHookPayload(payload, options = {}) {
   let runtime;
   try {
     runtime = loadProjectRuntime(projectRoot);
-  } catch (_) {
+  } catch (error) {
+    const reason = runtimeLoadFailureReason(error);
     return payload.hook_event_name === 'PostToolUse'
-      ? rewriteFailure('project_runtime_unavailable')
-      : deny('project_runtime_unavailable');
+      ? rewriteFailure(reason)
+      : deny(reason);
   }
   const env = options.env || process.env;
   if (payload.hook_event_name === 'PreToolUse') return handlePre(payload, projectRoot, runtime, env);

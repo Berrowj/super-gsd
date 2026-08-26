@@ -51,6 +51,91 @@ function copyTree(source, target) {
   fs.cpSync(source, target, { recursive: true });
 }
 
+function computedFixtureRelativeFiles(graph, sourceRoot) {
+  const files = new Set();
+  const visited = new Set();
+  const visit = (value) => {
+    if (typeof value === 'string') {
+      const absolute = path.isAbsolute(value)
+        ? path.resolve(value)
+        : path.resolve(sourceRoot, value);
+      const relative = path.relative(sourceRoot, absolute);
+      if (!relative || path.isAbsolute(relative) || relative === '..'
+          || relative.startsWith(`..${path.sep}`)
+          || relative.split(path.sep).includes('node_modules')) return;
+      try {
+        if (fs.statSync(absolute).isFile()) files.add(relative);
+      } catch (_) { /* Graph metadata also contains non-path strings. */ }
+      return;
+    }
+    if (!value || typeof value !== 'object' || visited.has(value)) return;
+    visited.add(value);
+    if (value instanceof Map || value instanceof Set) {
+      for (const child of value.values()) visit(child);
+      return;
+    }
+    for (const child of Object.values(value)) visit(child);
+  };
+  // Walk files, union, entry dependencies, packages, and declared roots from
+  // the computed graph instead of maintaining a parallel fixture list.
+  visit(graph);
+  return [...files].sort();
+}
+
+function resolvedFixturePackageRoot(packageRow, sourceRoot) {
+  let resolved = typeof packageRow.source_path === 'string'
+    ? (path.isAbsolute(packageRow.source_path)
+      ? packageRow.source_path
+      : path.resolve(sourceRoot, packageRow.source_path))
+    : null;
+  if (!resolved || !fs.existsSync(resolved)) {
+    resolved = require.resolve(packageRow.package, {
+      paths: [sourceRoot, path.dirname(sourceRoot)],
+    });
+  }
+  let current = fs.statSync(resolved).isDirectory() ? resolved : path.dirname(resolved);
+  while (true) {
+    const packageJsonPath = path.join(current, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        if (JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).name === packageRow.package) {
+          return current;
+        }
+      } catch (_) { /* Continue to the resolved package root. */ }
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  throw new Error(`fixture package root is missing: ${packageRow.package}`);
+}
+
+function fixturePackageRelativeRoot(packageRow, packageRoot, sourceRoot) {
+  const relative = path.relative(sourceRoot, packageRoot);
+  if (relative && !path.isAbsolute(relative) && relative !== '..'
+      && !relative.startsWith(`..${path.sep}`)) return relative;
+  return path.join('node_modules', ...packageRow.package.split('/'));
+}
+
+function copyComputedFixtureClosure(targetRoot) {
+  const contract = require(CONTRACT_PATH);
+  const graph = contract.computeHookDependencyGraph({ sgsdRoot: SUPER_GSD_ROOT });
+  for (const relative of computedFixtureRelativeFiles(graph, SUPER_GSD_ROOT)) {
+    const target = path.join(targetRoot, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(SUPER_GSD_ROOT, relative), target);
+  }
+  for (const packageRow of graph.packages) {
+    const packageRoot = resolvedFixturePackageRoot(packageRow, SUPER_GSD_ROOT);
+    const target = path.join(
+      targetRoot,
+      fixturePackageRelativeRoot(packageRow, packageRoot, SUPER_GSD_ROOT),
+    );
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.cpSync(packageRoot, target, { recursive: true, dereference: true });
+  }
+}
+
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
     cwd: options.cwd,
@@ -102,6 +187,7 @@ function syntheticManifest(sourcePath) {
 
 function generatedResolutionFixture(root) {
   const sgsdRoot = path.join(root, 'upstream seed', 'super-gsd');
+  copyComputedFixtureClosure(sgsdRoot);
   const generated = [];
   const add = (relative, source) => {
     write(path.join(sgsdRoot, relative), source);
@@ -194,12 +280,24 @@ async function generatedTransitiveManifest() {
   const root = fixtureRoot('generated');
   try {
     const fixture = generatedResolutionFixture(root);
+    const declaredRootEntry = 'hooks/generated-declared-root-entry.cjs';
+    write(path.join(fixture.sgsdRoot, declaredRootEntry), 'module.exports = true;\n');
+    const declaredRootGraph = contract.computeHookDependencyGraph({
+      sgsdRoot: fixture.sgsdRoot,
+      manifest: syntheticManifest(declaredRootEntry),
+      projectDir: path.join(root, 'target project'),
+    });
+    fs.rmSync(path.join(fixture.sgsdRoot, declaredRootEntry));
+    const expectedDependencies = [...new Set([
+      ...fixture.generated,
+      ...declaredRootGraph.entries[0].dependencies,
+    ])].sort();
     const graph = contract.computeHookDependencyGraph({
       sgsdRoot: fixture.sgsdRoot,
       manifest: fixture.manifest,
       projectDir: path.join(root, 'target project'),
     });
-    assert.deepEqual(graph.entries[0].dependencies, fixture.generated);
+    assert.deepEqual(graph.entries[0].dependencies, expectedDependencies);
     for (const observed of loaderTrace(
       path.join(fixture.sgsdRoot, 'hooks', 'generated-entry.cjs'), fixture.sgsdRoot,
     )) {
@@ -209,7 +307,7 @@ async function generatedTransitiveManifest() {
     assert.deepEqual(graph.packages.map((row) => row.package), ['fixture-package']);
     assert.deepEqual(
       contract.renderManifestDependencies(fixture.manifest, graph).entries[0].dependencies,
-      fixture.generated,
+      expectedDependencies,
     );
     const report = contract.inspectProjectInstall({
       sgsdRoot: fixture.sgsdRoot,
@@ -371,12 +469,24 @@ async function emptyModuleTreeRealInstall() {
     assertSpawn(result, 'real empty-tree installation failed');
     const report = contract.inspectProjectInstall({ projectDir, sgsdRoot: SUPER_GSD_ROOT });
     assert.equal(report.requiredFiles.every((row) => row.status === 'current'), true);
-    assert.equal(report.requiredFiles.filter(
+    const computedFiles = computedFixtureRelativeFiles(report.graph, SUPER_GSD_ROOT)
+      .map((relative) => relative.replace(/\\/g, '/'));
+    const expectedHookFiles = computedFiles.filter(
+      (relative) => relative.startsWith('hooks/'),
+    );
+    const expectedModuleFiles = computedFiles.filter(
+      (relative) => relative.startsWith('scripts/lib/'),
+    );
+    const deliveredHookFiles = report.requiredFiles.filter(
       (row) => row.relative_path.startsWith('hooks/'),
-    ).length, 17, 'real install did not deliver all 17 hook files');
-    assert.equal(report.requiredFiles.filter(
+    ).map((row) => row.relative_path).sort();
+    const deliveredModuleFiles = report.requiredFiles.filter(
       (row) => row.relative_path.startsWith('scripts/lib/'),
-    ).length, 9, 'real install did not deliver all 9 scripts/lib modules');
+    ).map((row) => row.relative_path).sort();
+    assert.deepEqual(deliveredHookFiles, expectedHookFiles,
+      `real install did not deliver all ${expectedHookFiles.length} computed hook files`);
+    assert.deepEqual(deliveredModuleFiles, expectedModuleFiles,
+      `real install did not deliver all ${expectedModuleFiles.length} computed scripts/lib modules`);
     assert.deepEqual(inventory(decoy), [], 'explicit project install touched decoy cwd');
     assert.ok(finalHookExecutions(projectDir, env) > 0, 'no final installed hook was executed');
 

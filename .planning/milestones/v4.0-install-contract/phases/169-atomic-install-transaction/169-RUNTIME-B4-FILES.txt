@@ -1,0 +1,1 @@
+super-gsd/tests/install-contract/assert-install-contract.cjs

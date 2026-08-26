@@ -72,13 +72,16 @@ function sanitizedBoundedLine(value, maxBytes = 2048) {
 
 function moduleFailureDetail(output, options = {}) {
   const message = sanitizedBoundedLine(output);
-  if (!/MODULE_NOT_FOUND|Cannot find module/.test(message)) return {
+  const codeMatch = message.match(/\b(ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND)\b/);
+  if (!codeMatch && !/Cannot find (?:module|package)/.test(message)) return {
     code: 'HOOK_PROCESS_FAILED',
     request: null,
     path: null,
     message,
   };
-  const requestMatch = message.match(/Cannot find module\s+['\u0022]([^'\u0022]+)['\u0022]/);
+  const requestMatch = message.match(
+    /Cannot find (?:module|package)\s+['\u0022]([^'\u0022]+)['\u0022]/,
+  );
   const request = requestMatch ? requestMatch[1] : null;
   let resolvedPath = request && path.isAbsolute(request) ? path.resolve(request) : null;
   if (resolvedPath && options.candidateRoot && options.targetRoot) {
@@ -88,9 +91,30 @@ function moduleFailureDetail(output, options = {}) {
     }
   }
   return {
-    code: 'MODULE_NOT_FOUND',
+    code: codeMatch ? codeMatch[1] : 'MODULE_NOT_FOUND',
     request,
     path: resolvedPath,
+    message,
+  };
+}
+
+function carriedRuntimeLoadFailureDetail(output, options = {}) {
+  const message = sanitizedBoundedLine(output);
+  const runtimeUnavailable = /substrate_witness_(?:denied|rewrite_failed):project_runtime_unavailable\b/i
+    .test(message);
+  const carriesUnderlyingError = /\bunderlying_?error(?:_code)?\b/i.test(message);
+  if (!runtimeUnavailable && !carriesUnderlyingError) return null;
+
+  const moduleFailure = moduleFailureDetail(message, options);
+  if (moduleFailure.code === 'MODULE_NOT_FOUND'
+      || moduleFailure.code === 'ERR_MODULE_NOT_FOUND') {
+    return moduleFailure;
+  }
+  if (!runtimeUnavailable) return null;
+  return {
+    code: 'PROJECT_RUNTIME_UNAVAILABLE',
+    request: null,
+    path: null,
     message,
   };
 }
@@ -751,6 +775,11 @@ async function smokeHookRegistrations(descriptors, adapters = {}) {
       })
     ));
     const failureDetails = results.map((result) => {
+      const carriedFailure = carriedRuntimeLoadFailureDetail(result.output, {
+        candidateRoot: adapters.candidateRoot,
+        targetRoot: adapters.targetRoot,
+      });
+      if (carriedFailure) return carriedFailure;
       if (result.passed) return null;
       const raw = result.launchError && result.launchError.message
         ? result.launchError.message

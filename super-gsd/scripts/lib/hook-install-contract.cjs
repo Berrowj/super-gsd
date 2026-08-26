@@ -14,6 +14,12 @@ const DEFAULT_ROOT = path.resolve(__dirname, '..', '..');
 const DOUBLE_QUOTE = String.fromCharCode(34);
 const SINGLE_QUOTE = String.fromCharCode(39);
 
+// Runtime assets and spawn roots are invisible to require-expression lexing.
+const DECLARED_ROOTS = Object.freeze([
+  Object.freeze({ relative_path: 'schemas/vtp-mcp-input-schemas.v2.json', walk: false }),
+  Object.freeze({ relative_path: 'scripts/lib/decision-state.cjs', walk: true }),
+]);
+
 function posix(value) {
   return value.replace(/\\/g, '/');
 }
@@ -327,6 +333,61 @@ function packageName(request) {
   return bare.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
 }
 
+function vendoredPackageDescriptor(sgsdRoot, candidatePath) {
+  const resolved = path.resolve(candidatePath);
+  if (!inside(sgsdRoot, resolved)) return null;
+  const parts = path.relative(sgsdRoot, resolved).split(path.sep);
+  let markerIndex = -1;
+  for (let index = 0; index < parts.length; index += 1) {
+    if (parts[index].toLowerCase() === 'node_modules') markerIndex = index;
+  }
+  if (markerIndex < 0 || markerIndex + 1 >= parts.length) return null;
+  const scoped = parts[markerIndex + 1].startsWith('@');
+  const packageEnd = markerIndex + (scoped ? 3 : 2);
+  if (packageEnd > parts.length) return null;
+  const name = parts.slice(markerIndex + 1, packageEnd).join('/');
+  const packageRoot = path.join(sgsdRoot, ...parts.slice(0, packageEnd));
+  const packagePath = path.join(packageRoot, 'package.json');
+  try {
+    if (!fs.statSync(packagePath).isFile()) return null;
+  } catch (_) {
+    return null;
+  }
+  return {
+    name,
+    packageRoot,
+    modulesRoot: path.join(sgsdRoot, ...parts.slice(0, markerIndex + 1)),
+  };
+}
+
+function resolveVendoredPackageRoot(name, fromPackageRoot, vendoredModulesRoot) {
+  const modulesRoot = path.resolve(vendoredModulesRoot);
+  const boundary = path.dirname(modulesRoot);
+  const nameParts = name.split('/');
+  let current = path.resolve(fromPackageRoot);
+  while (inside(boundary, current)) {
+    const searchRoot = path.basename(current).toLowerCase() === 'node_modules'
+      ? current
+      : path.join(current, 'node_modules');
+    const candidate = path.join(searchRoot, ...nameParts);
+    const packagePath = path.join(candidate, 'package.json');
+    try {
+      if (inside(modulesRoot, candidate)
+          && fs.statSync(candidate).isDirectory()
+          && fs.statSync(packagePath).isFile()) {
+        return candidate;
+      }
+    } catch (_) {
+      // Continue through the bounded vendored Node resolution ancestry.
+    }
+    if (current === boundary) break;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return null;
+}
+
 function loadManifest(options, sgsdRoot) {
   if (options.manifest) return JSON.parse(JSON.stringify(options.manifest));
   const manifestPath = path.resolve(options.manifestPath
@@ -338,6 +399,21 @@ function computeHookDependencyGraph(options = {}) {
   const sgsdRoot = path.resolve(options.sgsdRoot || DEFAULT_ROOT);
   const runtimeRoot = path.resolve(options.projectDir || path.dirname(sgsdRoot));
   const runtimeSgsdRoot = path.join(runtimeRoot, 'super-gsd');
+  const declaredRoots = DECLARED_ROOTS.map((row) => {
+    const absolutePath = path.resolve(sgsdRoot, row.relative_path);
+    let present = false;
+    try {
+      present = inside(sgsdRoot, absolutePath) && fs.statSync(absolutePath).isFile();
+    } catch (_) {
+      present = false;
+    }
+    if (!present) {
+      throw dependencyError('MODULE_NOT_FOUND', row.relative_path, row.relative_path,
+        row.relative_path, path.join(runtimeSgsdRoot, row.relative_path),
+        inside(sgsdRoot, absolutePath) ? 'declared root is missing' : 'declared root escapes root');
+    }
+    return { ...row, absolute_path: absolutePath };
+  });
   const manifest = loadManifest(options, sgsdRoot);
   const selected = manifest.entries.filter((entry) => Array.isArray(entry.distribution_targets)
     && entry.distribution_targets.some((target) => PROJECT_TARGETS.has(target)));
@@ -357,6 +433,7 @@ function computeHookDependencyGraph(options = {}) {
     const closure = new Set();
     const visited = new Set();
     const entryPackages = new Set();
+    const visitedPackages = new Set();
 
     function addFile(absolutePath) {
       const resolved = path.resolve(absolutePath);
@@ -365,6 +442,77 @@ function computeHookDependencyGraph(options = {}) {
           'resolved dependency escapes root');
       }
       closure.add(posix(path.relative(sgsdRoot, resolved)));
+    }
+
+    function recordPackage(name, location) {
+      if (!packages.has(name)) packages.set(name, new Set());
+      packages.get(name).add(rootRelative);
+      entryPackages.add(name);
+      if (!packageLocations.has(name) || (!packageLocations.get(name) && location)) {
+        packageLocations.set(name, location || null);
+      }
+    }
+
+    function addPackageFiles(directory) {
+      const children = fs.readdirSync(directory, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name));
+      for (const child of children) {
+        if (child.isDirectory() && child.name.toLowerCase() === 'node_modules') continue;
+        const childPath = path.join(directory, child.name);
+        if (child.isDirectory()) {
+          addPackageFiles(childPath);
+        } else if (child.isFile() || child.isSymbolicLink()) {
+          let file = false;
+          try { file = fs.statSync(childPath).isFile(); } catch (_) { file = false; }
+          if (file) addFile(childPath);
+        }
+      }
+    }
+
+    function addVendoredPackageClosure(descriptor, vendoredModulesRoot = descriptor.modulesRoot) {
+      const canonicalRoot = path.resolve(descriptor.packageRoot);
+      if (visitedPackages.has(canonicalRoot)) return;
+      visitedPackages.add(canonicalRoot);
+      recordPackage(descriptor.name, canonicalRoot);
+
+      const packagePath = path.join(canonicalRoot, 'package.json');
+      let packageRow;
+      try {
+        packageRow = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      } catch (error) {
+        throw dependencyError(error && error.code || 'MODULE_NOT_FOUND',
+          posix(path.relative(sgsdRoot, packagePath)), packagePath, descriptor.name,
+          path.join(runtimeSgsdRoot, path.relative(sgsdRoot, packagePath)),
+          'vendored package metadata is unreadable');
+      }
+      addPackageFiles(canonicalRoot);
+
+      const declaredDependencies = packageRow
+        && packageRow.dependencies
+        && typeof packageRow.dependencies === 'object'
+        && !Array.isArray(packageRow.dependencies)
+        ? Object.keys(packageRow.dependencies).sort()
+        : [];
+      for (const dependencyName of declaredDependencies) {
+        const dependencyRoot = resolveVendoredPackageRoot(
+          dependencyName,
+          canonicalRoot,
+          vendoredModulesRoot,
+        );
+        if (!dependencyRoot) {
+          throw dependencyError('MODULE_NOT_FOUND',
+            posix(path.relative(sgsdRoot, packagePath)), dependencyName, dependencyName,
+            path.join(runtimeSgsdRoot, path.relative(
+              sgsdRoot,
+              path.join(vendoredModulesRoot, ...dependencyName.split('/')),
+            )), 'vendored package dependency is missing');
+        }
+        addVendoredPackageClosure({
+          name: dependencyName,
+          packageRoot: dependencyRoot,
+          modulesRoot: vendoredModulesRoot,
+        }, vendoredModulesRoot);
+      }
     }
 
     function walk(sourcePath) {
@@ -384,22 +532,15 @@ function computeHookDependencyGraph(options = {}) {
         if (BUILTINS.has(request)) continue;
         if (!request.startsWith('.') && !path.isAbsolute(request)) {
           const name = packageName(request);
-          if (!packages.has(name)) packages.set(name, new Set());
-          packages.get(name).add(rootRelative);
-          entryPackages.add(name);
-          if (!packageLocations.has(name)) {
-            let location = null;
-            try { location = require.resolve(request, { paths: [path.dirname(canonical)] }); } catch (_) { /* Classified absent package. */ }
-            packageLocations.set(name, location);
+          let location = null;
+          try {
+            location = require.resolve(request, { paths: [path.dirname(canonical)] });
+          } catch (_) {
+            // Classified as an absent package after graph construction.
           }
-          continue;
-        }
-        if (posix(request).includes('/node_modules/')) {
-          const name = packageName(request);
-          if (!packages.has(name)) packages.set(name, new Set());
-          packages.get(name).add(rootRelative);
-          entryPackages.add(name);
-          if (!packageLocations.has(name)) packageLocations.set(name, request);
+          recordPackage(name, location);
+          const vendored = location && vendoredPackageDescriptor(sgsdRoot, location);
+          if (vendored) addVendoredPackageClosure(vendored);
           continue;
         }
         let requestedPath;
@@ -427,6 +568,11 @@ function computeHookDependencyGraph(options = {}) {
           throw dependencyError('MODULE_NOT_FOUND', posix(path.relative(sgsdRoot, canonical)),
             expression, request, targetMissingPath, 'source module is missing');
         }
+        const vendored = vendoredPackageDescriptor(sgsdRoot, resolution.file);
+        if (vendored) {
+          addVendoredPackageClosure(vendored);
+          continue;
+        }
         for (const supportPath of resolution.support) addFile(supportPath);
         addFile(resolution.file);
         walk(resolution.file);
@@ -434,6 +580,10 @@ function computeHookDependencyGraph(options = {}) {
     }
 
     walk(rootSource);
+    for (const declaredRoot of declaredRoots) {
+      addFile(declaredRoot.absolute_path);
+      if (declaredRoot.walk) walk(declaredRoot.absolute_path);
+    }
     closure.delete(rootRelative);
     const dependencies = [...closure].sort();
     const entryRow = {
