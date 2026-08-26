@@ -66,3 +66,20 @@ the enumerated artifact set, nothing else.
 
 P167 witness contract untouchable. Closure stays computed. Doctor stays read-only.
 Real-install baseline: exit 0, 17 hooks, 9 modules, must hold at every commit.
+
+## Field confirmation, 2026-08-26 (devcp, Linux)
+
+The CRLF-canonical digest fix (54b54ff) closed the refusal end to end on the real
+machine: `sgsd-update` exit 0, `witness_status: current`, `substrate_granted: true`,
+`.super-gsd-version` pin written (d55123cf), doctor `Project install status: current`,
+32/32 rows, exit 0. The five-cycle delivery failure that opened this milestone is
+resolved and verified on a second platform.
+
+## Minor carried into this phase's backlog: doctor freshness compares the wrong repo
+
+On a project that vendors super-gsd but is its own git repository (Clarity), the doctor's
+freshness line compares the PROJECT's HEAD against SGSD GitHub master and prints
+"local repo differs" — meaningless for that layout and reads like a warning. The right
+comparison for an explicit-project doctor is the canonical source clone HEAD (or the
+project's `.super-gsd-version` pin) against master. Cosmetic, fold into this phase's
+doctor touchpoints rather than a standalone dispatch.
