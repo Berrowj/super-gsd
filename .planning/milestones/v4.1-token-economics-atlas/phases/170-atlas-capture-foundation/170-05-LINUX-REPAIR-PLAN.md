@@ -136,7 +136,7 @@ Files: `super-gsd/tools/telemetry-atlas/lifecycle.cjs`,
 `super-gsd/tools/telemetry-atlas/receiver.test.cjs` if integration coverage needs
 extension. Do not change audit semantics in this task.
 
-- [ ] Add an environment-to-native-shaped-Claude-log regression with required
+- [x] Add an environment-to-native-shaped-Claude-log regression with required
   session identity; update the old false-flag assertion and observe RED:
 
   ```js
@@ -144,24 +144,24 @@ extension. Do not change audit semantics in this task.
   assert.equal(normalized.events[0].identity.session_id, 'fixture-session');
   ```
 
-- [ ] Emit `OTEL_METRICS_INCLUDE_SESSION_ID: 'true'`. Keep account/raw content
+- [x] Emit `OTEL_METRICS_INCLUDE_SESSION_ID: 'true'`. Keep account/raw content
   suppression and the finite downstream metric label allowlist unchanged.
-- [ ] Add a real-shaped Codex completion fixture with `event.kind`, native
+- [x] Add a real-shaped Codex completion fixture with `event.kind`, native
   `*_token_count` fields and no provider ID. Observe RED because the old parser
   misses the completion classification; then recognize the native key while
   preserving explicitly supported compatibility input. Without request identity
   the existing OTEL path must still return coverage, null accounting usage and
   `missing_stable_request_identity`; do not silently turn it into billable usage.
-- [ ] Clearly distinguish synthetic ID-bearing parser tests from the observed
+- [x] Clearly distinguish synthetic ID-bearing parser tests from the observed
   installed provider schema. Verify privacy canaries, native label stripping,
   idempotence and missing-data flags using existing fixtures.
-- [ ] Run the affected test files and `npm run test:atlas`; require no Linux
+- [x] Run the affected test files and `npm run test:atlas`; require no Linux
   failures, record every skip, retain the known Windows latency issue. Review
   and commit the source fixes separately from the 170-06 accounting extension.
 
 ## Verification and handoff
 
-- [ ] Record changes, RED/GREEN commands, reviews and actual limitations in
+- [x] Record changes, RED/GREEN commands, reviews and actual limitations in
   `170-05-EXECUTOR-REPORT.md`. Do not mark formal phase/milestone gates passed.
 - [ ] Pair with the 170-06 accounting work before claiming the requested result
   is working. Its design must use supported native identities and handle

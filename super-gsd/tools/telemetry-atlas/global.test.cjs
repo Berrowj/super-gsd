@@ -99,7 +99,7 @@ test('registered endpoint rejects a different provider in canonical events', asy
   assert.ok(response.status >= 400);
 });
 
-test('Codex completed responses deduplicate tokens and omit private bodies; missing IDs stay partial', async t => {
+test('synthetic ID-bearing legacy Codex completions deduplicate tokens and omit private bodies', async t => {
   const f = fixture(t), instance = await startGlobal({ root: f.root }); t.after(() => instance.close());
   const run = registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor' });
   const body = payload('codex-session', 'response-one', 23);
@@ -110,15 +110,44 @@ test('Codex completed responses deduplicate tokens and omit private bodies; miss
     { key: 'output_tokens', value: { intValue: '7' } }, { key: 'reasoning_output_tokens', value: { intValue: '3' } });
   assert.equal((await send(instance, run, body)).status, 200);
   await send(instance, run, body);
-  attrs.splice(attrs.findIndex(a => a.key === 'request_id'), 1);
-  assert.equal((await send(instance, run, body)).status, 200);
   const canonical = rows(run), requests = canonical.filter(e => e.event_type === 'api_request');
   assert.equal(requests.length, 1); assert.equal(requests[0].usage.input_tokens, 23);
   assert.equal(requests[0].usage.output_tokens, 7); assert.equal(requests[0].usage.reasoning_tokens, 3);
   assert.equal(requests[0].runtime.provider, 'openai'); assert.equal(requests[0].scope.launcher_repo_id, run.project_id);
-  const partial = canonical.find(e => e.source.completeness_reason === 'missing_stable_request_identity');
-  assert.equal(partial.event_type, 'coverage'); assert.equal(partial.usage.input_tokens, null);
   assert.doesNotMatch(JSON.stringify(canonical), /PRIVATE_|forged/);
+});
+
+test('observed native Codex completion without provider request identity remains non-billable coverage', async t => {
+  const f = fixture(t), instance = await startGlobal({ root: f.root }); t.after(() => instance.close());
+  const run = registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor' });
+  const body = payload('native-codex-session', 'remove-request', 999);
+  const record = body.resourceLogs[0].scopeLogs[0].logRecords[0];
+  const attrs = record.attributes;
+  attrs.find(a => a.key === 'event.name').value.stringValue = 'codex.sse_event';
+  attrs.find(a => a.key === 'session.id').key = 'conversation.id';
+  attrs.find(a => a.key === 'model').value.stringValue = 'gpt-6-astra';
+  attrs.splice(attrs.findIndex(a => a.key === 'request_id'), 1);
+  attrs.splice(attrs.findIndex(a => a.key === 'input_tokens'), 1);
+  attrs.splice(attrs.findIndex(a => a.key === 'event.timestamp'), 1);
+  record.timeUnixNano = '1788782400000000000';
+  attrs.push({ key: 'event.kind', value: { stringValue: 'response.completed' } },
+    { key: 'input_token_count', value: { intValue: '23' } },
+    { key: 'output_token_count', value: { intValue: '7' } },
+    { key: 'cached_token_count', value: { intValue: '5' } },
+    { key: 'reasoning_token_count', value: { intValue: '3' } },
+    { key: 'total_token_count', value: { intValue: '30' } });
+  assert.equal((await send(instance, run, body)).status, 200);
+  assert.equal((await send(instance, run, body)).status, 200);
+  const canonical = rows(run);
+  assert.equal(canonical.length, 1, 'native coverage must deduplicate without inflating requests');
+  assert.equal(canonical[0].event_type, 'coverage');
+  assert.equal(canonical[0].source.completeness_reason, 'missing_stable_request_identity');
+  assert.equal(canonical[0].identity.session_id, 'native-codex-session');
+  assert.equal(canonical[0].identity.request_id, null);
+  assert.equal(Object.values(canonical[0].usage).every(value => value === null), true);
+  assert.doesNotMatch(JSON.stringify(canonical), /PRIVATE_|forged/);
+  const health = await (await fetch(instance.urls.health + '/health')).json();
+  assert.ok(health.coverage.missing_stable_identity >= 1);
 });
 
 test('Claude request sequence without provider request ID is coverage, not token accounting', () => {

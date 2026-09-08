@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 const lifecycle = require('./lifecycle.cjs');
+const { normalizeLogs } = require('./otlp.cjs');
 
 const cases = [];
 function test(name, fn) { cases.push([name, fn]); }
@@ -16,8 +17,18 @@ test('environment removes raw logging and signal overrides without changing argv
   assert.equal(typeof lifecycle.environmentCommand, 'function', 'one environment renderer must exist');
   const command = lifecycle.environmentCommand({ healthy: true, runId: 'run-1', stateDir: '/tmp/atlas-state',
     endpoint: 'http://127.0.0.1:4318' });
+  const environment = lifecycle.telemetryEnvironment({ healthy: true, runId: 'run-1', stateDir: '/tmp/atlas-state',
+    endpoint: 'http://127.0.0.1:4318' });
+  assert.equal(environment.OTEL_METRICS_INCLUDE_SESSION_ID, 'true');
+  const normalized = normalizeLogs({ resourceLogs: [{ scopeLogs: [{ logRecords: [{
+    timeUnixNano: '1788782400000000000', eventName: 'claude_code.api_request', attributes: [
+      { key: 'session.id', value: { stringValue: 'fixture-session' } },
+      { key: 'request_id', value: { stringValue: 'fixture-request' } },
+    ],
+  }] }] }] });
+  assert.equal(normalized.events[0].identity.session_id, 'fixture-session');
   assert.match(command, /-u OTEL_LOG_RAW_API_BODIES/);
-  assert.match(command, /OTEL_METRICS_INCLUDE_SESSION_ID='false'/);
+  assert.match(command, /OTEL_METRICS_INCLUDE_SESSION_ID='true'/);
   assert.match(command, /OTEL_METRICS_INCLUDE_RESOURCE_ATTRIBUTES='false'/);
   if (process.platform !== 'linux') return;
   const root = fixture();
@@ -34,7 +45,7 @@ test('environment removes raw logging and signal overrides without changing argv
     assert.equal(output.env.OTEL_LOG_RAW_API_BODIES, undefined);
     assert.equal(output.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, 'http://127.0.0.1:4318/v1/logs');
     assert.equal(output.env.OTEL_EXPORTER_OTLP_LOGS_PROTOCOL, 'http/json');
-    assert.equal(output.env.OTEL_METRICS_INCLUDE_SESSION_ID, 'false');
+    assert.equal(output.env.OTEL_METRICS_INCLUDE_SESSION_ID, 'true');
   } finally { clean(root); }
 });
 

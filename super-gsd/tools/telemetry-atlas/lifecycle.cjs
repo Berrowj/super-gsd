@@ -54,7 +54,7 @@ function telemetryEnvironment({ healthy, runId, stateDir, projectId = digest(pro
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: `${base}/v1/metrics`,
     OTEL_EXPORTER_OTLP_LOGS_PROTOCOL: 'http/json',
     OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: 'http/json',
-    OTEL_METRICS_INCLUDE_SESSION_ID: 'false',
+    OTEL_METRICS_INCLUDE_SESSION_ID: 'true',
     OTEL_METRICS_INCLUDE_ACCOUNT_UUID: 'false',
     OTEL_METRICS_INCLUDE_RESOURCE_ATTRIBUTES: 'false',
     OTEL_LOG_USER_PROMPTS: '0',

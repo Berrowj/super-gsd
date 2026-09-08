@@ -2,6 +2,7 @@
 phase: 170
 plan: "170-05"
 status: IN_PROGRESS
+source_repairs: VERIFIED_LOCAL
 date: 2026-09-08
 deployed: false
 paired_plan: "170-06"
@@ -128,12 +129,35 @@ launcher cases on Linux, opt-in pinned stack installation, and nested opt-in rea
 stack lifecycle. The actual global empty-tree installer test ran. Runtime quota
 p95 was 0.639 ms in this Linux invocation; this does not close Windows latency.
 
+Task 3 RED before production edits: native runtime suite 14 PASS/1 FAIL/1
+expected opt-in skip (`false` session-identity environment flag versus required
+`true`); global receiver suite 9 PASS/1 FAIL (real-shaped `event.kind` completion
+without an ID classified as `native_metadata_only` instead of explicit
+`missing_stable_request_identity`). Synthetic legacy `kind` compatibility still
+passed. Two minimal production input fixes are implemented: enable the identity
+flag; recognize native `event.kind` with legacy `kind` fallback. The Codex fixture
+uses native `conversation.id`/`timeUnixNano`, no request/response ID, and total
+30 for input 23/output 7 (cache/reasoning are subsets). Repeated delivery remains
+one coverage row, every usage field null, explicit missing-identity flag and no
+privacy canaries. Audit semantics were not changed.
+
+Implementer final Linux verification: runtime 15 PASS/0 FAIL/1 opt-in skip,
+global 10 PASS/0 FAIL; full Atlas 58 PASS/0 FAIL/4 top-level skips, 75.260 seconds.
+Main independently ran the final full Atlas snapshot: 58 PASS/0 FAIL/4 top-level
+skips, 93.217 seconds, exit 0; nested runtime 15 PASS/0 FAIL/1 opt-in skip, quota
+p95 0.639 ms. The same explicit skip reasons as the baseline apply; actual global
+installation ran. Independent specification review PASS, focused native tests
+2 PASS/0 FAIL; independent quality review PASS, ready for integration, no
+findings. Its two focused receiver tests and independent native-key precedence,
+legacy fallback and privacy-flag assertions passed. No provider turn or remote
+write occurred.
+
 ## Remaining work
 
 - Task 2 source/instruction pressure checks complete; actual Fable latency still
   requires the fresh bounded benchmark after the combined candidate is deployed.
-- Task 3: Claude session identity flag and native Codex `event.kind` recognition,
-  with honest missing-identity coverage.
+- Tasks 1-3 source repairs are verified locally; their combined deployment/live
+  acceptance still depends on the paired accounting and receiver-transition work.
 - Paired 170-06: genuine native per-response accounting and owned same-port
   receiver transition; combined verification/publication/DEVCP acceptance.
 

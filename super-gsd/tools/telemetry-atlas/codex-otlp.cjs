@@ -18,7 +18,8 @@ function normalizeLogs(payload) {
       const session = id(a['conversation.id'] || r['conversation.id'] || a.conversation_id || a['session.id']);
       const time = sourceTime(record, a);
       if (!session || !time) { result.rejected++; result.missing_stable_identity++; continue; }
-      const completed = ['codex.sse_event', 'codex.websocket_event'].includes(name) && a.kind === 'response.completed';
+      const kind = a['event.kind'] || a.kind;
+      const completed = ['codex.sse_event', 'codex.websocket_event'].includes(name) && kind === 'response.completed';
       const request = id(a.response_id || a['response.id'] || a.request_id || a['request.id']);
       const e = envelope();
       e.source.kind = 'codex_otel'; e.source.instance = digest(['codex', session]);
