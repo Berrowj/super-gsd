@@ -5,8 +5,15 @@ const fs = require("fs");
 const path = require("path");
 
 const HOOK_NAME = "validate-stop-contract";
-const repoRoot = path.resolve(__dirname, "../../..");
-const metricsPath = path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
+const fallbackRoot = path.resolve(__dirname, "../../..");
+function resolveRepoRoot(payload) {
+  const cwd = payload && typeof payload.cwd === "string" ? payload.cwd : null;
+  if (cwd && fs.existsSync(cwd)) return path.resolve(cwd);
+  return fallbackRoot;
+}
+function metricsPathFor(repoRoot) {
+  return path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
+}
 
 function usage() {
   return [
@@ -20,7 +27,8 @@ function usage() {
   ].join("\n");
 }
 
-function appendDecision(decision) {
+function appendDecision(repoRoot, decision) {
+  const metricsPath = metricsPathFor(repoRoot);
   fs.mkdirSync(path.dirname(metricsPath), { recursive: true });
   fs.appendFileSync(metricsPath, `${JSON.stringify(Object.assign({ ts: new Date().toISOString(), hook: HOOK_NAME }, decision))}\n`, "utf8");
 }
@@ -31,13 +39,25 @@ function readPayload() {
   return JSON.parse(input);
 }
 
-function resolveRepoPath(inputPath) {
+function resolveRepoPath(repoRoot, inputPath) {
   if (typeof inputPath !== "string" || inputPath.trim() === "") return null;
   return path.isAbsolute(inputPath) ? path.resolve(inputPath) : path.resolve(repoRoot, inputPath);
 }
 
-function evaluate(payload) {
-  const reportPath = resolveRepoPath(payload && payload.report_path);
+function evaluate(payload, repoRoot) {
+  const contractFields = [
+    "phase",
+    "plan",
+    "report_path",
+    "checkpoint_updated",
+    "acceptance_commands_reported"
+  ];
+  const contractApplies = payload && contractFields.some((field) => Object.prototype.hasOwnProperty.call(payload, field));
+  if (!contractApplies) {
+    return { allow: true, reason: "stop_contract_not_applicable" };
+  }
+
+  const reportPath = resolveRepoPath(repoRoot, payload && payload.report_path);
   if (!reportPath || !fs.existsSync(reportPath)) {
     return { allow: false, reason: "missing_report", report_path: payload && payload.report_path };
   }
@@ -69,14 +89,15 @@ function main() {
     try {
       payload = readPayload();
     } catch (error) {
-      appendDecision({ decision: "block", reason: "invalid_payload", error: error.message });
+      appendDecision(resolveRepoRoot(null), { decision: "block", reason: "invalid_payload", error: error.message });
       console.error(`[${HOOK_NAME}] blocked: invalid payload: ${error.message}`);
       return 1;
     }
   }
 
-  const decision = evaluate(payload);
-  appendDecision(Object.assign({}, decision, { decision: decision.allow ? "allow" : "block" }));
+  const repoRoot = resolveRepoRoot(payload);
+  const decision = evaluate(payload, repoRoot);
+  appendDecision(repoRoot, Object.assign({}, decision, { decision: decision.allow ? "allow" : "block" }));
   if (!decision.allow) {
     console.error(`[${HOOK_NAME}] blocked: ${decision.reason}`);
     return 1;

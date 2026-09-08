@@ -5,8 +5,15 @@ const fs = require("fs");
 const path = require("path");
 
 const HOOK_NAME = "log-tool-event";
-const repoRoot = path.resolve(__dirname, "../../..");
-const metricsPath = path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
+const fallbackRoot = path.resolve(__dirname, "../../..");
+function resolveRepoRoot(payload) {
+  const cwd = payload && typeof payload.cwd === "string" ? payload.cwd : null;
+  if (cwd && fs.existsSync(cwd)) return path.resolve(cwd);
+  return fallbackRoot;
+}
+function metricsPathFor(repoRoot) {
+  return path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
+}
 
 function usage() {
   return [
@@ -19,12 +26,14 @@ function usage() {
   ].join("\n");
 }
 
-function appendRow(row) {
+function appendRow(repoRoot, row) {
+  const metricsPath = metricsPathFor(repoRoot);
   fs.mkdirSync(path.dirname(metricsPath), { recursive: true });
   fs.appendFileSync(metricsPath, `${JSON.stringify(row)}\n`, "utf8");
 }
 
-function readLineCount() {
+function readLineCount(repoRoot) {
+  const metricsPath = metricsPathFor(repoRoot);
   if (!fs.existsSync(metricsPath)) return 0;
   const text = fs.readFileSync(metricsPath, "utf8").trim();
   return text ? text.split(/\r?\n/).length : 0;
@@ -82,14 +91,15 @@ function main() {
   }
 
   if (process.argv.includes("--self-test")) {
-    const before = readLineCount();
-    appendRow(eventRow({
+    const repoRoot = fallbackRoot;
+    const before = readLineCount(repoRoot);
+    appendRow(repoRoot, eventRow({
       tool: "read_file",
       args: { path: "README.md" },
       result: { status: "ok" },
       duration_ms: 12
     }));
-    const after = readLineCount();
+    const after = readLineCount(repoRoot);
     if (after <= before) {
       console.error(`[${HOOK_NAME}] self-test failed: no row appended`);
       return 1;
@@ -98,10 +108,12 @@ function main() {
     return 0;
   }
 
+  let payload;
   try {
-    appendRow(eventRow(readPayload()));
+    payload = readPayload();
+    appendRow(resolveRepoRoot(payload), eventRow(payload));
   } catch (error) {
-    appendRow({
+    appendRow(resolveRepoRoot(payload), {
       ts: new Date().toISOString(),
       hook: HOOK_NAME,
       tool: "unknown",

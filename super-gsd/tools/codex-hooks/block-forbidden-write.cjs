@@ -5,8 +5,15 @@ const fs = require("fs");
 const path = require("path");
 
 const HOOK_NAME = "block-forbidden-write";
-const repoRoot = path.resolve(__dirname, "../../..");
-const metricsPath = path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
+const fallbackRoot = path.resolve(__dirname, "../../..");
+function resolveRepoRoot(payload) {
+  const cwd = payload && typeof payload.cwd === "string" ? payload.cwd : null;
+  if (cwd && fs.existsSync(cwd)) return path.resolve(cwd);
+  return fallbackRoot;
+}
+function metricsPathFor(repoRoot) {
+  return path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
+}
 const forbiddenPatterns = [
   ".git/",
   "secrets/",
@@ -25,12 +32,13 @@ function usage() {
   ].join("\n");
 }
 
-function appendDecision(decision) {
+function appendDecision(repoRoot, decision) {
+  const metricsPath = metricsPathFor(repoRoot);
   fs.mkdirSync(path.dirname(metricsPath), { recursive: true });
   fs.appendFileSync(metricsPath, `${JSON.stringify(Object.assign({ ts: new Date().toISOString(), hook: HOOK_NAME }, decision))}\n`, "utf8");
 }
 
-function normalizePath(inputPath) {
+function normalizePath(repoRoot, inputPath) {
   if (typeof inputPath !== "string" || inputPath.trim() === "") return null;
   const resolved = path.isAbsolute(inputPath)
     ? path.resolve(inputPath)
@@ -62,14 +70,14 @@ function readPayload() {
   return JSON.parse(input);
 }
 
-function evaluate(payload) {
+function evaluate(payload, repoRoot) {
   const tool = payload && payload.tool;
   const args = payload && payload.args && typeof payload.args === "object" ? payload.args : {};
   if (!isWriteTool(tool)) {
     return { allow: true, reason: "non_write_tool", tool };
   }
 
-  const targetPath = normalizePath(args.path || args.file || args.file_path);
+  const targetPath = normalizePath(repoRoot, args.path || args.file || args.file_path);
   if (!targetPath) {
     return { allow: false, reason: "write_path_ambiguous", tool };
   }
@@ -92,14 +100,15 @@ function main() {
     try {
       payload = readPayload();
     } catch (error) {
-      appendDecision({ decision: "block", reason: "invalid_payload", error: error.message });
+      appendDecision(resolveRepoRoot(null), { decision: "block", reason: "invalid_payload", error: error.message });
       console.error(`[${HOOK_NAME}] blocked: invalid payload: ${error.message}`);
       return 1;
     }
   }
 
-  const decision = evaluate(payload);
-  appendDecision(Object.assign({}, decision, { decision: decision.allow ? "allow" : "block" }));
+  const repoRoot = resolveRepoRoot(payload);
+  const decision = evaluate(payload, repoRoot);
+  appendDecision(repoRoot, Object.assign({}, decision, { decision: decision.allow ? "allow" : "block" }));
   if (!decision.allow) {
     console.error(`[${HOOK_NAME}] blocked: ${decision.reason}`);
     return 1;

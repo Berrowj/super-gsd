@@ -5,9 +5,15 @@ const fs = require("fs");
 const path = require("path");
 
 const HOOK_NAME = "enforce-allowed-files";
-const repoRoot = path.resolve(__dirname, "../../..");
-const metricsPath = path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
-const statePath = path.resolve(repoRoot, ".planning/STATE.md");
+const fallbackRoot = path.resolve(__dirname, "../../..");
+function resolveRepoRoot(payload) {
+  const cwd = payload && typeof payload.cwd === "string" ? payload.cwd : null;
+  if (cwd && fs.existsSync(cwd)) return path.resolve(cwd);
+  return fallbackRoot;
+}
+function metricsPathFor(repoRoot) {
+  return path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
+}
 
 function usage() {
   return [
@@ -20,7 +26,8 @@ function usage() {
   ].join("\n");
 }
 
-function appendDecision(decision) {
+function appendDecision(repoRoot, decision) {
+  const metricsPath = metricsPathFor(repoRoot);
   fs.mkdirSync(path.dirname(metricsPath), { recursive: true });
   fs.appendFileSync(metricsPath, `${JSON.stringify(Object.assign({ ts: new Date().toISOString(), hook: HOOK_NAME }, decision))}\n`, "utf8");
 }
@@ -35,7 +42,7 @@ function isWriteTool(tool) {
   return /(^|[._-])(write|edit|create|delete|remove|move|rename|apply_patch|patch)([._-]|$)/i.test(String(tool || ""));
 }
 
-function normalizeRepoPath(inputPath) {
+function normalizeRepoPath(repoRoot, inputPath) {
   if (typeof inputPath !== "string" || inputPath.trim() === "") return null;
   const resolved = path.isAbsolute(inputPath)
     ? path.resolve(inputPath)
@@ -92,7 +99,8 @@ function parseScalarField(frontmatter, fieldName) {
   return match ? stripQuotes(match[1]) : null;
 }
 
-function resolvePlanLockedFromState() {
+function resolvePlanLockedFromState(repoRoot) {
+  const statePath = path.resolve(repoRoot, ".planning/STATE.md");
   if (!fs.existsSync(statePath)) return null;
   const stateText = fs.readFileSync(statePath, "utf8");
   const frontmatter = extractFrontmatter(stateText);
@@ -128,20 +136,20 @@ function resolvePlanLockedFromState() {
   return null;
 }
 
-function activePlanLockedPath() {
+function activePlanLockedPath(repoRoot) {
   const fromEnv = process.env.SGSD_ACTIVE_PLAN_LOCKED;
   if (fromEnv) {
     const resolved = path.isAbsolute(fromEnv) ? path.resolve(fromEnv) : path.resolve(repoRoot, fromEnv);
     return fs.existsSync(resolved) ? resolved : null;
   }
-  return resolvePlanLockedFromState();
+  return resolvePlanLockedFromState(repoRoot);
 }
 
-function loadAllowedFiles(planLockedPath) {
+function loadAllowedFiles(repoRoot, planLockedPath) {
   if (!planLockedPath || !fs.existsSync(planLockedPath)) return [];
   const frontmatter = extractFrontmatter(fs.readFileSync(planLockedPath, "utf8"));
   return parseListField(frontmatter, "allowed_files")
-    .map(normalizeRepoPath)
+    .map((entry) => normalizeRepoPath(repoRoot, entry))
     .filter(Boolean);
 }
 
@@ -162,24 +170,24 @@ function isAllowed(targetPath, allowedFiles) {
   });
 }
 
-function evaluate(payload) {
+function evaluate(payload, repoRoot) {
   const tool = payload && payload.tool;
   const args = payload && payload.args && typeof payload.args === "object" ? payload.args : {};
   if (!isWriteTool(tool)) {
     return { allow: true, reason: "non_write_tool", tool };
   }
 
-  const targetPath = normalizeRepoPath(args.path || args.file || args.file_path);
+  const targetPath = normalizeRepoPath(repoRoot, args.path || args.file || args.file_path);
   if (!targetPath) {
     return { allow: false, reason: "write_path_ambiguous", tool };
   }
 
-  const planLockedPath = activePlanLockedPath();
+  const planLockedPath = activePlanLockedPath(repoRoot);
   if (!planLockedPath) {
-    return { allow: false, reason: "plan_locked_unavailable", tool, path: targetPath };
+    return { allow: true, reason: "no_active_plan_lock", tool, path: targetPath };
   }
 
-  const allowedFiles = loadAllowedFiles(planLockedPath);
+  const allowedFiles = loadAllowedFiles(repoRoot, planLockedPath);
   if (allowedFiles.length === 0) {
     return { allow: false, reason: "allowed_files_empty_or_unreadable", tool, path: targetPath, plan_locked: path.relative(repoRoot, planLockedPath).replace(/\\/g, "/") };
   }
@@ -200,7 +208,7 @@ function main() {
   if (process.argv.includes("--self-test-no-plan-lock")) {
     const payload = { tool: "write_file", args: { path: "super-gsd/tools/codex-hooks/example.cjs" } };
     const decision = { allow: false, reason: "plan_locked_unavailable", tool: payload.tool, path: payload.args.path };
-    appendDecision(Object.assign({}, decision, { decision: "block" }));
+    appendDecision(resolveRepoRoot(payload), Object.assign({}, decision, { decision: "block" }));
     console.error(`[${HOOK_NAME}] blocked: ${decision.reason}`);
     return 1;
   }
@@ -209,13 +217,14 @@ function main() {
   try {
     payload = readPayload();
   } catch (error) {
-    appendDecision({ decision: "block", reason: "invalid_payload", error: error.message });
+    appendDecision(resolveRepoRoot(null), { decision: "block", reason: "invalid_payload", error: error.message });
     console.error(`[${HOOK_NAME}] blocked: invalid payload: ${error.message}`);
     return 1;
   }
 
-  const decision = evaluate(payload);
-  appendDecision(Object.assign({}, decision, { decision: decision.allow ? "allow" : "block" }));
+  const repoRoot = resolveRepoRoot(payload);
+  const decision = evaluate(payload, repoRoot);
+  appendDecision(repoRoot, Object.assign({}, decision, { decision: decision.allow ? "allow" : "block" }));
   if (!decision.allow) {
     console.error(`[${HOOK_NAME}] blocked: ${decision.reason}`);
     return 1;

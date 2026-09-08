@@ -1146,7 +1146,7 @@
         "scripts/lib/phase-name.cjs",
         "tools/state-resolver/resolve.cjs"
       ],
-      "sha256": "cc349a8fed0b49d5050d0a228c4da374579265fe728771e5f195f8c25dbb3e1a"
+      "sha256": "5944b07067d21ba6bc0f1dfd6b09a136356ce7398fcc33a16d1b1dd9b4e8e360"
     },
     {
       "source_path": "tools/codex-hooks/block-secret-leak.cjs",
@@ -1206,7 +1206,7 @@
         "scripts/lib/phase-name.cjs",
         "tools/state-resolver/resolve.cjs"
       ],
-      "sha256": "b57e6bf7ee7a67129d37e8941dc639279405a1b659dce3d9f459862aa76168f0"
+      "sha256": "77c1eb5f2d528ccdb8aeef4042fa882b6ef60d714674a2bffd5c29898dd00a48"
     },
     {
       "source_path": "tools/codex-hooks/log-tool-event.cjs",
@@ -1231,7 +1231,7 @@
         "scripts/lib/phase-name.cjs",
         "tools/state-resolver/resolve.cjs"
       ],
-      "sha256": "110637e71b3b7f755a833ab25915bbde70829cab45d07d8781d5dd30ac4fc70f"
+      "sha256": "e9fa87a5f453f859accd8e6a120b1466a368c859f545887966c8445931a4abd7"
     },
     {
       "source_path": "tools/codex-hooks/validate-stop-contract.cjs",
@@ -1256,7 +1256,7 @@
         "scripts/lib/phase-name.cjs",
         "tools/state-resolver/resolve.cjs"
       ],
-      "sha256": "2bf11ec910bce5d649a0b59a7ae9d614fcc8c3a73ae24189532083b09b5ccd68"
+      "sha256": "ff980287d052ffd03dbec2f0f04449fb3277e7619fc6a19c14c30a83bd86a356"
     }
   ]
 }
