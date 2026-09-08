@@ -5,13 +5,16 @@
 
 ## CURRENT PROVIDER LOCK
 
-- Orchestration is Claude/Opus 4.7 with xhigh thinking.
-- Codex gpt-5.6-sol/xhigh owns phase research, planning, plan-check, verification,
+- Orchestration is Fable with xhigh thinking. Any earlier line naming Opus 4.7 as
+  the orchestrator is stale.
+- Astra Max owns phase research, planning, plan-check, verification,
   source-changing execution, per-dispatch ATC, phase-level ATC, MUDA, and other
-  Codex-owned gates.
-- Sonnet is not a fresh-clone default provider and is not a Codex fallback. If a
-  later legacy line says to dispatch Sonnet for one of those surfaces, treat it
-  as stale and route through Codex instead.
+  Astra-owned gates. Astra Max is the model; dispatch still runs through the
+  existing `codex-*` scripts and agent names, which are file identifiers and do
+  not change.
+- Sonnet is not a fresh-clone default provider and is not an Astra Max fallback.
+  If a later legacy line says to dispatch Sonnet for one of those surfaces, treat
+  it as stale and route through Astra Max instead.
 
 ## BEHAVIOURAL GUIDELINES — Karpathy principles
 
@@ -90,8 +93,8 @@ Codex host read failures are routing problems, not operator decisions, while
 `super-gsd/scripts/codex-patch-executor.sh` can run. If Windows Codex reports
 `CreateProcessAsUserW`, `error 216`, or an equivalent file-read block, build a
 bounded `{planId}-CODEX-FILES.txt` allowlist/read-pack and let Codex author a
-unified diff through patch mode. Claude may assemble the read-pack and apply
-Codex's patch; Claude must not author the code delta.
+unified diff through patch mode. The orchestrator may assemble the read-pack and
+apply Astra Max's patch; it must not author the code delta.
 
 ## Super GSD — Autonomous Execution Engine
 
@@ -214,19 +217,19 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 
 | # | Condition | Action | Agent | Model |
 |---|-----------|--------|-------|-------|
-| 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Run readiness audit through Codex/local checks | codex-readiness | gpt-5.6-sol/xhigh |
+| 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Run readiness audit through Codex/local checks | codex-readiness | astra-max |
 | 0.5 | READINESS status = BLOCKED or PARTIAL AND user said "go" | Auto-continue on DEGRADED-PATH if one exists; pause only when no runnable path remains | — | — |
 | 1 | Phase not discussed | Suggest /gsd-discuss-phase | — | — |
-| 2 | Phase needs RESEARCH.md | Dispatch Codex research | codex-research | gpt-5.6-sol/xhigh |
-| 3 | Phase needs PLAN.md | Dispatch Codex planning | codex-plan | gpt-5.6-sol/xhigh |
-| 4 | Plans need checking | Dispatch Codex plan-check | codex-plan-check | gpt-5.6-sol/xhigh |
-| 4.5 | About to make FIRST executor dispatch of a phase | Run phase-readiness re-probe | codex-readiness | gpt-5.6-sol/xhigh |
+| 2 | Phase needs RESEARCH.md | Dispatch Codex research | codex-research | astra-max |
+| 3 | Phase needs PLAN.md | Dispatch Codex planning | codex-plan | astra-max |
+| 4 | Plans need checking | Dispatch Codex plan-check | codex-plan-check | astra-max |
+| 4.5 | About to make FIRST executor dispatch of a phase | Run phase-readiness re-probe | codex-readiness | astra-max |
 | 4.6 | Phase-readiness returned DRIFT | Continue on deterministic degraded/local path; checkpoint only if no runnable executor path remains | — | — |
-| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | gpt-5.6-sol/xhigh |
-| 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | gpt-5.6-sol/xhigh |
-| 6 | All plans executed | Dispatch Codex verifier | codex-verify | gpt-5.6-sol/xhigh |
+| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | astra-max |
+| 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | astra-max |
+| 6 | All plans executed | Dispatch Codex verifier | codex-verify | astra-max |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
-| 8 | Verification failed | Dispatch Codex planner --gaps | codex-plan | gpt-5.6-sol/xhigh |
+| 8 | Verification failed | Dispatch Codex planner --gaps | codex-plan | astra-max |
 | 9 | All phases complete | Exit loop | — | — |
 
 ### Readiness Gates — unattended-run contract
@@ -251,11 +254,11 @@ Readiness is **stale** if any phase directory under
 
 | Role | Model | Why |
 |------|-------|-----|
-| Orchestrator (you) | Opus | Judgment, dispatch, synthesis |
+| Orchestrator (you) | Fable | Judgment, dispatch, synthesis |
 | Classifier | Codex/local | Derive locally from plan frontmatter/cache |
 | Context selector | Codex/local | Pick relevant sgsd-recall queries from plan evidence |
-| Code execution | Codex gpt-5.6-sol/xhigh | Claude orchestrates; Codex edits; patch mode handles Windows read-blocks |
-| Verifier/checker/gates | Codex gpt-5.6-sol/xhigh | Verification, readiness, ATC, MUDA, and plan-check |
+| Code execution | Astra Max | Fable orchestrates; Astra Max edits; patch mode handles Windows read-blocks |
+| Verifier/checker/gates | Astra Max | Verification, readiness, ATC, MUDA, and plan-check |
 
 ### Sub-Agent Prompt Composition
 
