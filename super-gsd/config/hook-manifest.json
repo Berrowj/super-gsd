@@ -1065,9 +1065,11 @@
         "schemas/vtp-mcp-input-schemas.v2.json",
         "scripts/lib/decision-state.cjs",
         "scripts/lib/phase-name.cjs",
-        "tools/state-resolver/resolve.cjs"
+        "tools/state-resolver/resolve.cjs",
+        "tools/telemetry-atlas/contract.cjs",
+        "tools/telemetry-atlas/quota-sampler.cjs"
       ],
-      "sha256": "6a0546200f93080a688143accf2ef4c0a019f604cc3b7afcb38fbf83d254bdb2"
+      "sha256": "4ab39b0e7313cf26b0064a7d7776953167065cc8951ce22f65ed442284608f77"
     },
     {
       "source_path": "hooks/sgsd-stop-handoff.js",

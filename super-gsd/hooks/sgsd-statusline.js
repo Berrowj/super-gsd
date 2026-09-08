@@ -25,6 +25,10 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+let atlasSampler;
+try {
+  if (process.env.SGSD_ATLAS_STATE_DIR) atlasSampler = require('../tools/telemetry-atlas/quota-sampler.cjs');
+} catch { /* The installed status line remains usable without its optional recorder. */ }
 
 // ─── Utils ───
 
@@ -153,6 +157,12 @@ process.stdin.on('end', () => {
 // ─── Emit ───
 function emit(s) { process.stdout.write(s); }
 
+function recordAtlasStatus(data) {
+  try {
+    if (atlasSampler) atlasSampler.record(data);
+  } catch { /* Recording cannot affect status rendering. */ }
+}
+
 // ─── Render ───
 
 function render(data) {
@@ -169,6 +179,7 @@ function render(data) {
     emit(parts.join(' \u2502 '));
     return;
   }
+  recordAtlasStatus(data);
 
   // Read STATE.md
   const statePath = path.join(root, '.planning', 'STATE.md');

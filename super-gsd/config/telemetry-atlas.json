@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "enabled": false,
+  "host": "127.0.0.1",
+  "ports": {
+    "otlp_http": 4318,
+    "normalizer_http": 4319,
+    "collector_health": 13133,
+    "normalizer_health": 13134,
+    "collector_metrics": 9464,
+    "normalizer_metrics": 9465,
+    "collector_internal_metrics": 9466,
+    "prometheus_ui": 9090
+  },
+  "delivery": {
+    "platform": "linux-x64",
+    "explicit_install_only": true,
+    "collector_version": "0.160.0",
+    "collector_archive_sha256": "7bb60c584c241c86261c2b8697cd3725dd8c56691f5ad5d98454eaa005b47b0c",
+    "prometheus_version": "3.14.0",
+    "prometheus_archive_sha256": "f665c6da19eb7ba399c915d30c7d9793c9b417bf8a749b504bc470678631478d"
+  },
+  "retention": {
+    "queue_max_bytes": 268435456,
+    "queue_retry_max_hours": 24,
+    "spool_max_bytes": 536870912,
+    "spool_max_days": 7,
+    "prometheus_retention_bytes": 2147483648,
+    "prometheus_retention_days": 35,
+    "prometheus_headroom_bytes": 536870912,
+    "operational_log_days": 14
+  },
+  "resources": {
+    "collector_rss_limit_bytes": 268435456,
+    "prometheus_rss_limit_bytes": 536870912,
+    "minimum_free_disk_fraction": 0.1,
+    "collector_heap_target": "192MiB",
+    "prometheus_heap_target": "384MiB",
+    "rss_enforcement": "lifecycle_monitor_required"
+  },
+  "max_body_bytes": 1048576,
+  "privacy": {
+    "log_user_prompts": false,
+    "log_assistant_responses": false,
+    "log_tool_details": false,
+    "log_tool_content": false,
+    "log_raw_api_bodies": false
+  }
+}

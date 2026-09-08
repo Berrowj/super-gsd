@@ -280,6 +280,27 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
   exit 0
 fi
 
+# Installation, enablement and process start are explicit lifecycle operations.
+# Attachment only checks the running stack; its entire subprocess is bounded.
+ATLAS_ENV_PREFIX=""
+ATLAS_EXIT_CMD=":"
+ATLAS_LIFECYCLE="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/lifecycle.cjs"
+SGSD_RUN_ID="sgsd-${FRAMEWORK_HEAD:0:12}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+if [[ "$CLAUDE_MODE" != shell && -f "$ATLAS_LIFECYCLE" ]] && command -v timeout >/dev/null 2>&1; then
+  ATLAS_STATE_ARGS=()
+  if [[ -n "${SGSD_ATLAS_STATE_DIR:-}" ]]; then ATLAS_STATE_ARGS=(--state-dir "$SGSD_ATLAS_STATE_DIR"); fi
+  ATLAS_ENV_PREFIX="$(timeout --signal=TERM --kill-after=0.05s 0.7s node "$ATLAS_LIFECYCLE" attach \
+    --project-dir "$PROJECT_DIR" --run-id "$SGSD_RUN_ID" "${ATLAS_STATE_ARGS[@]}" --shell 2>/dev/null || true)"
+  if [[ "$ATLAS_ENV_PREFIX" == env\ * ]]; then
+    ATLAS_EXIT_CMD="timeout --signal=TERM --kill-after=0.05s 0.7s node $(q "$ATLAS_LIFECYCLE") session-exit --project-dir $(q "$PROJECT_DIR") --run-id $(q "$SGSD_RUN_ID")"
+    if [[ -n "${SGSD_ATLAS_STATE_DIR:-}" ]]; then ATLAS_EXIT_CMD+=" --state-dir $(q "$SGSD_ATLAS_STATE_DIR")"; fi
+    ATLAS_EXIT_CMD+=" >/dev/null 2>&1"
+    echo "SGSD Atlas telemetry healthy (run $SGSD_RUN_ID)"
+  else
+    ATLAS_ENV_PREFIX=""
+  fi
+fi
+
 PROJECT_Q="$(q "$PROJECT_DIR")"
 SCRIPTS_Q="$(q "$SCRIPTS_DIR")"
 
@@ -288,10 +309,10 @@ GREET_PROMPT="You are booting in Super GSD mode inside tmux on devcp. Do these f
 if command -v claude >/dev/null 2>&1; then
   case "$CLAUDE_MODE" in
     go)
-      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude auto mode'; claude --dangerously-skip-permissions 'go'; exec bash -l"
+      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude auto mode'; $ATLAS_ENV_PREFIX claude --dangerously-skip-permissions 'go'; $ATLAS_EXIT_CMD; exec bash -l"
       ;;
     greet)
-      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude SGSD greeting'; claude --dangerously-skip-permissions $(q "$GREET_PROMPT"); exec bash -l"
+      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude SGSD greeting'; $ATLAS_ENV_PREFIX claude --dangerously-skip-permissions $(q "$GREET_PROMPT"); $ATLAS_EXIT_CMD; exec bash -l"
       ;;
     shell)
       OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator shell]'; echo 'Run: claude --dangerously-skip-permissions'; exec bash -l"

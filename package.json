@@ -10,6 +10,7 @@
     "test": "node super-gsd/tools/chronicle/run-self-test.cjs && node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
     "test:chronicle": "node super-gsd/tools/chronicle/run-self-test.cjs",
     "test:cockpit": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+    "test:atlas": "node super-gsd/tools/telemetry-atlas/run-self-test.cjs",
     "cockpit:setup": "npx --yes playwright install chromium",
     "cockpit:setup-linux": "npx --yes playwright install --with-deps chromium",
     "cockpit:serve": "node super-gsd/tools/cockpit-sidecar/serve.cjs --port 7777",
