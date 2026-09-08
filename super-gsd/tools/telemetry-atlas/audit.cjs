@@ -5,6 +5,7 @@ const path = require('node:path');
 const { canonicalize, digest, scan, validate, validConflict, safePath, fileDigest } = require('./contract.cjs');
 const { readJson, readRun, RUN } = require('./global-store.cjs');
 const { rootPath, status } = require('./global.cjs');
+const { NATIVE_SOURCE, classifyAccounting } = require('./accounting.cjs');
 function names(directory, max = 10000) {
   safePath(path.join(directory, '.atlas-read-check'));
   if (!fs.existsSync(directory)) return [];
@@ -36,11 +37,12 @@ async function audit({ root = rootPath(), now = Date.now() } = {}) {
         safePath(target); const stat = fs.statSync(target); pending++;
         oldest = Math.max(oldest || 0, (now - stat.mtimeMs) / 1000);
       }
-      runs.set(run.run_id, { ...run, pending, oldest, requests: 0, native_events: 0,
+      runs.set(run.run_id, { ...run, pending, oldest, requests: 0, responses: 0, native_events: 0,
         missing_identity: 0, closed: false, last_event: null, last_request: null, quota_windows: new Set() });
     }
   } catch (error) { finding('WARN', error.message === 'audit_limit' ? 'audit_limit' : 'registration_scan_unavailable', path.join(root, 'runs')); }
   let totalBytes = 0; let totalRows = 0;
+  const nativeResponses = new Map();
   try {
     for (const entry of names(path.join(root, 'projects'), 1024)) {
       const directory = path.join(root, 'projects', entry.name);
@@ -98,14 +100,22 @@ async function audit({ root = rootPath(), now = Date.now() } = {}) {
           seen.set(event_id, payload_sha256);
           const run = runs.get(event.identity?.sgsd_run_id);
           if (!run || run.project_id !== project.project_id || event.scope?.launcher_repo_id !== project.project_id) { summary.invalid++; return; }
-          const nativeSource = run.provider === 'openai' ? 'codex_otel' : 'claude_otel';
-          if ((event.runtime?.provider && event.runtime.provider !== run.provider)
-              || (['claude_otel', 'codex_otel'].includes(event.source?.kind) && event.source.kind !== nativeSource)) { summary.invalid++; return; }
+          const accounting = classifyAccounting(event, run);
+          if (accounting.reason) { summary.invalid++; return; }
+          if (accounting.eligible && event.source.kind === NATIVE_SOURCE) {
+            const previous = nativeResponses.get(event_id);
+            if (previous && previous.project_id !== summary.project_id) {
+              previous.invalid++; summary.invalid++;
+              finding('FAIL', 'cross_project_native_response_reuse', summary.evidence);
+            } else nativeResponses.set(event_id, summary);
+          }
           const timestamp = Date.parse(event.occurred_at);
           run.last_event = Math.max(run.last_event || 0, timestamp);
-          if (event.source?.kind === nativeSource) run.native_events++;
-          if (event.source?.kind === nativeSource && event.identity?.request_id && event.event_type === 'api_request' && event.execution?.status === 'api_request') {
-            run.requests++; run.last_request = Math.max(run.last_request || 0, timestamp);
+          if (accounting.nativeEvent) run.native_events++;
+          if (accounting.nativeObserved) {
+            if (accounting.granularity === 'response_completion') { run.responses++; run.missing_identity++; }
+            else run.requests++;
+            run.last_request = Math.max(run.last_request || 0, timestamp);
           }
           if (event.source?.completeness_reason === 'missing_stable_request_identity') run.missing_identity++;
           if (event.source?.completeness_reason === 'launcher_session_exit') run.closed = true;
@@ -120,12 +130,13 @@ async function audit({ root = rootPath(), now = Date.now() } = {}) {
       if (summary.duplicates) finding('FAIL', 'duplicate_canonical_events', summary.evidence);
       if (summary.conflicts) finding('WARN', 'integrity_conflicts', summary.evidence);
       for (const run of runs.values()) if (run.project_id === entry.name) {
-        const coverage = run.requests ? 'observed' : run.native_events ? 'partial' : 'unavailable';
+        const coverage = run.requests || run.responses ? 'observed' : run.native_events ? 'partial' : 'unavailable';
         summary.runs.push({ run_id: run.run_id, provider: run.provider, role: run.role, registered_at: run.registered_at,
           state: run.closed ? 'closed' : 'open_or_exit_unobserved', coverage, native_events: run.native_events,
-          requests: run.requests, last_event: run.last_event ? new Date(run.last_event).toISOString() : null,
+          requests: run.requests, responses: run.responses, accounting_source: run.accountingSource || 'legacy',
+          last_event: run.last_event ? new Date(run.last_event).toISOString() : null,
           quota_windows: [...run.quota_windows], pending_spool: run.pending });
-        if (!run.requests) finding('WARN', 'native_request_coverage_unavailable', run.state_dir);
+        if (!run.requests && !run.responses) finding('WARN', 'native_request_coverage_unavailable', run.state_dir);
         if (run.missing_identity) finding('WARN', 'provider_request_identity_unavailable', run.state_dir);
         if (!run.closed && run.last_request && now - run.last_request > 900000) finding('WARN', 'requests_stale_or_session_idle', run.state_dir);
         if (run.provider === 'anthropic' && run.quota_windows.size < 2) finding('WARN', 'quota_window_coverage_partial', run.state_dir);
@@ -140,7 +151,7 @@ async function audit({ root = rootPath(), now = Date.now() } = {}) {
   const globalGaps = path.join(root, 'sgsd-atlas-gaps.jsonl');
   if (fs.existsSync(globalGaps)) finding('WARN', 'global_capture_gaps_recorded', globalGaps);
   result.status = severity();
-  result.note = 'Observed events prove capture, not exhaustive provider reconciliation. Account quotas are not summed across projects. Legacy project-stack ledgers are separate.';
+  result.note = 'Observed request or response-completion events prove partial capture, not exhaustive provider reconciliation. Response IDs are not HTTP request IDs. Cross-project response reuse is unsafe to sum. Account quotas are not summed across projects. Legacy project-stack ledgers are separate.';
   // Expose health metadata, not process arguments or provider content.
   if (result.service) result.service = { healthy: true, pid: result.service.pid, urls: result.service.urls, coverage: result.service.health.coverage };
   return result;

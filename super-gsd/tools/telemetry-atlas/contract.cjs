@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { StringDecoder } = require('node:string_decoder');
+const { NATIVE_SOURCE, nativeResponseIdentity, validateNativeEnvelope } = require('./accounting.cjs');
 
 // Permitted containers never grant permission to store arbitrary model text.
 const atom = v => typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(v);
@@ -15,9 +16,9 @@ const timestamp = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|
 const fields = (names, check = atom) => Object.fromEntries(names.split(' ').map(name => [name, check]));
 const SHAPES = Object.freeze({
   source: fields('kind instance version provenance confidence completeness_reason'),
-  identity: fields('sgsd_run_id session_id request_id client_request_id trace_id span_id parent_span_id message_id prompt_id agent_id parent_agent_id workflow_id handoff_id parent_handoff_id dispatch_id packet_id gate_invocation_id attempt_id retry_group_id tool_use_id finding_id repair_id'),
+  identity: fields('sgsd_run_id session_id request_id response_id thread_id turn_id root_turn_id client_request_id trace_id span_id parent_span_id message_id prompt_id agent_id parent_agent_id workflow_id handoff_id parent_handoff_id dispatch_id packet_id gate_invocation_id attempt_id retry_group_id tool_use_id finding_id repair_id'),
   scope: fields('launcher_repo_id event_cwd_repo_id target_repo_id target_repo_source target_repo_confidence milestone phase plan task gate role cost_center attribution_method'),
-  runtime: fields('provider model effort service_tier speed query_source active_agent active_skill active_plugin active_mcp_server source_sha pre_commit_sha post_commit_sha claude_version codex_version collector_version prometheus_version prompt_template_digest system_prompt_digest config_digest gate_registry_digest route_registry_digest pricing_table_version classifier_rules_version fingerprint_version'),
+  runtime: fields('provider model model_provenance response_model model_provider effort service_tier speed query_source active_agent active_skill active_plugin active_mcp_server source_sha pre_commit_sha post_commit_sha claude_version codex_version collector_version prometheus_version prompt_template_digest system_prompt_digest config_digest gate_registry_digest route_registry_digest pricing_table_version classifier_rules_version fingerprint_version'),
   usage: { ...fields('input_tokens cache_creation_tokens cache_read_tokens output_tokens reasoning_tokens total_provider_tokens visible_response_chars visible_response_tokens_estimated report_bytes tool_input_bytes tool_result_bytes context_window_tokens unattributed_residual_tokens cost_usd_estimated duration_ms', number), context_occupancy_percentage: percent },
   execution: { ...fields('status stop_reason error_code'), ...fields('success compaction_event fallback', boolean), ...fields('retry_count iteration_count time_to_first_token_ms', number) },
   tool: { ...fields('name family argument_digest result_digest'), success: boolean, duration_ms: number },
@@ -39,7 +40,7 @@ function forbidden(value, seen = new Set(), depth = 0) {
   }
   return false;
 }
-function validate(input) {
+function validateEnvelope(input) {
   if (!plain(input)) return 'invalid_envelope';
   if (forbidden(input)) return 'privacy_forbidden_field';
   if (Object.keys(input).some(key => !TOP_LEVEL.has(key))) return 'unknown_top_level_field';
@@ -60,6 +61,7 @@ function validate(input) {
   if (Buffer.byteLength(JSON.stringify(input)) > 32768) return 'event_too_large';
   return null;
 }
+function validate(input) { return validateEnvelope(input) || validateNativeEnvelope(input); }
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key,stable(value[key])]));
@@ -68,8 +70,10 @@ function stable(value) {
 function digest(value) { return crypto.createHash('sha256').update(JSON.stringify(stable(value))).digest('hex'); }
 function canonicalize(input, ingestedAt = new Date().toISOString()) {
   const payload = { ...input, event_sequence: input.event_sequence ?? null };
-  return Object.freeze({ ...stable(payload), event_id: digest([input.schema_version,input.source.kind,input.source.instance,
-    input.runtime?.provider || null,input.identity?.session_id || null,input.event_type,input.source_event_id]),
+  const identity = input.source.kind === NATIVE_SOURCE ? nativeResponseIdentity(input)
+    : [input.schema_version,input.source.kind,input.source.instance,
+      input.runtime?.provider || null,input.identity?.session_id || null,input.event_type,input.source_event_id];
+  return Object.freeze({ ...stable(payload), event_id: digest(identity),
   ingested_at: ingestedAt, payload_sha256: digest(payload) });
 }
 function safePath(file) {
@@ -183,7 +187,8 @@ function validConflict(row) {
   const { event_id, ingested_at, conflicting_event_id, first_payload_sha256, conflicting_payload_sha256, ...input } = body;
   if (![event_id,conflicting_event_id,first_payload_sha256,conflicting_payload_sha256].every(v => /^[a-f0-9]{64}$/.test(v || '')) || !timestamp(ingested_at)) return false;
   if (event_id !== digest(['integrity_conflict',conflicting_event_id,conflicting_payload_sha256])) return false;
-  return validate({ ...input, event_type: 'coverage' }) === null;
+  // Conflict rows preserve bounded attribution metadata, not a second usage envelope.
+  return validateEnvelope({ ...input, event_type: 'coverage' }) === null;
 }
 function createStore(options = {}) {
   if (!options.ledgerPath && !options.projectDir && !options.metricsDir) throw new Error('ledgerPath_or_projectDir_required');

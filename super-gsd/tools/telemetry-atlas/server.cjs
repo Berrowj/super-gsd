@@ -5,7 +5,8 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { createStore, digest } = require('./contract.cjs');
+const { createStore, digest, safePath, validate } = require('./contract.cjs');
+const { NATIVE_SOURCE, classifyAccounting } = require('./accounting.cjs');
 const { normalizeLogs, normalizeMetrics, canonicalClaudeLogs, canonicalClaudeMetrics, modelFamily } = require('./otlp.cjs');
 
 function json(response, status, value) {
@@ -83,6 +84,7 @@ async function startServer(options = {}) {
   const concurrency = bounded(options.maxConcurrentRequests, 8, 1, 32);
   const counters = { accepted: 0, duplicate: 0, conflict: 0, rejected: 0 };
   const coverage = { native_requests: 'unavailable', native_metrics: 'unavailable',
+    native_responses: 'unavailable', rejected_native_responses: 0,
     missing_stable_identity: 0, rejected_native_records: 0, quota_spool_rejected: 0 };
   const native = new Map();
   const requestTokens = new Map();
@@ -90,15 +92,29 @@ async function startServer(options = {}) {
   let ready = false;
   let closed = false;
   let requestSeen = false;
+  let responseSeen = false;
   const startedAt = new Date().toISOString();
-  function ingest(event) {
-    const result = store.ingest(event);
+  function updateCoverage() {
+    coverage.native_requests = coverage.rejected_native_records ? 'partial' : requestSeen ? 'observed' : 'unavailable';
+    coverage.native_responses = coverage.rejected_native_responses ? 'partial' : responseSeen ? 'observed' : 'unavailable';
+  }
+  function ingest(event, intake) {
+    const result = store.ingest(event, intake);
+    // Global intake may suppress a non-authoritative source. Use its post-authority
+    // decision, never the original HTTP/spool input, for both health and totals.
+    const accounting = result.accounting || classifyAccounting(event);
     if (Object.hasOwn(counters, result.status)) counters[result.status]++;
-    if (result.status === 'accepted' && event.event_type === 'api_request' && event.execution?.status === 'api_request') {
+    if (['accepted', 'duplicate'].includes(result.status) && accounting.nativeObserved) {
+      if (accounting.granularity === 'response_completion') responseSeen = true;
+      else requestSeen = true;
+    }
+    if (event.source?.kind === NATIVE_SOURCE && ['rejected', 'conflict'].includes(result.status)) coverage.rejected_native_responses++;
+    updateCoverage();
+    if (result.status === 'accepted' && accounting.eligible) {
       for (const token of ['input', 'output', 'cache_read', 'cache_creation', 'reasoning']) {
-        const amount = event.usage?.[`${token}_tokens`];
+        const amount = accounting.usage?.[`${token}_tokens`];
         if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) continue;
-        const labels = { provider: ['anthropic','openai'].includes(event.runtime?.provider) ? event.runtime.provider : 'unknown', model_family: modelFamily(event.runtime?.model), token_type: token };
+        const labels = { provider: ['anthropic','openai'].includes(accounting.provider) ? accounting.provider : 'unknown', model_family: modelFamily(accounting.model), token_type: token };
         const key = JSON.stringify(labels);
         const value = (requestTokens.get(key)?.amount || 0) + amount;
         if (Number.isFinite(value)) requestTokens.set(key, { labels, amount: value });
@@ -135,10 +151,9 @@ async function startServer(options = {}) {
           const result = ingest(scoped(event));
           if (retryable(result)) retry = true;
           if (result.status === 'rejected') rejected++;
-          else if (event.event_type === 'api_request') requestSeen = true;
         }
         coverage.rejected_native_records += rejected;
-        coverage.native_requests = coverage.rejected_native_records ? 'partial' : requestSeen ? 'observed' : 'unavailable';
+        updateCoverage();
         if (rejected && typeof store.gap === 'function') store.gap(normalized.missing_stable_identity ? 'missing_stable_identity' : 'native_record_rejected');
         // A failed append must retain the Collector's bounded queued batch. Rows
         // already appended are no-ops when that batch is retried.
@@ -152,6 +167,9 @@ async function startServer(options = {}) {
         counters.rejected += normalized.rejected;
         coverage.native_metrics = normalized.rejected ? 'partial' : native.size ? 'observed' : 'unavailable';
         json(response, 200, { partialSuccess: { rejectedDataPoints: normalized.rejected } }); return;
+      }
+      if (value?.source?.kind === NATIVE_SOURCE) {
+        counters.rejected++; json(response, 400, { status: 'rejected', reason: 'native_private_spool_required' }); return;
       }
       const result = ingest(scoped(value));
       json(response, retryable(result) ? 503 : result.status === 'rejected' ? 400 : 202, result);
@@ -175,7 +193,7 @@ async function startServer(options = {}) {
     if (request.method !== 'GET' || request.url !== '/metrics') { json(response, 404, { reason: 'not_found' }); return; }
     const lines = [];
     for (const [key, amount] of Object.entries(counters)) lines.push(`# TYPE sgsd_atlas_events_${key}_total counter`, `sgsd_atlas_events_${key}_total ${amount}`);
-    lines.push('# HELP sgsd_atlas_request_tokens_total Accepted native request tokens since receiver start; unavailable dimensions are omitted.',
+    lines.push('# HELP sgsd_atlas_request_tokens_total Accepted native request or response-completion tokens since receiver start; not HTTP identity or exhaustive reconciliation; unavailable dimensions are omitted.',
       '# TYPE sgsd_atlas_request_tokens_total counter');
     for (const point of requestTokens.values()) lines.push(metricLine('sgsd_atlas_request_tokens_total', point.labels, point.amount));
     for (const kind of ['token', 'cost', 'session', 'active_time']) {
@@ -203,33 +221,53 @@ async function startServer(options = {}) {
 
   const ignoredSpool = new Set();
   const spoolDir = options.stateDir ? path.join(path.resolve(options.stateDir), 'quota-spool') : null;
-  function drainSpool(spoolDir, route) {
+  function drainSpool(spoolDir, route, intake) {
     if (!spoolDir || closed) return;
     let directory;
     try {
-      if (fs.lstatSync(spoolDir).isSymbolicLink()) return;
+      safePath(path.join(spoolDir, '.atlas-spool-read-check'));
+      const spoolStat = fs.lstatSync(spoolDir);
+      if (!spoolStat.isDirectory() || spoolStat.isSymbolicLink()
+          || (process.getuid && spoolStat.uid !== process.getuid())) return;
       directory = fs.opendirSync(spoolDir);
       let entry; let scanned = 0; let consumed = 0;
       while (scanned++ < 256 && consumed < 32 && (entry = directory.readSync())) {
         if (!entry.isFile() || !/^[a-f0-9]{64}(?:-[0-9]+-[a-zA-Z0-9-]+)?\.json$/.test(entry.name) || ignoredSpool.has(path.join(spoolDir, entry.name))) continue;
         consumed++;
         const file = path.join(spoolDir, entry.name);
+        let nativeSource = false;
         try {
+          safePath(file);
           const stat = fs.lstatSync(file);
           if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4096) throw new Error('invalid_spool');
           const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
           let event;
           try {
-            if (!fs.fstatSync(fd).isFile() || fs.fstatSync(fd).size > 4096) throw new Error('invalid_spool');
+            const opened = fs.fstatSync(fd);
+            if (!opened.isFile() || opened.size > 4096 || opened.nlink !== 1
+                || opened.dev !== stat.dev || opened.ino !== stat.ino
+                || (process.getuid && opened.uid !== process.getuid())) throw new Error('invalid_spool');
             const buffer = Buffer.alloc(4097); const length = fs.readSync(fd, buffer, 0, buffer.length, 0);
             if (length > 4096) throw new Error('invalid_spool');
             event = JSON.parse(buffer.subarray(0, length).toString('utf8'));
+            const after = fs.fstatSync(fd);
+            if (after.size !== opened.size || after.mtimeMs !== opened.mtimeMs || after.nlink !== 1) throw new Error('invalid_spool');
           } finally { fs.closeSync(fd); }
+          const unchanged = () => {
+            safePath(file); const current = fs.lstatSync(file);
+            if (current.dev !== stat.dev || current.ino !== stat.ino || current.size !== stat.size || current.mtimeMs !== stat.mtimeMs) throw new Error('invalid_spool');
+          };
+          unchanged();
           const statusline = event.source?.kind === 'claude_statusline' && ['quota', 'coverage'].includes(event.event_type);
           const lifecycle = event.source?.kind === 'atlas_lifecycle' && event.event_type === 'coverage';
-          if (!statusline && !lifecycle) throw new Error('invalid_spool');
-          const result = ingest(options.scopeEvent ? options.scopeEvent(event, route) : event);
-          if (['accepted', 'duplicate', 'conflict'].includes(result.status)) fs.unlinkSync(file);
+          nativeSource = event.source?.kind === NATIVE_SOURCE;
+          if (nativeSource && (!intake || !route || (process.platform !== 'win32' && (spoolStat.mode & 0o777) !== 0o700) || validate(event))) throw new Error('invalid_spool');
+          if (!statusline && !lifecycle && !nativeSource) throw new Error('invalid_spool');
+          let scoped;
+          try { scoped = options.scopeEvent ? options.scopeEvent(event, route) : event; }
+          catch { throw new Error('invalid_spool'); } // Pure scope/schema rejection is permanent, not transient I/O.
+          const result = ingest(scoped, intake);
+          if (['accepted', 'duplicate', 'conflict'].includes(result.status)) { unchanged(); fs.unlinkSync(file); }
           else if (retryable(result)) {
             coverage.quota_spool_rejected++;
             if (typeof store.gap === 'function') store.gap('quota_spool_storage_unavailable');
@@ -240,6 +278,7 @@ async function startServer(options = {}) {
           // leave the private file eligible for a later bounded drain.
           if ((error.message === 'invalid_spool' || error instanceof SyntaxError) && ignoredSpool.size < 256) ignoredSpool.add(path.join(spoolDir, entry.name));
           coverage.quota_spool_rejected++;
+          if (nativeSource) { coverage.rejected_native_responses++; updateCoverage(); }
           if (typeof store.gap === 'function') store.gap('quota_spool_rejected');
         }
       }
@@ -248,7 +287,7 @@ async function startServer(options = {}) {
   }
   const sampler = spoolDir || options.spoolSources ? setInterval(() => {
     const sources = options.spoolSources ? options.spoolSources() : [{ directory: spoolDir }];
-    for (const source of sources) drainSpool(source.directory, source.route);
+    for (const source of sources) drainSpool(source.directory, source.route, source.intake);
   }, bounded(options.spoolPollMs, 1000, 20, 1000)) : null;
   sampler?.unref();
   const url = (address) => `http://${address.address.includes(':') ? `[${address.address}]` : address.address}:${address.port}`;

@@ -2,7 +2,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { appendGap } = require('./contract.cjs');
+const { appendGap, validate, canonicalize, digest, safePath } = require('./contract.cjs');
+const { NATIVE_SOURCE } = require('./accounting.cjs');
 
 const MAX_FILES = 256;
 const MAX_BYTES = 4096;
@@ -45,12 +46,34 @@ function atomicJson(filename, value) {
 }
 
 function queueEvent(event, stateDir) {
+  const native = event?.source?.kind === NATIVE_SOURCE;
+  if (native && validate(event)) return false;
   const bytes = JSON.stringify(event) + '\n';
   if (Buffer.byteLength(bytes) > MAX_BYTES) return false;
   const spool = path.join(stateDir, 'quota-spool');
   privateDirectory(spool);
+  const canonical = native ? canonicalize(event) : null;
+  // Conflicts must coexist until the receiver records them; legacy names are unchanged.
+  const filename = path.join(spool, `${native ? digest([canonical.event_id, canonical.payload_sha256]) : hash(event.source_event_id)}.json`);
+  if (native && fs.existsSync(filename)) {
+    // A durable identical observation is success even at capacity. Do not rewrite
+    // it, or accept an unsafe/mismatched file merely because its name matches.
+    safePath(filename);
+    const fd = fs.openSync(filename, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+    try {
+      const before = fs.fstatSync(fd), buffer = Buffer.alloc(MAX_BYTES + 1);
+      if (!before.isFile() || before.nlink !== 1 || before.size > MAX_BYTES
+          || (process.getuid && before.uid !== process.getuid())) return false;
+      const size = fs.readSync(fd, buffer, 0, buffer.length, 0);
+      if (size > MAX_BYTES) return false;
+      const prior = JSON.parse(buffer.subarray(0, size).toString('utf8')), after = fs.fstatSync(fd);
+      safePath(filename); const current = fs.lstatSync(filename);
+      return current.dev === before.dev && current.ino === before.ino && after.nlink === 1
+        && after.size === before.size && after.mtimeMs === before.mtimeMs
+        && !validate(prior) && canonicalize(prior).payload_sha256 === canonical.payload_sha256;
+    } catch { return false; } finally { fs.closeSync(fd); }
+  }
   if (fs.readdirSync(spool).length >= MAX_FILES) return false;
-  const filename = path.join(spool, `${hash(event.source_event_id)}.json`);
   atomicJson(filename, event);
   return true;
 }

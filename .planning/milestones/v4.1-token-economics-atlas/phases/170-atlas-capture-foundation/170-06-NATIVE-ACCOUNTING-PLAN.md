@@ -34,26 +34,30 @@ one small shared source-accounting predicate module if required,
 `global-store.cjs`, `quota-sampler.cjs`, `global.cjs` registration/prepare wiring only, `server.cjs`
 typed spool/native-health wiring only, `audit.cjs`; related Atlas
 `store.test.cjs`, `global.test.cjs`, `receiver.test.cjs`, `audit.test.cjs`.
+Include the mechanically generated `super-gsd/config/hook-manifest.json`
+dependency witness for the new leaf module. This prerequisite was moved forward
+from Task 2's closure work after the unchanged installer correctly refused the
+stale status-line dependency graph; no installer behavior or guard changes.
 
-- [ ] Read actual release-source record/flush evidence and current code before
+- [x] Read actual release-source record/flush evidence and current code before
   implementing. Add RED tests for real-shaped per-response usage distinct from
   cumulative fields, native response identity and immutable source authority.
-- [ ] Implement a pure allowlisted native projector plus bounded exact-file
+- [x] Implement a pure allowlisted native projector plus bounded exact-file
   reader. Snapshot native path/offset before starting the current turn; read
   appended complete lines incrementally. No whole-home/session discovery.
   Validate file/owner/link/descriptor identity; reject changed/truncated paths.
   Bound bytes per poll, line bytes, per-turn response index and retry queue.
-- [ ] Project only current acknowledged thread/turn `token_usage_record` usage.
+- [x] Project only current acknowledged thread/turn `token_usage_record` usage.
   Extend canonical identity with true `response_id` and native thread/turn fields;
   keep request ID unknown. Explicitly label model as thread configuration.
   Missing optional cache-write is null; only safe integer observed fields count.
-- [ ] Make new source IDs stable by native provider response, with old source
+- [x] Make new source IDs stable by native provider response, with old source
   hashing byte-compatible. Replays with unchanged payload are duplicates; changed
   usage or attribution conflicts. Test store reconstruction/replay and distinct
   response IDs in a single turn. Existing audit also catches cross-project reuse.
   Native spool filenames must distinguish conflicting payloads for the same
   response so a pending first observation is not overwritten before ingestion.
-- [ ] Register rollout authority only for new worker runs that actually use the
+- [x] Register rollout authority only for new worker runs that actually use the
   adapter. Suppress additive OTEL usage for those registrations without rewriting
   old ledgers or changing legacy registrations. Provider/role/project authority
   still comes from registration; strict source/schema checks at spool and direct
@@ -61,18 +65,21 @@ typed spool/native-health wiring only, `audit.cjs`; related Atlas
   Native rollout observations enter through the verified private spool route;
   a canonical HTTP body or unqualified direct-ingest call cannot self-authorize
   that source. Carry intake authority out-of-band, never in event fields.
-- [ ] Extend existing spool drain and native-request health observation honestly.
+- [x] Extend existing spool drain and native-request health observation honestly.
   Extend audit to recognise real native completed response IDs, without claiming
   HTTP request identity or complete coverage. Keep quota, gap and integrity WARNs.
   Put capture/spool gaps in the registered global project/root evidence location,
   not only project-local `.planning/metrics`, which the global audit does not read.
-- [ ] Tests: split/truncated/oversized lines; privacy canaries in all ignored
+- [x] Tests: split/truncated/oversized lines; privacy canaries in all ignored
   record types; missing path/usage/identity; invalid numbers; wrong thread/turn;
   old resumed/fork history; repeated scans/restarts; duplicate/conflicting IDs;
   bounds and spool failures; source authority in both arrival orders; existing
   ledger compatibility; cross-provider and cross-project attribution rejection.
-- [ ] Run focused native Linux worker-usage and Atlas tests, then full Atlas
-  suite. Record RED/GREEN counts/skips; review and commit only task-owned files.
+- [x] Run focused native Linux worker-usage and Atlas tests, then full Atlas
+  suite. Refresh the derived hook dependency manifest through the existing
+  generator when the new leaf changes the closure; require a dependency-only
+  delta and a clean existing manifest check. Record RED/GREEN counts/skips;
+  review and commit only task-owned files.
 
 ## Task 2: Adapter lifecycle and installed closure
 
@@ -89,6 +96,8 @@ test script only if the existing test glob does not include the new tests.
   RPC, final report validation and spool boundary, mocking only provider exchange.
   Include the existing timeout callback's early `rpc.close()`, and a fault that
   already killed the transport; a final-only success-path projector is insufficient.
+  Assert timeout classification while initialization/thread-open is still
+  awaiting its RPC response, not only after the current turn was acknowledged.
 - [ ] Establish source baseline after verified thread open and before turn/start;
   bind acknowledged thread/turn, collect periodically and before `rpc.close()` on
   normal/failed/interrupted/timeout paths. Keep the existing bounded deadline and

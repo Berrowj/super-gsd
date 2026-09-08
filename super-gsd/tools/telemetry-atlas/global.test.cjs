@@ -198,3 +198,139 @@ test('timed-out bootstrap retains ownership until its delayed receiver publishes
 });
 
 module.exports = { payload, rows, fixture };
+
+test('native accounting authority is explicit, immutable and absent for legacy runs', t => {
+  const f = fixture(t);
+  const run = registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor', accountingSource: 'codex_rollout' });
+  assert.equal(run.accountingSource, 'codex_rollout');
+  assert.equal(Object.isFrozen(run), true);
+  assert.throws(() => { run.accountingSource = 'codex_otel'; }, TypeError);
+  const { readRun } = require('./global-store.cjs');
+  assert.equal(readRun(f.root, run.run_id).accountingSource, 'codex_rollout');
+  assert.equal(registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai' }).accountingSource, undefined);
+  assert.throws(() => registerRun({ root: f.root, projectDir: f.projects[0], provider: 'anthropic', accountingSource: 'codex_rollout' }), /accounting/);
+});
+
+function rollout(run, id = 'resp-native') {
+  return require('../codex-worker/usage.cjs').projectUsageRecord({ timestamp: '2026-09-08T12:00:00Z', type: 'token_usage_record', payload: {
+    thread_id: 'thread-native', turn_id: 'turn-native', session_id: 'session-native', root_turn_id: 'turn-native', response_id: id,
+    usage: { input_tokens: 100, cached_input_tokens: 60, cache_write_input_tokens: 5, output_tokens: 20, reasoning_output_tokens: 12, total_tokens: 120 },
+  } }, { run: { ...run, accountingSource: 'codex_rollout' }, threadId: 'thread-native', turnId: 'turn-native', model: 'gpt-6-astra', modelProvider: 'openai' }).event;
+}
+async function until(check) {
+  const end = Date.now() + 2500;
+  while (Date.now() < end) { if (await check()) return; await new Promise(resolve => setTimeout(resolve, 20)); }
+  assert.fail('bounded fixture observation timed out');
+}
+function legacyCodex() {
+  const body = payload('session-native', 'resp-native', 100);
+  const attrs = body.resourceLogs[0].scopeLogs[0].logRecords[0].attributes;
+  attrs.find(a => a.key === 'event.name').value.stringValue = 'codex.sse_event';
+  attrs.find(a => a.key === 'model').value.stringValue = 'gpt-6-astra';
+  attrs.push({ key: 'event.kind', value: { stringValue: 'response.completed' } }); return body;
+}
+
+test('native source claims cannot self-authorize direct or canonical HTTP intake', async t => {
+  const f = fixture(t), run = registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor', accountingSource: 'codex_rollout' });
+  const instance = await startGlobal({ root: f.root }); t.after(() => instance.close());
+  const event = rollout(run);
+  assert.equal(instance.store.ingest(event).status, 'rejected');
+  assert.equal(instance.store.ingest(event, { kind: 'private_spool', runId: run.run_id }).status, 'rejected');
+  const response = await fetch(`${instance.urls.ingest}/runs/${run.run_id}/v1/events`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(event) });
+  assert.equal(response.status, 400);
+  assert.equal(fs.existsSync(run.metrics_dir), false);
+});
+
+test('registered native spool is authoritative in both arrival orders and drives health and accepted-only counters', async t => {
+  const { queueEvent } = require('./quota-sampler.cjs');
+  for (const order of ['otel-first', 'rollout-first']) {
+    const f = fixture(t), run = registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor', accountingSource: 'codex_rollout' });
+    const instance = await startGlobal({ root: f.root, spoolPollMs: 20 }); t.after(() => instance.close());
+    if (order === 'otel-first') await send(instance, run, legacyCodex());
+    assert.equal(queueEvent(rollout(run), run.state_dir), true);
+    await until(() => fs.existsSync(run.metrics_dir) && rows(run).some(e => e.source.kind === 'codex_rollout'));
+    if (order === 'rollout-first') await send(instance, run, legacyCodex());
+    const canonical = rows(run), metadata = canonical.find(e => e.source.kind === 'codex_otel');
+    assert.equal(canonical.filter(e => e.event_type === 'api_request').length, 1);
+    assert.equal(metadata.event_type, 'coverage'); assert.equal(Object.values(metadata.usage).every(v => v === null), true);
+    const health = await (await fetch(instance.urls.health + '/health')).json();
+    assert.equal(health.coverage.native_responses, 'observed');
+    assert.equal(health.coverage.native_requests, 'unavailable', 'response ID is not HTTP request ID');
+    queueEvent(rollout(run), run.state_dir);
+    await until(() => fs.readdirSync(path.join(run.state_dir, 'quota-spool')).length === 0);
+    let metrics = await (await fetch(instance.urls.metrics + '/metrics')).text();
+    assert.match(metrics, /sgsd_atlas_request_tokens_total\{[^\n]*token_type="input"[^\n]*\} 100/);
+    assert.match(metrics, /sgsd_atlas_events_duplicate_total 1/);
+    const changed = rollout(run); changed.usage.input_tokens++;
+    queueEvent(changed, run.state_dir);
+    await until(() => rows(run).some(e => e.event_type === 'integrity_conflict'));
+    metrics = await (await fetch(instance.urls.metrics + '/metrics')).text();
+    assert.match(metrics, /sgsd_atlas_request_tokens_total\{[^\n]*token_type="input"[^\n]*\} 100/);
+    assert.equal((await (await fetch(instance.urls.health + '/health')).json()).coverage.native_responses, 'partial');
+  }
+});
+
+test('native spool rejects legacy authority, other registrations and malformed native envelopes', async t => {
+  const { queueEvent } = require('./quota-sampler.cjs');
+  const f = fixture(t), legacy = registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor' });
+  const native = registerRun({ root: f.root, projectDir: f.projects[1], provider: 'openai', role: 'executor', accountingSource: 'codex_rollout' });
+  const instance = await startGlobal({ root: f.root, spoolPollMs: 20 }); t.after(() => instance.close());
+  assert.equal(queueEvent(rollout(legacy), legacy.state_dir), true);
+  assert.equal(queueEvent(rollout(native), legacy.state_dir), true, 'valid envelope in wrong private route');
+  const malformed = rollout(native); malformed.usage.total_provider_tokens = null;
+  assert.equal(queueEvent(malformed, native.state_dir), false, 'producer refuses malformed usage');
+  const dir = path.join(native.state_dir, 'quota-spool'); fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(dir, 'a'.repeat(64) + '.json'), JSON.stringify(malformed), { mode: 0o600 });
+  await until(async () => (await (await fetch(instance.urls.health + '/health')).json()).coverage.quota_spool_rejected >= 3);
+  for (const run of [legacy, native]) assert.ok(!fs.existsSync(run.metrics_dir) || !rows(run).some(e => e.event_type === 'api_request'));
+});
+
+test('direct global intake enforces registered provider and role while preparation opts in explicitly', async t => {
+  const f = fixture(t), instance = await startGlobal({ root: f.root }); t.after(() => instance.close());
+  const prepared = await prepare({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor', accountingSource: 'codex_rollout' });
+  assert.equal(prepared.run.accountingSource, 'codex_rollout');
+  const { scopeEvent } = require('./global-store.cjs');
+  const normalized = require('./codex-otlp.cjs').normalizeLogs(legacyCodex()).events[0];
+  const value = scopeEvent(normalized, prepared.run);
+  for (const section of ['provider', 'role', 'project']) {
+    const forged = structuredClone(value);
+    if (section === 'provider') forged.runtime.provider = 'anthropic';
+    if (section === 'role') forged.scope.role = 'orchestrator';
+    if (section === 'project') forged.scope.launcher_repo_id = 'b'.repeat(64);
+    assert.equal(instance.store.ingest(forged).status, 'rejected', section);
+  }
+});
+
+test('permanent native spool scope failures are terminal across repeated polls', async t => {
+  const { queueEvent } = require('./quota-sampler.cjs');
+  const f = fixture(t), run = registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor' });
+  queueEvent(rollout(run), run.state_dir);
+  const instance = await startGlobal({ root: f.root, spoolPollMs: 20 }); t.after(() => instance.close());
+  const failures = async () => (await (await fetch(instance.urls.health + '/health')).json()).coverage.quota_spool_rejected;
+  await until(async () => await failures() > 0);
+  const count = await failures();
+  await new Promise(resolve => setTimeout(resolve, 180));
+  assert.equal(await failures(), count, 'terminal scope rejection must not be parsed and rejected on every poll');
+  assert.equal(fs.readdirSync(path.join(run.state_dir, 'quota-spool')).length, 1, 'retain rejected evidence without deleting user data');
+});
+
+test('strict native source validation rejects illegal fields and all invalid numeric dimensions before spool writes', t => {
+  const { queueEvent } = require('./quota-sampler.cjs');
+  const { validate } = require('./contract.cjs');
+  const f = fixture(t), run = registerRun({ root: f.root, projectDir: f.projects[0], provider: 'openai', role: 'executor', accountingSource: 'codex_rollout' });
+  const event = rollout(run);
+  const mutations = [e => { e.identity.request_id = e.identity.response_id; }, e => { delete e.identity.turn_id; },
+    e => { e.runtime.provider = 'anthropic'; }, e => { e.runtime.model_provenance = 'provider_response'; },
+    e => { e.event_type = 'coverage'; }, e => { e.source.provenance = 'client_observed'; },
+    e => { e.execution.success = false; }, e => { e.payload.prompt = 'PRIVATE-CANARY'; }];
+  for (const field of Object.keys(event.usage)) for (const number of [-1, 0.2, '1', null, Number.MAX_SAFE_INTEGER + 1]) {
+    if (field === 'cache_creation_tokens' && number === null) continue;
+    mutations.push(e => { e.usage[field] = number; });
+  }
+  for (const mutate of mutations) {
+    const invalid = structuredClone(event); mutate(invalid);
+    assert.ok(validate(invalid)); assert.equal(queueEvent(invalid, run.state_dir), false);
+  }
+  assert.equal(fs.existsSync(path.join(run.state_dir, 'quota-spool')), false);
+});

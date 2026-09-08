@@ -117,12 +117,12 @@ function unsetKeys() {
   return [...new Set([...Object.keys(process.env).filter(key => /^OTEL_[A-Z0-9_]+$/.test(key)),
     'BETA_TRACING_ENDPOINT','CLAUDE_CODE_ENHANCED_TELEMETRY_BETA','ENABLE_ENHANCED_TELEMETRY_BETA'])];
 }
-async function prepare({ root = rootPath(), projectDir = process.cwd(), provider = 'anthropic', role = 'orchestrator', disabled = false } = {}) {
+async function prepare({ root = rootPath(), projectDir = process.cwd(), provider = 'anthropic', role = 'orchestrator', accountingSource, disabled = false } = {}) {
   root = path.resolve(root);
   const off = reason => ({ enabled: false, reason, unset: unsetKeys(), environment: disabledEnvironment(), codex_args: [] });
   if (disabled || process.env.SGSD_ATLAS_DISABLED === '1' || fs.existsSync(path.join(root, 'disabled'))) return off('disabled');
   try {
-    const run = registerRun({ root, projectDir, provider, role });
+    const run = registerRun({ root, projectDir, provider, role, accountingSource });
     const service = await ensureService(root);
     const endpoint = `${service.urls.ingest}/runs/${run.run_id}`;
     const environment = { ...telemetryEnvironment({ healthy: true, runId: run.run_id, stateDir: run.state_dir,
@@ -192,7 +192,7 @@ if (require.main === module) {
       process.stdout.write((format === 'shell' ? shell(result) : format === 'prefix' ? shell(result, true) : JSON.stringify(result)) + '\n');
     };
     const timer = setTimeout(() => { gap(root, 'bootstrap_timeout'); process.stderr.write('[Atlas] capture unavailable: startup timeout\n'); emitOff(); process.exit(0); }, 3000);
-    prepare({ root, projectDir: value('--project-dir', process.cwd()), provider: value('--provider', 'anthropic'), role: value('--role', 'orchestrator') })
+    prepare({ root, projectDir: value('--project-dir', process.cwd()), provider: value('--provider', 'anthropic'), role: value('--role', 'orchestrator'), accountingSource: value('--accounting-source') })
       .then(result => {
         clearTimeout(timer);
         if (!result.enabled && result.reason !== 'disabled') process.stderr.write('[Atlas] capture unavailable; run the Atlas audit\n');

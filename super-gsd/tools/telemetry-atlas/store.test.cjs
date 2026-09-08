@@ -163,3 +163,37 @@ test('conflict metadata has a checksum and must reference the original payload d
   fs.writeFileSync(f.ledgerPath,rows.map(row => JSON.stringify(row)+'\n').join(''));
   assert.equal(createStore(f).status().healthy,false);
 });
+
+function nativeEvent(response = 'resp-1') {
+  return { schema_version: 1, source_event_id: response, occurred_at: '2026-09-08T12:00:00.000Z', event_type: 'api_request',
+    source: { kind: 'codex_rollout', instance: 'native', provenance: 'provider_reported', confidence: 'exact', completeness_reason: 'http_request_identity_unavailable' },
+    identity: { sgsd_run_id: 'sgsd-11111111-1111-4111-8111-111111111111', session_id: 'session-native', thread_id: 'thread-native', turn_id: 'turn-native', root_turn_id: 'turn-native', response_id: response, request_id: null },
+    scope: { launcher_repo_id: 'a'.repeat(64), role: 'executor', cost_center: 'executor', attribution_method: 'launcher_registration' },
+    runtime: { provider: 'openai', model: 'gpt-6-astra', model_provenance: 'thread_configuration', response_model: null, model_provider: 'openai', codex_version: null },
+    execution: { status: 'response_completed', success: true }, payload: { raw_content_recorded: false },
+    usage: { input_tokens: 100, cache_read_tokens: 60, cache_creation_tokens: null, output_tokens: 20, reasoning_tokens: 12, total_provider_tokens: 120 } };
+}
+test('native provider response identity is global while historical canonical hashes stay byte-compatible', () => {
+  const { canonicalize, digest } = require('./contract.cjs');
+  const old = event();
+  assert.equal(canonicalize(old).event_id, digest([1, 'claude_otel', 'local', null, 'session-1', 'api_request', 'req-1']));
+  const first = nativeEvent(), moved = structuredClone(first);
+  moved.identity.session_id = 'other-session'; moved.identity.sgsd_run_id = 'other-run'; moved.source.instance = 'other-collector';
+  assert.equal(canonicalize(first).event_id, canonicalize(moved).event_id, 'native response IDs cannot acquire another spend identity');
+  assert.notEqual(canonicalize(first).event_id, canonicalize(nativeEvent('resp-2')).event_id);
+});
+test('native response replay and changed usage, time or attribution remain reconstructible conflicts', t => {
+  const f = fixture(t), store = createStore(f), first = nativeEvent();
+  assert.equal(store.ingest(first).status, 'accepted');
+  assert.equal(store.ingest(first).status, 'duplicate');
+  const changed = structuredClone(first); changed.usage.input_tokens++;
+  assert.equal(store.ingest(changed).status, 'conflict');
+  const moved = structuredClone(first); moved.identity.session_id = 'session-other';
+  assert.equal(store.ingest(moved).status, 'conflict');
+  const later = structuredClone(first); later.occurred_at = '2026-09-08T12:00:01.000Z';
+  assert.equal(store.ingest(later).status, 'conflict');
+  const restored = createStore(f);
+  assert.equal(restored.status().healthy, true);
+  for (const e of [first, changed, moved, later]) assert.equal(restored.ingest(e).status, 'duplicate');
+  assert.equal(restored.read().events.filter(e => e.event_type === 'api_request').length, 1);
+});
