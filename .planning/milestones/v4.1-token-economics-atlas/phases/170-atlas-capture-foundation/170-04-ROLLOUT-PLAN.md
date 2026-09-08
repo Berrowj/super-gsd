@@ -1,10 +1,14 @@
 ---
 phase: 170
 plan: "170-04"
-status: ACTIVE
+status: AWAITING_OPERATOR_LIVE_ACCEPTANCE_REPAIR
 authorized_by: operator
 authorized_at: 2026-09-08
-deployed: false
+deployed: true
+deployment_scope: DEVCP_JACKBERROW_GLOBAL_AND_CURRENT_CLARITY_PROJECT
+published_sha: 6b4581bb8f1502bbae79e8034680bea130ed8c1e
+benchmark_status: BLOCKED
+live_worker_attempts: 2
 formal_phase_close: NOT_CLAIMED
 ---
 
@@ -44,26 +48,26 @@ git diff --check origin/master..HEAD
 - [x] Run the Windows baseline and native Linux/WSL candidate suites. Record pass/fail/skip totals. Require the isolated global-install and Bash wrapper tests to actually run on Linux. Do not run an unbounded repository-wide test discovery or any paid worker probe.
 - [x] Validate changed Bash syntax, JSON/config parsing and the existing hook-manifest verification command. Check any changed hook tests using existing tooling.
 - [x] Independently review specification compliance, then code quality/integration. Fix only concrete release blockers under this plan, with regression evidence; unresolved failures prevent publication except the operator's explicit Linux-only/Windows-deferred decision recorded below.
-- [ ] Record exact evidence and limitations in `170-04-EXECUTOR-REPORT.md`. Confirm the source and benchmark are present in the committed release tree. Recheck upstream immediately before a normal fast-forward push; if it moved, reconcile and reverify affected paths. Never force push or bypass hooks.
+- [x] Record exact evidence and limitations in `170-04-EXECUTOR-REPORT.md`. Confirm the source and benchmark are present in the committed release tree. Recheck upstream immediately before a normal fast-forward push; if it moved, reconcile and reverify affected paths. Never force push or bypass hooks.
 
 ## Task 3: Deploy through the guarded updater
 
 Files: no new production source edits; updater-managed installation paths on DEVCP only. Preserve all existing sessions, project-local operator configuration and telemetry evidence.
 
-- [ ] Record DEVCP source cleanliness, source/install pins and live pane identities before deployment. Resolve the real native Node/Codex environment and the intended existing SGSD project. Refuse unapproved dirty-source reconciliation or process replacement.
-- [ ] Publish the verified candidate to `origin/master`; verify the remote SHA.
-- [ ] Run the installed `sgsd-update.sh` from the approved DEVCP project, using its normal canonical-source/global-install path. Require successful exit and matching `source_sha`/`project_pin`. Do not bulk-update 37 worktrees or relabel their pins.
-- [ ] Verify all B0 artifacts, actual resolved runtime paths and source/install hashes. Check native Codex App Server initialize-only capability without opening a thread or issuing a paid turn. A CLI incompatibility is a blocker; no global toolchain/auth/model changes are authorized here.
-- [ ] Verify that pre-existing panes/processes remain intact. Installation alone is not rollout completion or proof of native telemetry coverage.
+- [x] Record DEVCP source cleanliness, source/install pins and live pane identities before deployment. Resolve the real native Node/Codex environment and the intended existing SGSD project. Refuse unapproved dirty-source reconciliation or process replacement.
+- [x] Publish the verified candidate to `origin/master`; verify the remote SHA.
+- [x] Run the installed `sgsd-update.sh` from the approved DEVCP project, using its normal canonical-source/global-install path. Require successful exit and matching `source_sha`/`project_pin`. Do not bulk-update 37 worktrees or relabel their pins.
+- [x] Verify all B0 artifacts, actual resolved runtime paths and source/install hashes. Check native Codex App Server initialize-only capability without opening a thread or issuing a paid turn. A CLI incompatibility is a blocker; no global toolchain/auth/model changes are authorized here.
+- [x] Verify that pre-existing panes/processes remain intact. Installation alone is not rollout completion or proof of native telemetry coverage.
 
 ## Task 4: Launch a separate benchmark and observe its result
 
 Use `.planning/analyses/2026-09-08-devcp-worker-acceptance-benchmark.md`. At most five live Codex wrapper attempts and a 20-minute live benchmark window; no retries or extra model probes. The fresh Fable supervisor may execute the approved benchmark and nothing outside it.
 
-- [ ] Resolve the existing `sgsd-remote-tmux.sh` launcher options and select a unique, absent benchmark session name. Preserve the normal Fable/cockpit topology. Never reset or send commands into existing panes.
-- [ ] Start one new normal SGSD Fable session with the published benchmark instructions. If the launcher requires trust/interaction or unsupported configuration, stop and report it; do not silently bypass guards.
-- [ ] Observe B0 first; allow B1-B7 only if their prerequisites pass. Record actual worker/model/owner/receipt evidence and before/after Atlas audits. The benchmark's explicit failure tests remain failures in telemetry, not successful tasks.
-- [ ] Report WORKER_BRIDGE, ATLAS_OBSERVED_CAPTURE and DEVCP_ROLLOUT separately, with the new session/evidence location. Preserve pre-existing worktree/pane limitations and missing exhaustive coverage. Do not mark phase 170 or a milestone closed.
+- [x] Resolve the existing `sgsd-remote-tmux.sh` launcher options and select a unique, absent benchmark session name. Preserve the normal Fable/cockpit topology. Never reset or send commands into existing panes.
+- [x] Start one new normal SGSD Fable session with the published benchmark instructions. If the launcher requires trust/interaction or unsupported configuration, stop and report it; do not silently bypass guards.
+- [x] Observe B0 first; allow B1-B7 only if their prerequisites pass. Record actual worker/model/owner/receipt evidence and before/after Atlas audits. The benchmark's explicit failure tests remain failures in telemetry, not successful tasks. B0 install integrity and B1 passed; B2 failed. B-only B3/B4 checks were deviations, not full acceptance. Attempts 3-5 were not launched.
+- [x] Report WORKER_BRIDGE, ATLAS_OBSERVED_CAPTURE and DEVCP_ROLLOUT separately, with the new session/evidence location. Preserve pre-existing worktree/pane limitations and missing exhaustive coverage. Do not mark phase 170 or a milestone closed. Final outcomes: bridge BLOCKED, observed capture BLOCKED/degraded, rollout NOT COMPLETE; see the executor report.
 
 Rollback boundary: if installation or benchmark fails, preserve source/history/evidence and existing panes. Do not automatically revert the published branch, delete telemetry or kill unrelated processes. Report the exact failure and the smallest next action.
 

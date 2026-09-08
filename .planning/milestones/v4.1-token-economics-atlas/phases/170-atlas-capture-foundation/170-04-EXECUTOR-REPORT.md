@@ -1,19 +1,23 @@
 ---
 phase: 170
 plan: "170-04"
-status: VERIFIED_LINUX_CANDIDATE
+status: DEPLOYED_DEVCP_ACCEPTANCE_BLOCKED
 date: 2026-09-08
 verification_snapshot_utc: "2026-09-08T18:45:18Z"
-deployed: false
-live_worker_attempts: 0
+deployed: true
+deployment_scope: DEVCP_JACKBERROW_GLOBAL_AND_CURRENT_CLARITY_PROJECT
+published_sha: 6b4581bb8f1502bbae79e8034680bea130ed8c1e
+live_worker_attempts: 2
+benchmark_end_utc: "2026-09-08T19:17:18Z"
+benchmark_report_revision_utc: "2026-09-08T19:21:48Z"
 formal_phase_gates: NOT_CLAIMED
 ---
 
 # Worker and automatic Atlas rollout evidence
 
 The operator authorized publication, guarded DEVCP update and a fresh separate
-Fable benchmark session. This is the prepublication verification snapshot;
-deployment and benchmark outcomes must be recorded from the actual host.
+Fable benchmark session. The prepublication verification snapshot is retained
+below; the subsequent actual-host deployment observations are appended.
 This report supersedes the earlier source-only restriction; it does not rewrite
 the historical 170-01/02/03 observations or claim formal phase closure.
 
@@ -153,9 +157,179 @@ Fresh Windows consumer/board/routing checks: 17 PASS, 0 FAIL, 3 Linux-only SKIP.
   benchmark. Other projects' pins and existing sessions will not be relabelled
   or counted as updated.
 
-## Current verdicts
+## Prepublication verdicts at 18:45 UTC
 
 WORKER_BRIDGE: NOT_LIVE_VALIDATED. ATLAS_OBSERVED_CAPTURE: NOT_LIVE_VALIDATED.
 DEVCP_ROLLOUT: NOT_DEPLOYED. B0-B7 have not been run in a new deployed session.
 Live worker attempts: 0/5. Publication/deployment/benchmark evidence will be
 appended here when those steps actually occur.
+
+## Published and installed on DEVCP
+
+- Normal, non-forced publication to `origin/master` succeeded at
+  `6b4581bb8f1502bbae79e8034680bea130ed8c1e`. The final commit includes the
+  reviewed installed-model closure and fresh-source dependency bootstrap.
+- Normal `sgsd-update.sh` from `/opt/clarity/project-clarity-erp` completed
+  with exit 0 at 18:50:31 UTC. Canonical source and current project pin both
+  match the published SHA. Global installation is for user `jackberrow` only.
+- Private evidence root:
+  `/home/jackberrow/benchmarks/sgsd-worker-rollout-20260908T1745-Yu7jr3`.
+  `sgsd-update.log` retains the actual updater output; the additional final
+  protected-file snapshot is in `pre-install-final-mM0w26/`.
+- Protected project config, CLAUDE instructions, package manifest and existing
+  untracked lockfile remained byte-identical. Existing global model and effort
+  settings were preserved. No CLI upgrade or auth change was performed.
+- `post-install-verification.json` retains 96 source/install hash comparisons:
+  95 byte-identical and one raw mismatch. At 18:57 UTC the existing read-only
+  feature-propagation auditor and its canonical renderer verified the Researcher
+  agent's expected VTP capability-derived tool grant, with equal expected and
+  installed SHA-256 and zero repair actions. Evidence:
+  `post-install-derived-agent-verification.json`. Researcher remains disabled
+  for its unresolved model; this is not a model-routing change.
+- The broader audit remains non-clean: six global-agent findings, eleven
+  project-local legacy agent shadows, missing local defaults/instruction markers
+  and a stale standalone tree. These are retained rollout findings, not repaired
+  or hidden by the narrower installed-runtime hash check.
+- Existing `clarity` panes `%0`-`%3` and their recorded PIDs remain intact;
+  Fable PID 363096 was not restarted. Other worktree pins were not bulk-updated.
+
+## Fresh Fable acceptance session started
+
+At 18:58:19 UTC a new normal remote-launcher session
+`sgsd-worker-benchmark-20260908T1858` started the bounded B0-B7 task. The launcher
+used explicit verified source/scripts/agents paths, `--shell --no-attach`, and
+a unique absent session name. Only its new operator pane `%4` received
+`claude --model fable --effort xhigh` with the normal launcher permission mode.
+The UI confirms Fable 5.1. The supervisor inherits the launcher's automatic
+Atlas environment; no old pane received input.
+
+The benchmark's private evidence child is
+`fable-acceptance-20260908T185846Z/`. At 18:59 UTC B0 is in progress; no live
+worker outcome is claimed. The fresh login shell reports Codex 0.153.2, whereas
+the earlier SSH preflight resolved 0.144.3. B0 must record actual paths and use
+the real launch environment; the earlier initialize-only result does not prove
+this fresh environment's live protocol or model availability.
+
+At that session-start snapshot, WORKER_BRIDGE and ATLAS_OBSERVED_CAPTURE await benchmark
+evidence. DEVCP_ROLLOUT is partial, not all-instance complete. Windows quota
+latency remains OPEN_REQUIRED. Formal phase/release gates remain unclaimed.
+
+## Completed bounded benchmark: acceptance blocked
+
+The fresh Fable completed its observations at 19:17:18 UTC and corrected its
+report at 19:21:48 UTC. Authoritative host evidence is
+`fable-acceptance-20260908T185846Z/BENCHMARK-RESULTS.md` below the private evidence
+root above, with `EVIDENCE-MANIFEST.sha256`. The correction preserves the raw
+evidence while withdrawing an overstatement of sole cause and marking B-only
+negative/recovery checks as partial deviations, not full acceptance.
+
+| Check | Observed result |
+|---|---|
+| B0 | PASS for installed integrity, with a discovered wrapper/shell Codex version discrepancy unresolved |
+| B1 worker | 45 PASS, 0 FAIL, 2 SKIP; existing isolated install contracts ran |
+| B1 board dispatch | 8 PASS, 0 FAIL, 0 SKIP |
+| B1 Atlas | 57 PASS, 0 FAIL, 4 Windows/real-stack opt-in SKIP |
+| B1 routing | 3 PASS, 0 FAIL, 0 SKIP |
+| Initialize-only opt-in | 1 PASS, 0 FAIL; no model turn |
+| B2 | FAIL: Astra board worker failed; generic Sol worker completed one real same-thread/turn round trip, but Fable's reply took 83.9 seconds against the 30-second target |
+| B3 | BLOCKED/partial: wrong-project, wrong-owner and duplicate checks rejected on B only; required simultaneous A/B case was not achieved |
+| B4 | BLOCKED/partial: B's checkpoint/report receipt hashes matched; A-based recovery and retained-thread continuation were not run |
+| B5/B6 | BLOCKED/not run; no steering/stop or unanswered-deadline acceptance claimed |
+| B7 | BLOCKED/degraded: both settled audits exit 10, no positive request-level native capture for either provider |
+
+Two of five permitted live wrapper invocations were used. The live portion ran
+19:10:47.786-19:13:14.880 UTC, within the 20-minute boundary. No further worker
+attempt, model substitution, authentication change, source repair, production
+restart or gate bypass occurred. B finished before the directed cleanup check;
+no stop was needed. Native usage totals and costs remain unavailable, not zero.
+
+### Live worker evidence
+
+- A: `gpt-6-astra/max`, board seat `sgsd-board-architect`, explicit owner
+  `fable.bench.A.8e548785`, worker `ad24b265-e4c4-4fec-b37c-a81c1bfc5f75`.
+  Thread and turn opened; `worker_turn_failed`, wrapper exit 1 at 19:10:53.
+  Its 119-byte failure artifact is not an accepted board report.
+- B: `gpt-5.6-sol/xhigh`, owner `fable.bench.B.0716c3f9`, worker
+  `443ad621-4058-4a3a-98f6-cd8a80e776a8`. Its dynamic question received an applied
+  receipt and the original thread/turn completed, wrapper exit 0. The existing
+  wrapper validated its 179-byte report; independent SHA-256 check matched
+  `11d557ea405f2c9915f3b2a2e02e4e4eff883f88a23e4df3e23ff86c3dc7486a`.
+- Fable observed B's question at 19:11:46.957 and applied the reply at
+  19:13:10.879. Host forwarding was 64 ms; the 83.9-second supervisory delay
+  occurred while diagnosing A. This is a failed service target, not bridge
+  transport latency. The B-only checks do not replace the specified benchmark.
+
+### Native CLI discrepancy and independently verified provider rejection
+
+The fresh Fable shell resolves standalone Codex 0.153.2 from `~/.local/bin`.
+The installed wrapper prepends the nvm Node bin directory afterwards and thus
+resolves npm Codex 0.144.3. Both dry runs and all 24 canonical `codex_otel`
+metadata events (A: 3, B: 21) corroborate the older live-worker version.
+
+At 19:22:50 UTC the main agent independently queried the existing local Codex
+SQLite log read-only, restricted to A's thread and six-second failure window.
+Row 8754318, timestamp 1788894653, process 1354707, target
+`codex_core::session_startup_prewarm`, records HTTP 400 and:
+
+> The 'gpt-6-astra' model requires a newer version of Codex.
+
+Only the bounded error text, row/thread/process identity and original-body hash
+were exported to the evidence-root file
+`post-benchmark-provider-error-verification.json`; no credentials or transcript
+content were emitted. This verifies a version rejection on A's prewarm path.
+The adapter retained only its generic terminal failure, so it does not prove
+there were no other causes. The newer executable has not passed a live board
+turn in this benchmark and is not a verified fix. No CLI was upgraded, removed
+or reconfigured to obtain a different outcome.
+
+### Atlas observations and coverage limits
+
+Post-drain audits at 19:15:58 and 19:16:46 show the same three distinct project/run
+registrations and stable canonical partitions. A has 5 rows (3 native metadata
+events plus lifecycle start/exit), B has 23 (21 native metadata plus lifecycle),
+and Fable has only its launch registration. All accepted native worker events
+are `coverage/native_metadata_only`, not request/usage records. Anthropic native
+events and accepted request counts are zero for this supervisor; native request
+counts are also zero for both workers. These zeros describe accepted evidence,
+not actual consumption. Missing tokens, identity and quota windows remain unknown.
+
+The audits report no invalid rows, duplicate canonical events or identity
+conflicts, and no pending benchmark spool. The canary checks found no challenge
+strings in Atlas evidence. The first settled audit reported 150 missing-stable-
+identity and 414 rejected-native records; the second reported 153 and 421 while
+Fable was still active. The pre-live baseline already showed 101 and 271 on the
+new receiver during this same Fable session; those are not unrelated legacy-stack
+findings. Native metric observation does not satisfy positive native request
+capture. `complete_coverage` stays false. Do not use this as proof that weekly
+request/token accounting is reliable or exhaustive.
+
+## Final rollout verdicts and required next action
+
+WORKER_BRIDGE: **BLOCKED / not accepted**. ATLAS_OBSERVED_CAPTURE:
+**BLOCKED / degraded**. DEVCP_ROLLOUT: **NOT COMPLETE**.
+
+The deployed source and current project remain at `6b4581b`. The wider inventory
+contains 46 stale pin-bearing locations (including the stale global pin file),
+two stale project/shared runtime trees and pre-install sessions. This is broader
+than the earlier 37-worktree inventory; it is not 46 newly discovered projects.
+They were not relabelled, overwritten or restarted. At 19:23 UTC independent
+checks found the original Claude PID 363096 and all four original pane processes
+alive, both owned adapters gone, and the canonical source clean at the tested SHA.
+
+Final independent checks at 19:27-19:28 UTC verified all 132 benchmark-manifest
+file hashes, both owned App Server processes gone, and the original five recorded
+processes alive. Protected project config, CLAUDE instructions, package manifest,
+existing lockfile and global Claude settings are byte-identical to the final
+pre-install backup. Global model/effort remain `opus[1m]`/`high`; Fable/xhigh was
+selected only for the fresh test process. Evidence-root files:
+`post-benchmark-evidence-verification.json` and
+`post-benchmark-protected-config-verification.json`.
+
+Next work requires an operator-approved repair/reproduction plan: resolve the
+wrapper's native CLI selection for Astra without silently substituting models;
+prioritize the live inbox to meet the unchanged reply deadline; investigate
+provider request/identity capture with privacy-safe evidence; then authorize a
+new bounded acceptance run. Windows quota-recorder latency is still separately
+**OPEN_REQUIRED**, as the operator explicitly requested. No phase or milestone
+has been closed. These post-deployment planning updates are local evidence;
+they do not change the published or installed benchmark revision.
