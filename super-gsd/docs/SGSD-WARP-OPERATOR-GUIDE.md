@@ -1,5 +1,19 @@
 # SGSD Warp Operator Guide
 
+### Choosing models per SGSD section
+
+The model router does not require one model for the whole run. Each section
+(`orchestrator`, `deliberation.*`, `execution.*`, and `lightweight.*`) has its
+own default and allowlist. Fable is the orchestrator default. For a temporary
+switch, set the matching environment override, for example:
+
+```bash
+export SGSD_MODEL_ORCHESTRATOR=fable
+export SGSD_MODEL_EXECUTION_PLANNER=astral
+export SGSD_MODEL_EXECUTION_VERIFIER=codex
+```
+
+The resolver validates every selection against the catalog before dispatch.
 How to drive SGSD from Warp on Windows, end-to-end, from blank session to autonomous run to safe off-machine monitoring. Separates **Warp UX** (operator surface) from **SGSD execution truth** (`.planning/` files).
 
 > Audience: solo operator (the operator) on Windows 11 + Warp + Claude Code + Codex. Pairs with `WARP.md` (rules) and `AGENTS.md` (tool-neutral all-agent contract). For the deep orchestrator contract, see `CLAUDE.md`. For the workflow catalogue, see `super-gsd/docs/SGSD-WARP-WORKFLOWS.md`.

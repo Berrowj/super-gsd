@@ -1,5 +1,19 @@
 # SGSD Workspace — Install & Use Guide
 
+### Per-section model switches
+
+SGSD routing is catalog-backed and independently switchable by role. The
+orchestrator defaults to Fable; Astral, Opus, and Codex are available in every
+declared role allowlist. To override one dispatch without changing defaults:
+
+```bash
+export SGSD_MODEL_EXECUTION_EXECUTOR=astral
+```
+
+The resolver checks an explicit role override first, then classifier output,
+then that role's configured default. Unknown or disallowed model IDs fail
+closed. The full schema lives in `super-gsd/config/model-routing.json`; local
+operator choices remain in `.planning/config.json`.
 > **Who this is for:** New users on Windows + Warp who want the full Super GSD
 > workspace: main Claude Code pane, live dashboards (sgsd1/2/3), mechanical
 > phase gates (ATC + browser verify), and the Warp launch config that opens
