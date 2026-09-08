@@ -147,8 +147,13 @@ while [ $RUN -lt $MAX_RUNS ]; do
   START_TIME=$(date +%s)
 
   cd "$PROJECT_DIR"
+  if [[ -f "$(dirname "${BASH_SOURCE[0]}")/lib/atlas-shell.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/lib/atlas-shell.sh"
+    sgsd_atlas_attach orchestrator anthropic "$PROJECT_DIR"
+  fi
   claude --print --dangerously-skip-permissions -p "$PROMPT" >> "$LOGFILE" 2>&1
   EXIT_CODE=$?
+  if declare -F sgsd_atlas_finish >/dev/null; then sgsd_atlas_finish; fi
 
   END_TIME=$(date +%s)
   DURATION=$(( END_TIME - START_TIME ))

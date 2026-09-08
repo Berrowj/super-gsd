@@ -1287,7 +1287,8 @@ if ($Claude) {
             $claudeLine += " '$greetMsg'"
             $kickoffDesc = " + greet"
         }
-        $cmdString = "Set-Location -LiteralPath '$ProjectDir'; $claudeLine"
+        $atlasHelper = (Join-Path $PSScriptRoot 'lib/atlas-powershell.ps1').Replace("'", "''")
+        $cmdString = "Set-Location -LiteralPath '$($ProjectDir.Replace("'", "''"))'; if (Test-Path -LiteralPath '$atlasHelper') { . '$atlasHelper'; `$atlasSaved = Start-SgsdAtlas }; try { $claudeLine } finally { if (Get-Command Restore-SgsdAtlas -ErrorAction SilentlyContinue) { Restore-SgsdAtlas -Saved `$atlasSaved } }"
         $desc = "Claude Code (--dangerously-skip-permissions$kickoffDesc)"
         Write-Step "launching $desc in a new window" "OK" Green
         $claudeWindowStyle = if ($RaiseCockpit) { "Normal" } else { "Minimized" }

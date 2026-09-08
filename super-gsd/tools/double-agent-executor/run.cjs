@@ -9,7 +9,7 @@
 // - Task capsules are the execution surface; no broad raw context by default.
 // - Codex execution is separate from codex-exec.sh, which remains read-only
 //   review/ATC infrastructure.
-// - Live Codex execution uses a git worktree sandbox, checks changed files
+// - Live Codex execution uses an isolated git worktree, checks changed files
 //   against allowed_files, runs acceptance commands, and writes a patch/report.
 // - The CLI never blocks autonomy on routing failure; it emits a Claude
 //   handoff/fallback decision.
@@ -619,24 +619,23 @@ function executeCodex(capsule, decision, opts) {
       return finishExecutionReport(report, reportPath, planningDir, capsule, decision);
     }
 
+    const timeoutMs = o.timeoutMs || 600000;
     const args = [
-      'exec',
+      path.resolve(__dirname, '../codex-worker/run.cjs'),
+      '--project', projectDir, '--workspace', worktreeDir,
       '--model', o.model || process.env.SGSD_CODEX_EXEC_MODEL || 'gpt-5.5',
-      '-c', `model_reasoning_effort="${o.reasoningEffort || process.env.SGSD_CODEX_EXEC_EFFORT || 'xhigh'}"`,
-      '--sandbox', 'workspace-write',
-      '--ephemeral',
-      '--skip-git-repo-check',
-      '--cd', worktreeDir,
-      '-',
+      '--reasoning', o.reasoningEffort || process.env.SGSD_CODEX_EXEC_EFFORT || 'xhigh',
+      '--sandbox', 'danger-full-access', '--ask-for-approval', 'never',
+      '--owner', process.env.SGSD_WORKER_OWNER || 'double-agent-executor', '--role', 'executor',
+      '--timeout', String(Math.ceil(timeoutMs / 1000)),
     ];
     const codexStarted = Date.now();
-    const cr = spawnSync('codex', args, {
-      cwd: worktreeDir,
-      input: prompt,
-      shell: process.platform === 'win32',
-      encoding: 'utf8',
-      timeout: o.timeoutMs || 600000,
+    const cr = spawnSync(process.execPath, args, {
+      cwd: worktreeDir, input: prompt, windowsHide: true, encoding: 'utf8',
+      timeout: timeoutMs + 5000, maxBuffer: 4 * 1024 * 1024,
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, SGSD_WORKER_PHASE: String(capsule.phase || ''),
+        SGSD_WORKER_PLAN: capsule.plan || process.env.SGSD_WORKER_PLAN || '', SGSD_WORKER_STEP: capsule.task_id },
     });
     report.codex = {
       exit: cr.status === null || cr.status === undefined ? -1 : cr.status,
@@ -646,7 +645,7 @@ function executeCodex(capsule, decision, opts) {
       stderr_excerpt: (cr.stderr || '').slice(-1000),
       stdout_excerpt: (cr.stdout || '').slice(-2000),
       error: cr.error ? cr.error.message : null,
-      timed_out: !!cr.error && /timed out/i.test(cr.error.message || ''),
+      timed_out: cr.status === 124 || (!!cr.error && /timed out|ETIMEDOUT/i.test(cr.error.message || '')),
     };
 
     const cf = changedFiles(worktreeDir);

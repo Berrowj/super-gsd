@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="How SGSD Codex workers will ask Fable questions, receive replies, and continue in the same task. Source-backed architecture and a worked example.">
+  <title>Codex ↔ Fable · SGSD worker communication</title>
+  <style>
+    /* VTP explainer house theme, adapted for this operational report. */
+    :root{--paper:#f6f7f8;--ink:#202629;--muted:#59666d;--line:#d8dee1;--panel:#fff;--teal:#147a74;--green:#4f7f45;--blue:#315f90;--amber:#b27622;--red:#aa4a43;--violet:#6a5b8f;--radius:8px}
+    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);scroll-behavior:smooth;scroll-padding-top:76px}
+    body{margin:0;font:16px/1.55 "Segoe UI","Aptos","Helvetica Neue",sans-serif;letter-spacing:0}
+    a{color:var(--teal);text-underline-offset:3px}a:focus-visible,summary:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
+    .shell{width:min(1180px,calc(100% - 36px));margin:auto}header{padding:40px 0 30px;border-bottom:1px solid var(--line)}
+    .kicker{margin:0 0 12px;color:var(--teal);font-size:12px;font-weight:750;text-transform:uppercase;letter-spacing:.09em}
+    h1,h2,h3{margin:0;line-height:1.14;letter-spacing:0}h1{max-width:1000px;font-size:clamp(34px,4.8vw,61px);font-weight:760}
+    h2{font-size:clamp(26px,3.2vw,37px)}h3{font-size:19px;margin-bottom:10px}p{margin:12px 0 0}
+    .subhead{max-width:940px;font-size:20px;color:#384147;margin-top:18px}.meta-strip,.legend{display:flex;flex-wrap:wrap;gap:8px}.meta-strip{margin-top:22px}
+    .pill{border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13px;font-weight:650;background:#fff}
+    .pill.build{border-color:#d6bc8a;background:#fffaf1;color:#745017}.pill.observed{color:#335b2c;background:#f4fbf4;border-color:#b9d1b3}
+    nav{position:sticky;top:0;z-index:10;background:#f6f7f8f5;border-bottom:1px solid var(--line)}nav .shell{display:flex;gap:4px;overflow-x:auto;padding:10px 0}
+    nav a{flex:0 0 auto;padding:6px 10px;text-decoration:none;color:#303a40;font-size:13px;font-weight:650;border-radius:999px}nav a:hover{background:#fff}
+    section{padding:40px 0;border-bottom:1px solid var(--line)}section.alt{background:#fff}.section-head{display:grid;grid-template-columns:.9fr 1fr;gap:28px;align-items:end;margin-bottom:24px}
+    .section-head p{color:var(--muted);margin:0}.grid{display:grid;gap:16px}.two{grid-template-columns:repeat(2,minmax(0,1fr))}.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}.panel p{color:#3d464b}.panel p:first-child{margin-top:0}
+    .callout{border-left:5px solid var(--amber);background:#fffaf1}.ok{border-left:5px solid var(--green);background:#f4fbf4}.warning{border-left:5px solid var(--red);background:#fff7f5}
+    .label{display:block;color:var(--muted);font-size:12px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+    .diagram{border:1px solid var(--line);border-radius:var(--radius);background:#fbfcfc;overflow:hidden;margin:0}.diagram-scroll{overflow-x:auto;padding:12px}
+    .diagram svg{display:block;width:100%;min-width:930px;height:auto}.diagram .sequence{min-width:790px}
+    .diagram svg text{font-family:"Segoe UI","Aptos",sans-serif;fill:var(--ink);font-size:15px}.diagram svg .title{font-size:19px;font-weight:700}.diagram svg .small{font-size:13px;fill:#46535b}
+    .diagram svg .caption{font-size:14px;fill:#46535b}.legend{padding:12px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);gap:12px 20px}
+    .legend span::before{content:"";display:inline-block;width:10px;height:10px;background:var(--teal);border-radius:2px;margin-right:6px}.legend .client::before{background:var(--blue)}.legend .data::before{background:var(--amber)}.legend .plan::before{background:var(--violet)}.legend .warn::before{background:var(--red)}
+    .legend .solid::before,.legend .dashed::before{width:24px;height:0;border-top:2px solid var(--muted);background:none;vertical-align:4px}.legend .dashed::before{border-top-style:dashed}
+    .scroll-hint{font-size:13px;color:var(--muted);margin-bottom:10px}.spacer{margin-top:20px}.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius)}
+    table{width:100%;border-collapse:collapse;background:#fff}th,td{text-align:left;vertical-align:top;padding:13px 15px;border-bottom:1px solid var(--line)}
+    th{background:#eef3f3;color:#445156;font-size:12px;text-transform:uppercase;letter-spacing:.04em}tr:last-child td{border-bottom:0}td:first-child{font-weight:650}
+    .steps{padding:0;margin:0;list-style:none;counter-reset:step}.steps li{position:relative;padding:0 0 23px 49px;counter-increment:step;min-height:60px}.steps li::before{content:counter(step);position:absolute;left:0;top:0;border:1px solid #bdd2cf;background:#edf6f5;color:var(--teal);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:750}.steps strong{display:block;margin-bottom:3px}.steps p{margin:0;color:#3d464b}
+    .conversation{margin-top:22px;border-top:1px solid var(--line)}.message{display:grid;grid-template-columns:155px 1fr;gap:24px;padding:20px 0;border-bottom:1px solid var(--line)}.speaker{font-weight:750;color:var(--blue)}.speaker.worker{color:var(--teal)}.speaker.bridge{color:var(--violet)}.speaker small{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-top:4px}.message blockquote{margin:0;font-size:18px}.message p{margin:7px 0 0;font-size:14px;color:var(--muted)}
+    code,pre,.mono{font-family:"Cascadia Mono","Consolas",monospace;font-size:13px}code{overflow-wrap:anywhere;background:#edf1f2;padding:1px 4px;border-radius:3px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef3f3;border:1px solid var(--line);border-radius:var(--radius);padding:17px;margin:14px 0 0;line-height:1.6}pre code{padding:0;background:none}
+    details{border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-top:20px}summary{cursor:pointer;font-weight:650}details p{color:var(--muted)}
+    .source-list{padding-left:22px;margin-bottom:0}.source-list li{padding:0 0 12px 6px}.source-list p{margin:3px 0 0;font-size:14px;color:var(--muted)}
+    footer{padding:22px 0 32px;color:var(--muted);font-size:13px}.skip{position:absolute;left:12px;top:-70px;background:#fff;padding:10px;z-index:20}.skip:focus{top:8px}
+    @media(max-width:860px){.section-head,.two,.three{grid-template-columns:1fr}.section-head{gap:14px}.message{grid-template-columns:1fr;gap:8px}.speaker small{display:inline;margin-left:9px}header{padding-top:28px}.subhead{font-size:18px}th,td{padding:11px}section{padding:30px 0}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+    @media print{nav,.skip,.scroll-hint{display:none}html,body{background:#fff}.shell{width:100%}header,section{padding:20px 0}.diagram svg,.diagram .sequence{min-width:0}.diagram-scroll,.table-scroll{overflow:visible}.panel,figure,.message{break-inside:avoid}h1{font-size:38px}a{color:inherit}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#overview">Skip to explanation</a>
+<header>
+  <div class="shell">
+    <p class="kicker">SGSD / Architecture explainer / 08 September 2026</p>
+    <h1>Codex can ask Fable mid-task.<br>Then carry on with the answer.</h1>
+    <p class="subhead">A two-way worker connection: Fable delegates, Codex asks when it needs help, and the reply goes back to that exact task—not to a new agent or a different project.</p>
+    <div class="meta-strip">
+      <span class="pill build">Built and reviewed locally · not deployed</span>
+      <span class="pill observed">Core adapter · 18 fixture tests passed</span>
+      <span class="pill">Plan 170-03 · not deployed or live-validated</span>
+    </div>
+  </div>
+</header>
+<nav aria-label="Report sections"><div class="shell">
+  <a href="#overview">In plain English</a><a href="#architecture">Connection diagram</a><a href="#example">Worked example</a><a href="#decisions">Who decides?</a><a href="#boundaries">Limits &amp; safety</a><a href="#research">VTP cross-check</a><a href="#evidence">Evidence</a>
+</div></nav>
+<main>
+<section id="overview">
+  <div class="shell">
+    <div class="section-head"><h2>A walkie-talkie,<br>not another manager.</h2><p>Think of Fable as the site manager and Codex as the builder. The bridge gives the builder a way to ask a question without abandoning the job.</p></div>
+    <div class="grid three">
+      <article class="panel"><span class="label">Fable / orchestration unit</span><h3>Owns the assignment</h3><p>Reads the plan, dispatches work, answers from approved context, and checks the final evidence. Decisions needing your authority come back to you.</p></article>
+      <article class="panel"><span class="label">SGSD worker bridge</span><h3>Delivers the message</h3><p>Connects the exact project, worker, Codex thread and question. It is ordinary host code—not an extra model making decisions.</p></article>
+      <article class="panel"><span class="label">Codex worker</span><h3>Does the bounded work</h3><p>Uses its configured model, asks for missing context, receives the answer in the active turn, then continues and returns the required report.</p></article>
+    </div>
+    <div class="panel callout spacer"><strong>Two separate changes.</strong><p>The bridge enables communication. <code>danger-full-access</code> removes Codex’s filesystem sandbox. Removing the sandbox alone does not create a conversation; the bridge does that.</p></div>
+  </div>
+</section>
+<section id="architecture" class="alt">
+  <div class="shell">
+    <div class="section-head"><h2>The connection</h2><p>Approved target architecture. One adapter and App Server connection per active worker; the existing Fable session stays in its terminal.</p></div>
+    <p class="scroll-hint">On a narrow screen, scroll the diagram sideways. The steps below give the same flow in text.</p>
+    <figure class="diagram">
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 1120 645" role="img" aria-labelledby="architecture-title architecture-desc">
+          <title id="architecture-title">SGSD two-way Codex worker communication architecture</title>
+          <desc id="architecture-desc">Jack directs Fable. Fable or another owning orchestration unit launches a background worker wrapper and services a private project inbox through control.cjs. The host adapter relays questions and replies over a local stdio App Server connection to the selected Codex model. Final reports still pass existing SGSD checks. Native telemetry goes separately to Atlas. Operator-only decisions return to Jack.</desc>
+          <defs>
+            <marker id="arrow-blue" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9Z" fill="#315f90"/></marker>
+            <marker id="arrow-teal" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9Z" fill="#147a74"/></marker>
+            <marker id="arrow-amber" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9Z" fill="#b27622"/></marker>
+            <marker id="arrow-grey" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9Z" fill="#647076"/></marker>
+          </defs>
+          <rect x="35" y="20" width="285" height="75" rx="8" fill="#edf3fa" stroke="#315f90"/>
+          <text x="55" y="50" class="title">You · Jack</text><text x="55" y="76">Intent, approvals, scope changes</text>
+          <path d="M112 95V175" fill="none" stroke="#315f90" stroke-width="2" marker-end="url(#arrow-blue)"/><text x="42" y="130" class="small">Direct</text>
+          <path d="M260 175V95" fill="none" stroke="#647076" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow-grey)"/><text x="273" y="137" class="small">Escalate if needed</text>
+          <rect x="35" y="177" width="285" height="222" rx="8" fill="#edf3fa" stroke="#315f90"/>
+          <text x="55" y="211" class="title">Fable / owning unit</text>
+          <text x="55" y="245">1. Launch wrapper in background</text><text x="55" y="273">2. Poll the worker inbox</text><text x="55" y="301">3. Reply, steer or stop</text><text x="55" y="329">4. Validate the final report</text>
+          <text x="55" y="378" class="small">Existing session · no extra Fable call</text>
+          <rect x="415" y="177" width="300" height="222" rx="8" fill="#edf7f5" stroke="#147a74"/>
+          <text x="435" y="211" class="title">SGSD host bridge</text><text x="435" y="243">run.cjs → one worker adapter</text>
+          <path d="M435 260H695" stroke="#b9d6d1"/>
+          <text x="435" y="287">Private project inbox / control.cjs</text><text x="435" y="315" class="small">Project + worker + thread + turn</text><text x="435" y="340" class="small">+ request ID for each answer</text>
+          <text x="435" y="378" class="small">Routes messages; does not decide</text>
+          <path d="M320 234H415" fill="none" stroke="#315f90" stroke-width="2" marker-end="url(#arrow-blue)"/><text x="329" y="218" class="small">Task / reply</text>
+          <path d="M415 331H320" fill="none" stroke="#147a74" stroke-width="2" marker-end="url(#arrow-teal)"/><text x="329" y="315" class="small">Question</text>
+          <rect x="810" y="177" width="275" height="222" rx="8" fill="#edf7f5" stroke="#147a74"/>
+          <text x="830" y="211" class="title">Codex App Server</text><text x="830" y="245">Selected Codex model + effort</text><text x="830" y="273">Retained, task-specific thread</text><text x="830" y="301">Ask → receive reply → continue</text>
+          <text x="830" y="341" class="small">Sandbox: danger-full-access</text><text x="830" y="368" class="small">Approval policy: never</text>
+          <path d="M715 234H810" fill="none" stroke="#315f90" stroke-width="2" marker-end="url(#arrow-blue)"/><text x="732" y="218" class="small">Local stdio</text>
+          <path d="M810 331H715" fill="none" stroke="#147a74" stroke-width="2" marker-end="url(#arrow-teal)"/><text x="732" y="315" class="small">Events</text>
+          <rect x="35" y="490" width="680" height="112" rx="8" fill="#f3f7f1" stroke="#4f7f45"/>
+          <text x="55" y="523" class="title">Existing SGSD report &amp; gate path</text><text x="55" y="552">Wrapper exit status → report validation → verification / release gates</text><text x="55" y="580" class="small">A successful conversation is not proof the implementation passed its gates.</text>
+          <path d="M560 399V490" fill="none" stroke="#147a74" stroke-width="2" marker-end="url(#arrow-teal)"/><text x="572" y="451" class="caption">Final report</text>
+          <rect x="810" y="490" width="275" height="112" rx="8" fill="#fffaf1" stroke="#b27622"/>
+          <text x="830" y="523" class="title">Atlas · telemetry</text><text x="830" y="552">Native usage + run attribution</text><text x="830" y="580" class="small">Not the question / reply inbox</text>
+          <path d="M947 399V490" fill="none" stroke="#b27622" stroke-width="2" marker-end="url(#arrow-amber)"/><text x="960" y="451" class="caption">Separate capture</text>
+          <text x="35" y="633" class="small">Repeat the worker bridge per dispatch. Each project has its own inbox; Atlas’s receiver may be shared per machine.</text>
+        </svg>
+      </div>
+      <figcaption class="legend"><span class="client">Orchestration / instructions</span><span>Worker connection / returns</span><span class="data">Telemetry</span><span class="solid">Primary flow</span><span class="dashed">Conditional escalation</span></figcaption>
+    </figure>
+    <div class="grid two spacer">
+      <div><h3>What actually carries the conversation?</h3><p>The adapter starts <code>codex app-server</code> and keeps a local input/output connection open. Codex can call <code>sgsd_ask_orchestrator</code>. The adapter publishes that question in <code>.planning/worker-sessions/&lt;worker-id&gt;/</code>.</p><p>Fable reads it with <code>control.cjs status</code> and sends an exact-target reply. The adapter returns that answer to Codex’s pending tool call. No chat messages are scraped from terminal panes.</p></div>
+      <div><h3>Why the background launch matters</h3><p>If Fable blocks waiting for the worker’s final output, it cannot service the question the worker is waiting on. It must launch the wrapper in the background, check the inbox, answer, and keep watching for completion.</p><p>“Automatic” therefore means the orchestration workflow does this on every dispatch. It does not mean a second Fable process starts when the original session is absent.</p></div>
+    </div>
+  </div>
+</section>
+<section id="example">
+  <div class="shell">
+    <div class="section-head"><h2>Example: collecting Atlas<br>data across projects</h2><p>Illustrative dialogue—not a captured production conversation. The key moment is step 4: the original Codex worker receives the answer and continues.</p></div>
+    <figure class="diagram">
+      <div class="diagram-scroll">
+        <svg class="sequence" viewBox="0 0 1080 438" role="img" aria-labelledby="sequence-title sequence-desc">
+          <title id="sequence-title">A worker asks Fable a question and continues after the reply</title>
+          <desc id="sequence-desc">Fable dispatches work to a Codex worker. Codex asks how to separate projects. The bridge publishes the question. Fable answers from the approved plan. The bridge delivers the answer to the same worker. Codex completes its work and returns a report for existing SGSD validation.</desc>
+          <defs><marker id="seq-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#147a74"/></marker><marker id="seq-answer" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#315f90"/></marker></defs>
+          <rect x="35" y="18" width="245" height="50" rx="8" fill="#edf3fa" stroke="#315f90"/><text x="157" y="50" text-anchor="middle" class="title">Fable</text>
+          <rect x="420" y="18" width="245" height="50" rx="8" fill="#f4f1f8" stroke="#6a5b8f"/><text x="542" y="50" text-anchor="middle" class="title">Bridge / inbox</text>
+          <rect x="800" y="18" width="245" height="50" rx="8" fill="#edf7f5" stroke="#147a74"/><text x="922" y="50" text-anchor="middle" class="title">Codex worker A</text>
+          <path d="M157 68V406M542 68V406M922 68V406" fill="none" stroke="#c7d2d5" stroke-width="2"/>
+          <path d="M157 112H922" stroke="#315f90" stroke-width="2" marker-end="url(#seq-answer)"/><text x="184" y="102">1 · Dispatch: collect across SGSD projects, preserve attribution</text>
+          <path d="M922 170H542" stroke="#147a74" stroke-width="2" marker-end="url(#seq-arrow)"/><text x="571" y="160">2 · Ask: shared receiver or one per project?</text>
+          <path d="M542 226H157" stroke="#147a74" stroke-width="2" marker-end="url(#seq-arrow)"/><text x="184" y="216">3 · Inbox: worker A is waiting for input</text>
+          <path d="M157 282H922" stroke="#315f90" stroke-width="2" marker-end="url(#seq-answer)"/><text x="184" y="272">4 · Reply via bridge: one receiver; separate project / session identities</text>
+          <path d="M922 298h50v40h-50" fill="none" stroke="#147a74" stroke-width="2" marker-end="url(#seq-arrow)"/><text x="631" y="326">5 · Same worker continues its task</text>
+          <path d="M922 391H157" stroke="#147a74" stroke-width="2" marker-end="url(#seq-arrow)"/><text x="184" y="380">6 · Final report → wrapper validation → existing SGSD checks</text>
+        </svg>
+      </div>
+      <figcaption class="legend"><span class="client">Task or answer</span><span>Question or result</span><span class="plan">Routing, not another model</span></figcaption>
+    </figure>
+    <div class="conversation" aria-label="Illustrative worked dialogue">
+      <div class="message"><div class="speaker">Fable<small>Assigns the task</small></div><div><blockquote>“Add automatic Atlas collection to SGSD launches. Keep every project and session attributable. Do not alter existing evidence.”</blockquote><p>The wrapper receives the bounded task and the explicitly selected model and reasoning effort.</p></div></div>
+      <div class="message"><div class="speaker worker">Codex<small>Needs a decision</small></div><div><blockquote>“Two projects can run at once. Should each have its own receiver, or should they share one?”</blockquote><p>Calls <code>sgsd_ask_orchestrator({question, context})</code>. The worker waits at that call; it does not invent the architecture.</p></div></div>
+      <div class="message"><div class="speaker bridge">Bridge<small>Routes the request</small></div><div><blockquote>“Project A / worker A / current turn / question Q is waiting.”</blockquote><p>The real identifiers are opaque IDs, not these example letters. Fable gets the question through the project inbox.</p></div></div>
+      <div class="message"><div class="speaker">Fable<small>Uses the approved plan</small></div><div><blockquote>“Use one shared receiver per machine, with separate project and session registrations. Keep question text and code out of Atlas.”</blockquote><p>This is clarification within the existing task. Fable targets the exact pending request, not every worker.</p></div></div>
+      <div class="message"><div class="speaker worker">Codex<small>Continues</small></div><div><blockquote>“Understood. I’ll implement that routing and test two simultaneous projects.”</blockquote><p>The answer arrives as the result of the pending tool call in the same thread. No fresh model spawn or re-explanation of the entire task is needed for this exchange.</p></div></div>
+      <div class="message"><div class="speaker">Fable<small>Checks the outcome</small></div><div><blockquote>“Now I’ll check the completed report and the required verification evidence.”</blockquote><p>A worker saying “done” does not replace the existing report schema, verifier or release gates.</p></div></div>
+    </div>
+    <details><summary>What the host commands look like</summary>
+      <p>Implemented adapter CLI, shown with placeholders—not a transcript. Run against the matching project root in the same OS/shell environment as the worker. Fable launches the existing wrapper in the background and keeps checking this inbox; the adapter does not start another Fable.</p>
+      <pre><code>node super-gsd/tools/codex-worker/control.cjs status --project &quot;&lt;project-root&gt;&quot; --owner &quot;&lt;owning-unit&gt;&quot;
+
+node super-gsd/tools/codex-worker/control.cjs reply --project &quot;&lt;project-root&gt;&quot; --owner &quot;&lt;owning-unit&gt;&quot; --worker &quot;&lt;worker-id&gt;&quot; --request &quot;&lt;request-id&gt;&quot; --text &quot;Use one shared receiver with separate project and session registrations.&quot;
+
+node super-gsd/tools/codex-worker/control.cjs receipt --project &quot;&lt;project-root&gt;&quot; --worker &quot;&lt;worker-id&gt;&quot; --command &quot;&lt;returned-command-id&gt;&quot;</code></pre>
+      <p>The host checks the active worker and question. A queued reply is not yet forwarded; an <code>applied</code> receipt confirms forwarding, not task success. Fable still waits for the wrapper result and validates the final report.</p>
+    </details>
+  </div>
+</section>
+<section id="decisions" class="alt">
+  <div class="shell">
+    <div class="section-head"><h2>Who answers what?</h2><p>Communication is not a new source of authority. The owning orchestration unit remains responsible for the decision and its scope.</p></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th scope="col">Worker input</th><th scope="col">Classification</th><th scope="col">Selected source / route</th><th scope="col">Consequence</th></tr></thead>
+      <tbody>
+        <tr><td>“Which approved design applies?”</td><td>Missing task context</td><td>Fable reads the active plan / canonical project evidence and replies to the pending request.</td><td>Same worker continues.</td></tr>
+        <tr><td>“Another worker is editing this file.”</td><td>Coordination conflict</td><td>Owning unit checks assignments; steer or stop the exact affected worker.</td><td>Resolve ownership before overlapping edits continue.</td></tr>
+        <tr><td>“May I delete old evidence or deploy to production?”</td><td>New authority / destructive action</td><td>Fable escalates to Jack unless that exact action was already authorized.</td><td>No approval is invented from a deadline or from full-access mode.</td></tr>
+        <tr><td>“The selected model is unavailable.”</td><td>Provider / routing failure</td><td>Existing provider-failure path; report the actual configured model.</td><td>No silent substitution of a different model.</td></tr>
+        <tr><td>“The orchestrator is not responding.”</td><td>Unavailable supervisor</td><td>Bounded worker deadline; record failure and use explicit recorded-thread recovery when appropriate.</td><td>No endless wait and no automatic second Fable process.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+<section id="boundaries">
+  <div class="shell">
+    <div class="section-head"><h2>More connected.<br>Still bounded by the task.</h2><p>These are workflow controls. With the OS sandbox removed, they are not a substitute for operating-system access restrictions.</p></div>
+    <div class="grid two">
+      <article class="panel warning"><h3>Full access is a real permission change</h3><p>The local SGSD profiles now request <code>danger-full-access</code> and approval <code>never</code>. Workers can access what the launching OS account can access. An advisory “do not edit” instruction is no longer enforced by a read-only sandbox.</p><p>The change is scoped to SGSD-owned dispatch configuration—not deleting your Codex installation or rewriting global authentication settings. Communication itself does not require removing a sandbox.</p></article>
+      <article class="panel"><h3>Inbox separation is routing, not isolation</h3><p>Each project has its own worker records. Exact IDs prevent accidental cross-task replies through the control interface. A full-access process under the same OS account is not securely isolated from other project files.</p><p>There is no remote listening port for this connection. Cross-machine orchestration is outside this design.</p></article>
+      <article class="panel"><h3>Atlas is not the message bus</h3><p>Questions and answers are bounded operational data in the project mailbox. Atlas remains the separate, content-free telemetry path for supported native events and run attribution.</p><p>Do not copy raw prompts, reasoning, tool payloads or code into telemetry. This diagram does not claim every possible metric is already captured.</p></article>
+      <article class="panel callout"><h3>Failures must stay visible</h3><p>Unsupported App Server features, unexpected permission requests, disconnected processes, non-completed turns and deadlines fail explicitly—not as successful-looking reports.</p><p>Dynamic tools are experimental. Local CLI 0.153.4 initializes successfully without a model turn. Bash wrappers require native POSIX/WSL Node and Codex; Windows interop shims are rejected. A hard-killed adapter can require manual recovery of its exact thread claim.</p></article>
+    </div>
+  </div>
+</section>
+<section id="research" class="alt">
+  <div class="shell">
+    <div class="section-head"><h2>Checked against your<br>VTP papers and books.</h2><p>Read from the local ingested VTP library. These sources inform the design; they do not prove this implementation is live or grant new authority.</p></div>
+    <div class="grid three">
+      <article class="panel"><span class="label">Coordination</span><h3>Connected, without constant chatter</h3><p>Keep private execution separate from concise, necessary requests to the owning unit. The <a href="https://arxiv.org/abs/2604.18975">Gated Coordination paper</a> supports selective escalation; applying its Minecraft findings to SGSD is an inference.</p></article>
+      <article class="panel"><span class="label">Reliability</span><h3>Delivered ≠ validated</h3><p>The VTP DDIA excerpt separates delivery from application success. Its implication here: verify exact identity, the wrapper receipt and the report. Recover the existing task before considering a new worker. See the <a href="../../.planning/analyses/2026-09-08-worker-bridge-vtp-crosscheck.md">book passages and design cross-check</a>.</p></article>
+      <article class="panel"><span class="label">Harness evidence</span><h3>Test behavior, not just instructions</h3><p><a href="https://arxiv.org/abs/2604.25850v4">Agentic Harness Engineering</a> emphasizes observable components and evaluated changes. Fable's real inbox behavior still needs an installed-session test. VTP contains v1; arXiv now lists v4.</p></article>
+    </div>
+    <div class="panel callout spacer"><h3>One piece of book advice we are not adopting</h3><p><em>Agentic Architectural Patterns</em> recommends rich prompt and reasoning traces. Atlas's content-free contract takes precedence: the message mailbox and telemetry remain separate. <em>Building Agentic AI Systems</em> also reinforces keeping action boundaries and human oversight. <a href="../../.planning/analyses/2026-09-08-worker-bridge-vtp-crosscheck.md">Read the five-source assessment and live acceptance checks</a>.</p></div>
+  </div>
+</section>
+<section id="evidence">
+  <div class="shell">
+    <div class="section-head"><h2>What is proven—and what isn’t</h2><p>Source snapshot for the diagram, 08 September 2026. The worked dialogue illustrates the intended experience; it is not live provider evidence.</p></div>
+    <div class="grid three">
+      <article class="panel ok"><span class="label">Observed</span><h3>The core round trip works in fixtures</h3><p>18 core tests pass on Windows using the real adapter and a fake App Server; the opt-in local initialization test is separate. Coverage includes two projects, replies, native input, steering, stop, stale controls, atomic publication, deadlines and recorded-thread resume.</p></article>
+      <article class="panel"><span class="label">Inferred</span><h3>This can avoid restarting work for a question</h3><p>Returning the pending tool result lets the same active thread continue. The owning-unit instructions now require inbox polling and recovery checks. Actual Fable compliance remains a live validation task.</p></article>
+      <article class="panel callout"><span class="label">Recommended next</span><h3>Validate the updated installation</h3><p>All three wrapper paths and the installer are connected locally; independent reviews pass. After the operator's update, observe a real question → answer → continuation → validated report, then check Atlas coverage. No production deployment is claimed here.</p></article>
+    </div>
+    <div class="table-scroll spacer"><table>
+      <thead><tr><th scope="col">Surface</th><th scope="col">Actual at this snapshot</th><th scope="col">Intended finished behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Communication core</td><td>Adapter, control CLI, retained threads and immutable wrapper completion receipts implemented locally.</td><td>Same connection under the three standard wrappers and additional shipped task dispatchers; provider canary stays a bounded diagnostic.</td></tr>
+        <tr><td>Fable orchestration</td><td>Consumer skill + current contracts written; static checks and instruction scenarios pass.</td><td>Every owning unit launches in background, polls, answers or escalates, then validates.</td></tr>
+        <tr><td>Permissions</td><td>All 10 role and 3 CLI profiles migrated locally; explicit full-access/never settings.</td><td>Consistent worker launches after installation, with SGSD role and gate contracts preserved.</td></tr>
+        <tr><td>Live deployment</td><td>Not deployed; no paid model conversation used as evidence here.</td><td>Real installed-path question → answer → continuation observed on the target machine.</td></tr>
+      </tbody>
+    </table></div>
+    <h3 class="spacer">Source ledger</h3>
+    <ol class="source-list">
+      <li><a href="../../.planning/analyses/2026-09-08-codex-worker-bridge-design.md">Approved Codex worker bridge design</a> · <strong>design authority</strong><p>One local adapter per worker, exact task targeting, explicit full access, existing gates, separate telemetry and no unsolicited Fable process.</p></li>
+      <li><a href="../../.planning/milestones/v4.1-token-economics-atlas/phases/170-atlas-capture-foundation/170-03-WORKER-PLAN.md">Active plan 170-03</a> · <strong>scope and handoff</strong><p>Permission migration, runtime, wrapper integration, orchestration instructions, testing and operator handoff. No formal phase close or deployment is inferred.</p></li>
+      <li><a href="../../super-gsd/tools/codex-worker/run.cjs">run.cjs</a>, <a href="../../super-gsd/tools/codex-worker/rpc.cjs">rpc.cjs</a>, <a href="../../super-gsd/tools/codex-worker/mailbox.cjs">mailbox.cjs</a>, <a href="../../super-gsd/tools/codex-worker/control.cjs">control.cjs</a> · <strong>implementation evidence</strong><p>App Server handshake, dynamic question tool, host replies, private project records, steering, interruption and recorded-thread resume.</p></li>
+      <li><a href="../../super-gsd/tools/codex-worker/worker.test.cjs">Worker test suite</a> and <a href="../../super-gsd/tools/codex-worker/fixtures/app-server.cjs">fake protocol peer</a> · <strong>bounded test evidence</strong><p>Core plus permissions and orchestration checks: Windows 29 passed / 0 failed / 1 opt-in skip; WSL 28 passed / 0 failed / 2 skips. Of those, 18 Windows passes are core tests. A fake peer tests SGSD behavior, not real model availability.</p></li>
+      <li><a href="../../.planning/milestones/v4.1-token-economics-atlas/phases/170-atlas-capture-foundation/170-03-EXECUTOR-REPORT.md">170-03 implementation handoff</a> · <strong>verification and rollout limits</strong><p>Wrapper integration 24 pass / 3 platform skips; isolated worker install 1 pass; board/routing 15 pass. Full evidence, review fixes, supported launch environment and live checks are recorded here.</p></li>
+      <li><a href="../../super-gsd/tools/telemetry-atlas/README.md">Atlas runtime documentation</a> and <a href="../../.planning/STATE.md">canonical planning state</a> · <strong>local context</strong><p>Automatic multi-project telemetry work is separate from this worker-control connection; production deployment is not inferred from local code.</p></li>
+      <li><a href="https://learn.chatgpt.com/docs/app-server">Official Codex App Server documentation</a> · <strong>protocol reference</strong><p>Local CLI schema checked during the build against codex-cli 0.153.4. The report’s SGSD-specific decisions come from the local design and code, not from assuming the upstream API implements them.</p></li>
+      <li><a href="../../.planning/analyses/2026-09-08-worker-bridge-vtp-crosscheck.md">VTP papers and books assessment</a> · <strong>research evidence and limitations</strong><p>Five targeted local sources, source locations, paper-version check, disagreements and live acceptance criteria. No VTP index or library writes.</p></li>
+      <li>VTP HTML explainer skill + house CSS · <strong>presentation lens</strong><p>Plain-English explanation, labelled SVG, decision table and observed / inferred / recommended separation. The worked conversation remains illustrative.</p></li>
+    </ol>
+  </div>
+</section>
+</main>
+<footer><div class="shell">SGSD · Operator communication design · Static, self-contained HTML · No remote scripts, fonts or telemetry in this report.</div></footer>
+</body>
+</html>

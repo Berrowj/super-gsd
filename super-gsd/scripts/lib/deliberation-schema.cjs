@@ -63,3 +63,11 @@ function validate(yamlBody) {
 }
 
 module.exports = { validate, REQUIRED_FIELDS };
+
+// The shell transport uses the same validator as Agent responses. No alternate gate.
+if (require.main === module) {
+  const body = require('fs').readFileSync(0, 'utf8');
+  const result = validate(body);
+  if (!result.valid) { process.stderr.write(result.errors.join('; ') + '\n'); process.exitCode = 6; }
+  else process.stdout.write(yaml.dump(result.parsed, { noRefs: true }));
+}

@@ -26,8 +26,8 @@ function opaque(value) {
   return /^[a-zA-Z0-9._:-]{1,160}$/.test(value) ? value : digest(value);
 }
 function version(value) { return typeof value === 'string' && /^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$/i.test(value) && value.length <= 48 ? value : null; }
-function model(value) { return typeof value === 'string' && /^claude-(?:opus|sonnet|haiku)-\d+(?:-\d+){0,3}$/.test(value) && value.length <= 64 ? value : value == null ? null : 'unknown'; }
-function modelFamily(value) { return /^claude-(opus|sonnet|haiku)(?:$|-\d)/.exec(value || '')?.[1] || 'unknown'; }
+function model(value) { return typeof value === 'string' && /^(?:fable|claude-(?:opus|sonnet|haiku|fable)(?:-[a-z0-9.]+)*)$/.test(value) && value.length <= 64 ? value : value == null ? null : 'unknown'; }
+function modelFamily(value) { return /^claude-(opus|sonnet|haiku|fable)(?:$|-)/.exec(value || '')?.[1] || (value === 'fable' ? 'fable' : /^gpt-/.test(value || '') ? 'gpt' : 'unknown'); }
 function queryClass(value) {
   if (['main', 'repl_main_thread', 'sdk'].includes(value)) return 'main';
   if (['auxiliary', 'compact', 'summarize', 'prompt_suggestion', 'session_title', 'auto_mode'].includes(value)) return 'auxiliary';
@@ -159,6 +159,12 @@ function normalizeLogs(payload) {
           e.execution.success = false;
         }
         e.usage.duration_ms = number(a.duration_ms);
+        if (name === 'api_request' && !request) {
+          // A sequence identifies a log record, not a billable provider request.
+          e.event_type = 'coverage'; e.usage = envelope().usage;
+          e.source.completeness_reason = 'missing_stable_request_identity';
+          result.missing_stable_identity++;
+        }
         result.events.push(e);
       }
     }
@@ -189,4 +195,4 @@ function normalizeMetrics(payload) {
   return result;
 }
 module.exports = { normalizeLogs, normalizeMetrics, canonicalClaudeLogs: (payload) => normalizeLogs(payload).events,
-  canonicalClaudeMetrics: (payload) => normalizeMetrics(payload).observations, modelFamily };
+  canonicalClaudeMetrics: (payload) => normalizeMetrics(payload).observations, modelFamily, attributes, envelope, sourceTime, number, opaque };

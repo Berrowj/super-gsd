@@ -591,6 +591,13 @@ if [[ "$UNEXPECTED_AUTO_STOP" == "1" ]]; then
 else
     _log_row "spawned" "$CHAIN_DEPTH" ",\"cumulative_runtime_s\":$CUMULATIVE_S"
 fi
-(claude --print --dangerously-skip-permissions "/sgsd-orchestrate go" >/dev/null 2>&1 &) &
+(
+  if [[ -f "$(dirname "${BASH_SOURCE[0]}")/lib/atlas-shell.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/lib/atlas-shell.sh"
+    sgsd_atlas_attach recovery anthropic "${PROJECT_DIR:-$PWD}"
+  fi
+  claude --print --dangerously-skip-permissions "/sgsd-orchestrate go" >/dev/null 2>&1
+  if declare -F sgsd_atlas_finish >/dev/null; then sgsd_atlas_finish; fi
+) &
 
 exit 0

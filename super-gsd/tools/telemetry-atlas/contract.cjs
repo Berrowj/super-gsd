@@ -186,9 +186,9 @@ function validConflict(row) {
   return validate({ ...input, event_type: 'coverage' }) === null;
 }
 function createStore(options = {}) {
-  if (!options.ledgerPath && !options.projectDir) throw new Error('ledgerPath_or_projectDir_required');
+  if (!options.ledgerPath && !options.projectDir && !options.metricsDir) throw new Error('ledgerPath_or_projectDir_required');
   const now = options.now || (() => new Date().toISOString()), dynamic = !options.ledgerPath;
-  const dir = dynamic ? path.resolve(options.projectDir,'.planning','metrics') : path.dirname(path.resolve(options.ledgerPath));
+  const dir = dynamic ? options.metricsDir ? path.resolve(options.metricsDir) : path.resolve(options.projectDir,'.planning','metrics') : path.dirname(path.resolve(options.ledgerPath));
   const gapPath = path.resolve(options.gapPath || path.join(dir,'sgsd-atlas-gaps.jsonl'));
   const manifestPath = path.join(dir,'sgsd-atlas-manifest.jsonl');
   const lockPath = path.join(dir,'.sgsd-atlas-write.lock');
@@ -306,4 +306,4 @@ function createStore(options = {}) {
       coverage: 'partial', partition_id: partitionId, bytes: totalBytes, indexed_events: index.size, resets_at: resetAt }),
     get ledgerPath() { return ledgerPath; } });
 }
-module.exports = Object.freeze({ canonicalize, createStore, digest, readLedger, validate, appendGap, safeAppend });
+module.exports = Object.freeze({ canonicalize, createStore, digest, readLedger, validate, appendGap, safeAppend, safePath, scan, validConflict, fileDigest });

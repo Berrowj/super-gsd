@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # ============================================================================
-# codex-patch-executor.sh - Codex executor fallback for Windows read-blocks
+# codex-patch-executor.sh - explicit bounded read-pack worker
 # ============================================================================
-# Some Windows Codex CLI hosts can write but fail every file-read attempt with
-# CreateProcessAsUserW=216. This fallback keeps Codex as the code author:
-# SGSD supplies a bounded read-pack, Codex returns a unified diff, and this
-# wrapper validates/applies that patch locally.
+# SGSD supplies a bounded read-pack, the retained Codex worker returns a unified
+# diff, and this wrapper validates/applies that patch locally. The calling unit
+# selects patch mode explicitly; execution failures do not launch it automatically.
 # ============================================================================
 # Usage:
 #   codex-patch-executor.sh --prompt-file <p> --report-out <p> --files <manifest>
@@ -25,6 +24,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/lib/codex-worker-shell.sh"
+
 PROMPT_FILE=""
 REPORT_OUT=""
 WORKSPACE=""
@@ -32,6 +34,7 @@ FILES_LIST=""
 TIMEOUT_SECONDS="1200"
 PHASE_TAG=""
 PLAN_TAG=""
+STEP_TAG=""
 DRY_RUN=false
 APPLY_PATCH=true
 
@@ -44,6 +47,8 @@ while [[ $# -gt 0 ]]; do
         --timeout) TIMEOUT_SECONDS="$2"; shift 2 ;;
         --phase) PHASE_TAG="$2"; shift 2 ;;
         --plan) PLAN_TAG="$2"; shift 2 ;;
+        --step) STEP_TAG="$2"; shift 2 ;;
+        --owner) export SGSD_WORKER_OWNER="$2"; shift 2 ;;
         --dry-run) DRY_RUN=true; shift ;;
         --no-apply) APPLY_PATCH=false; shift ;;
         --help|-h) head -55 "$0" | tail -48; exit 0 ;;
@@ -90,19 +95,7 @@ done
 
 CODEX_MODEL="gpt-5.6-sol"
 CODEX_REASONING_EFFORT="xhigh"
-CODEX_CD="$WORKSPACE"
-CODEX_LAUNCHER="direct"
-if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null && command -v cmd.exe >/dev/null 2>&1; then
-    CODEX_LAUNCHER="cmd"
-    if command -v wslpath >/dev/null 2>&1; then
-        CODEX_CD="$(wslpath -w "$WORKSPACE" 2>/dev/null || echo "$WORKSPACE")"
-    fi
-fi
-
-if [[ "$CODEX_LAUNCHER" == "direct" ]] && ! command -v codex >/dev/null 2>&1; then
-    echo "codex-patch-executor: 'codex' CLI not on \$PATH" >&2
-    exit 3
-fi
+sgsd_codex_worker_prepare "$PROJECT" "$WORKSPACE" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$TIMEOUT_SECONDS" executor || exit $?
 
 TMP_BASE="$PROJECT/.planning/tmp"
 mkdir -p "$TMP_BASE"
@@ -116,7 +109,7 @@ trap 'rm -f "$READPACK_TMP" "$PROMPT_TMP" "$STDOUT_TMP" "$STDERR_TMP" "$PATCH_TM
 MAX_BYTES="${SGSD_CODEX_PATCH_READPACK_MAX_BYTES:-240000}"
 TOTAL_BYTES=0
 ALLOWED_TMP="$(mktemp "$TMP_BASE/sgsd-codex-allowed.XXXXXX")"
-trap 'rm -f "$READPACK_TMP" "$PROMPT_TMP" "$STDOUT_TMP" "$STDERR_TMP" "$PATCH_TMP" "$ALLOWED_TMP" "${REPORT_OUT}.$$.tmp" 2>/dev/null || true' EXIT
+trap 'wrapper_exit=$?; sgsd_codex_worker_finish "$wrapper_exit" || { [[ "$wrapper_exit" -ne 0 ]] || wrapper_exit=9; }; rm -f "$READPACK_TMP" "$PROMPT_TMP" "$STDOUT_TMP" "$STDERR_TMP" "$PATCH_TMP" "$ALLOWED_TMP" "${REPORT_OUT}.$$.tmp" 2>/dev/null || true; exit "$wrapper_exit"' EXIT
 
 is_safe_relpath() {
     local p="$1"
@@ -170,11 +163,12 @@ fi
 {
     echo "# SGSD Codex patch executor"
     echo
-    echo "You are Codex GPT-5.5/xhigh acting as the code executor."
-    echo "The host cannot support Codex file reads, so SGSD supplied a bounded read-pack."
+    echo "You are Codex $CODEX_MODEL/$CODEX_REASONING_EFFORT acting as the patch author."
+    echo "SGSD supplied a bounded read-pack for this explicit patch task."
     echo
     echo "Rules:"
-    echo "- Do not call tools. Do not read files. Do not ask the operator questions."
+    echo "- Do not edit or read host files or run commands. Use only the supplied read-pack."
+    echo "- For missing task context, use sgsd_ask_orchestrator and wait for the supervising unit."
     echo "- Author the code change as a unified git diff that applies with git apply."
     echo "- Touch only paths listed in ALLOWED FILES."
     echo "- If no safe patch is possible, return an empty PATCH block and explain why in REPORT."
@@ -202,7 +196,7 @@ fi
     cat "$READPACK_TMP"
 } > "$PROMPT_TMP"
 
-RESOLVED="timeout ${TIMEOUT_SECONDS}s codex exec --sandbox read-only --model ${CODEX_MODEL} -c model_reasoning_effort=${CODEX_REASONING_EFFORT} --skip-git-repo-check --cd ${CODEX_CD} -"
+RESOLVED="$(sgsd_codex_worker_preview) < $(printf %q "$PROMPT_TMP")"
 
 if [[ "$DRY_RUN" == true ]]; then
     echo "codex-patch-executor DRY RUN"
@@ -215,6 +209,7 @@ if [[ "$DRY_RUN" == true ]]; then
     echo "  report:   $REPORT_OUT"
     exit 0
 fi
+sgsd_codex_worker_begin || exit $?
 
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 START_MS="$(date +%s%3N 2>/dev/null || echo 0)"
@@ -230,22 +225,18 @@ mkdir -p "$(dirname "$LIVE_OUT")"
 } > "$LIVE_OUT"
 cat "$LIVE_OUT" >> "$WATCH_OUT"
 
-set +e
-if [[ "$CODEX_LAUNCHER" == "cmd" ]]; then
-    timeout "${TIMEOUT_SECONDS}s" bash -c 'cat "$0" | cmd.exe /c codex exec --sandbox read-only --model "$1" -c "model_reasoning_effort=\"$2\"" --skip-git-repo-check --cd "$3" -' \
-        "$PROMPT_TMP" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_CD" \
-        2> >(tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDERR_TMP") \
-        | tee -a "$LIVE_OUT" -a "$WATCH_OUT" \
-        > "$STDOUT_TMP"
-    RC=${PIPESTATUS[0]}
-else
-    timeout "${TIMEOUT_SECONDS}s" bash -c 'cat "$0" | codex exec --sandbox read-only --model "$1" -c "model_reasoning_effort=\"$2\"" --skip-git-repo-check --cd "$3" -' \
-        "$PROMPT_TMP" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_CD" \
-        2> >(tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDERR_TMP") \
-        | tee -a "$LIVE_OUT" -a "$WATCH_OUT" \
-        > "$STDOUT_TMP"
-    RC=${PIPESTATUS[0]}
+sgsd_atlas_codex_args() { SGSD_ATLAS_CODEX_ARGS=(); }
+ATLAS_HELPER="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}/lib/atlas-shell.sh"
+if [[ -f "$ATLAS_HELPER" ]]; then
+    source "$ATLAS_HELPER"
+    sgsd_atlas_attach executor openai "$PROJECT"
 fi
+set +e
+sgsd_codex_worker_run "$PROMPT_TMP" \
+    2> >(tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDERR_TMP") \
+    | tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDOUT_TMP"
+RC=${PIPESTATUS[0]}
+if declare -F sgsd_atlas_finish >/dev/null; then sgsd_atlas_finish; fi
 set -e
 
 END_MS="$(date +%s%3N 2>/dev/null || echo 0)"
@@ -366,6 +357,7 @@ if [[ ! -s "$REPORT_OUT" ]]; then
 fi
 
 PATCH_FILES="$(awk '/^diff --git /{n++} END{print n+0}' "$PATCH_TMP")"
+sgsd_codex_worker_finish 0 || exit 9
 if [[ "$APPLY_PATCH" == true ]]; then
     echo "codex-patch-executor: OK - patch applied via read-pack mode (${PATCH_FILES} file(s))"
 else

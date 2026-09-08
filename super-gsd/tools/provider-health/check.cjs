@@ -109,8 +109,8 @@ function probeCodexCanary() {
   let r;
   try {
     r = spawnSync('codex', [
-      'exec', '--model', 'gpt-5.5', '-c', 'model_reasoning_effort="xhigh"',
-      '--sandbox', 'read-only', '--ephemeral', '--skip-git-repo-check', '-',
+      '--ask-for-approval', 'never', 'exec', '--model', 'gpt-5.5', '-c', 'model_reasoning_effort="xhigh"',
+      '--sandbox', 'danger-full-access', '--skip-git-repo-check', '-',
     ], {
       input: prompt,
       stdio: ['pipe', 'pipe', 'pipe'],

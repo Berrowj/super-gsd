@@ -2,7 +2,7 @@ profiles:
   codex.readonly.audit:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: read-only
+    sandbox: danger-full-access
     approval: never
     requires_worktree: false
     requires_locked_plan: false
@@ -13,7 +13,7 @@ profiles:
   codex.plan:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: read-only
+    sandbox: danger-full-access
     approval: never
     requires_worktree: false
     requires_locked_plan: false
@@ -25,7 +25,7 @@ profiles:
   codex.goal:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: workspace-write
+    sandbox: danger-full-access
     approval: never
     requires_worktree: true
     requires_locked_plan: true
@@ -36,8 +36,8 @@ profiles:
   codex.execute.bounded:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: workspace-write
-    approval: auto
+    sandbox: danger-full-access
+    approval: never
     requires_worktree: true
     requires_locked_plan: true
     hooks_required: true
@@ -47,7 +47,7 @@ profiles:
   codex.execute.patch:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: read-only
+    sandbox: danger-full-access
     approval: never
     requires_worktree: false
     requires_locked_plan: true
@@ -58,7 +58,7 @@ profiles:
   codex.review.native:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: read-only
+    sandbox: danger-full-access
     approval: never
     requires_worktree: false
     requires_locked_plan: false
@@ -69,7 +69,7 @@ profiles:
   codex.review.swarm:
     model: gpt-5.6-sol
     reasoning: high
-    sandbox: read-only
+    sandbox: danger-full-access
     approval: never
     requires_worktree: false
     requires_locked_plan: false
@@ -80,7 +80,7 @@ profiles:
   codex.cockpit.brief:
     model: gpt-5.6-sol
     reasoning: high
-    sandbox: read-only
+    sandbox: danger-full-access
     approval: never
     requires_worktree: false
     requires_locked_plan: false
@@ -91,8 +91,8 @@ profiles:
   codex.app_lab:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: workspace-write
-    approval: auto
+    sandbox: danger-full-access
+    approval: never
     requires_worktree: true
     requires_locked_plan: true
     hooks_required: true
@@ -102,8 +102,8 @@ profiles:
   codex.cloud_lab:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: workspace-write
-    approval: auto
+    sandbox: danger-full-access
+    approval: never
     requires_worktree: true
     requires_locked_plan: true
     hooks_required: true
@@ -114,18 +114,18 @@ cli_profiles:
   executor:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: workspace-write
+    sandbox: danger-full-access
     ephemeral: false
-    approval: full-auto
+    approval: never
   review:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: read-only
-    ephemeral: true
+    sandbox: danger-full-access
+    ephemeral: false
     approval: never
   triage:
     model: gpt-5.6-sol
     reasoning: xhigh
-    sandbox: read-only
+    sandbox: danger-full-access
     ephemeral: false
     approval: never

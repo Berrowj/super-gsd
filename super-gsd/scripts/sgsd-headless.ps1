@@ -103,11 +103,16 @@ while ($run -lt $MaxRuns) {
     $startTime = Get-Date
 
     Push-Location $ProjectDir
+    $atlasSaved = @{}
     try {
+        $atlasHelper = Join-Path $PSScriptRoot 'lib/atlas-powershell.ps1'
+        if (Test-Path -LiteralPath $atlasHelper) { . $atlasHelper; $atlasSaved = Start-SgsdAtlas -ProjectDir $ProjectDir }
         claude --print --dangerously-skip-permissions -p $Prompt 2>&1 | Add-Content -Path $LogFile
         $exitCode = $LASTEXITCODE
     } catch {
         $exitCode = 1
+    } finally {
+        if (Get-Command Restore-SgsdAtlas -ErrorAction SilentlyContinue) { Restore-SgsdAtlas -Saved $atlasSaved }
     }
     Pop-Location
 

@@ -213,11 +213,21 @@ function sg {
         Set-Location -LiteralPath `$ProjectDir
     }
 
+    `$atlasSaved = @{}
+    `$atlasHelper = __SgsdFindScript -RelativeScript 'lib\atlas-powershell.ps1'
+    if (`$atlasHelper -and (Test-Path -LiteralPath `$atlasHelper)) {
+        . `$atlasHelper
+        `$atlasSaved = Start-SgsdAtlas -ProjectDir (Get-Location).Path
+    }
+    try {
     if (`$Go) {
         & claude --dangerously-skip-permissions 'go'
     } else {
         `$greetMsg = 'You are booting in Super GSD mode. Do these four things in your first response: (1) read .planning/STATE.md frontmatter and report current milestone status in one line, (2) report active agent count grouped by model from .planning/resource-registry/agents.jsonl, (3) confirm the SGSD cockpit dashboards are open in the other window, (4) ask the operator what they want to build. Do NOT enter auto mode - wait for their first instruction.'
         & claude --dangerously-skip-permissions `$greetMsg
+    }
+    } finally {
+        if (Get-Command Restore-SgsdAtlas -ErrorAction SilentlyContinue) { Restore-SgsdAtlas -Saved `$atlasSaved }
     }
 }
 

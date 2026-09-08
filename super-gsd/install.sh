@@ -650,6 +650,7 @@ install_global_assets() {
     done
   fi
   copy_files_to_root "$GLOBAL_SCRIPTS_DIR/lib" "${script_lib_sources[@]}"
+  copy_tree_files "$SCRIPT_DIR/tools/codex-worker" "$CLAUDE_DIR/super-gsd/tools/codex-worker"
   if [[ -f "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" ]]; then
     copy_file "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" "$CLAUDE_DIR/super-gsd/tools/state-resolver/resolve.cjs"
   fi
@@ -676,6 +677,7 @@ install_global_assets() {
   copy_tree_files "$SCRIPT_DIR/registry" "$CLAUDE_DIR/registry"
   copy_tree_files "$SCRIPT_DIR/tools/vtp-readiness" "$CLAUDE_DIR/tools/vtp-readiness"
   copy_tree_files "$SCRIPT_DIR/tools/telemetry-atlas" "$CLAUDE_DIR/tools/telemetry-atlas"
+  copy_tree_files "$SCRIPT_DIR/tools/codex-worker" "$CLAUDE_DIR/tools/codex-worker"
   log "  Hook scripts/lib, registry, VTP readiness, and Atlas runtime installed"
 
   echo ""

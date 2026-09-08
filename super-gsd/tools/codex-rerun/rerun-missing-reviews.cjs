@@ -9,7 +9,7 @@
 //
 // For each missing-review row:
 //   1. Construct a code-reviewer-v1 prompt for the artifact (commit diff or phase folder)
-//   2. Invoke `codex exec` with --sandbox read-only --ephemeral
+//   2. Invoke the retained full-access reviewer worker and wait for its final report
 //   3. Validate the 5-line contract response
 //   4. Append a row to the correct commit-reviews.jsonl
 //   5. Append a `kind: cleared` backlog row referencing the original id +
@@ -135,29 +135,21 @@ Be honest. Brief but substantive. Focus on real defects, not nits.
   return header + body + '\n\nReturn the 5-line code-reviewer-v1 contract now.';
 }
 
-function invokeCodex(prompt, timeoutMs = 240000) {
-  // Up to 2 attempts; transient FAIL on first attempt (likely MCP transport
-  // glitch in Codex CLI 0.125.0 with concurrent calls) is retried after 2s.
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const r = spawnSync('codex', [
-      'exec', '--model', 'gpt-5.5', '-c', 'model_reasoning_effort="xhigh"',
-      '--sandbox', 'read-only', '--ephemeral', '--skip-git-repo-check', '-',
-    ], {
-      input: prompt,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: timeoutMs,
-      encoding: 'utf8',
-      shell: isWin,
-      maxBuffer: 4 * 1024 * 1024,
-    });
-    if (r.status === 0) return { exit: 0, stdout: r.stdout || '', stderr: r.stderr || '', attempt };
-    if (attempt === 1) {
-      // Sleep 2s then retry
-      const start = Date.now();
-      while (Date.now() - start < 2000) {}
-    }
-    if (attempt === 2) return { exit: r.status ?? -1, stdout: r.stdout || '', stderr: r.stderr || '', attempt };
-  }
+function invokeCodex(prompt, review, timeoutMs = 240000) {
+  const r = spawnSync(process.execPath, [
+    path.resolve(__dirname, '../codex-worker/run.cjs'),
+    '--project', PROJECT, '--model', 'gpt-5.5', '--reasoning', 'xhigh',
+    '--timeout', String(Math.ceil(timeoutMs / 1000)),
+    '--sandbox', 'danger-full-access', '--ask-for-approval', 'never',
+    '--owner', process.env.SGSD_WORKER_OWNER || 'codex-rerun', '--role', 'reviewer',
+  ], {
+    cwd: PROJECT, input: prompt, stdio: ['pipe', 'pipe', 'pipe'],
+    // The adapter owns its deadline and process cleanup; this outer bound is a
+    // last-resort host failure bound, with time for interruption evidence.
+    timeout: timeoutMs + 5000, encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024,
+    env: { ...process.env, SGSD_WORKER_PHASE: review.phase, SGSD_WORKER_PLAN: review.plan, SGSD_WORKER_STEP: 'backlog-rerun' },
+  });
+  return { exit: r.status ?? -1, stdout: r.stdout || '', stderr: r.stderr || '', attempt: 1 };
 }
 
 function parseContract(stdout) {
@@ -224,7 +216,7 @@ async function main() {
     process.stdout.write(`  [${tag}] ... `);
     const prompt = buildPrompt(review);
     if (dryRun) { console.log(`would invoke codex (prompt ${prompt.length} bytes)`); continue; }
-    const r = invokeCodex(prompt);
+    const r = invokeCodex(prompt, review);
     if (r.exit !== 0) {
       console.log(`FAIL (exit ${r.exit})`);
       fail++; continue;

@@ -12,6 +12,16 @@ The registry source is `super-gsd/registry/codex-profiles.yaml` under
 `cli_profiles:`.
 </objective>
 
+<worker_connection>
+SGSD Codex dispatches use the two-way App Server worker adapter with retained
+threads, `danger-full-access` and approval `never`. Legacy read-only profile
+names describe advisory roles, not OS isolation. Do not set `ephemeral true`
+or restore sandboxed worker flags; those modes cannot satisfy this connection.
+For live workers use `/sgsd-workers`, not profile mutation. Launch the existing
+wrapper with Bash `run_in_background: true`, then service its exact project/
+worker inbox until the wrapper exits and the existing report checks pass.
+</worker_connection>
+
 <commands>
 Show current CLI profiles:
 
@@ -19,10 +29,9 @@ Show current CLI profiles:
 bash super-gsd/scripts/sgsd-codex-control.sh show
 ```
 
-Set an unguarded field:
+Ensure retained sessions (unguarded field):
 
 ```bash
-bash super-gsd/scripts/sgsd-codex-control.sh set triage ephemeral true
 bash super-gsd/scripts/sgsd-codex-control.sh set triage ephemeral false
 ```
 

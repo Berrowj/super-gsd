@@ -6,17 +6,24 @@
 # and ablation-based retirement (HCC-P-07).
 # ============================================================================
 
+# External seats use retained App Server workers with danger-full-access and
+# approval never. codex.readonly.audit is a legacy advisory role name: no source
+# edits are authorized, and report/provider/SGSD gates remain required.
 schema_version: 2
-registry_version: 2.2.0
-last_updated: 2026-05-13
-board_version: v3-opus-no-sonnet
+registry_version: 2.3.0
+last_updated: 2026-09-08
+board_version: v4-provider-aware
 
 board_members:
   - name: sgsd-board-architect
     role: Technical Architect
-    model_default: opus
-    model_variant: opus-4.7
-    reasoning_effort: xhigh
+    model_default: external
+    provider: openai
+    model_id: gpt-6-astra
+    reasoning_effort: max
+    dispatch: codex-exec
+    codex_contract: board-position-v1
+    codex_profile: codex.readonly.audit
     expertise_ref: super-gsd/expertise/sgsd-board-architect.md
     supersedes: sgsd-sgsd-board-architect
     perspective:
@@ -34,7 +41,13 @@ board_members:
 
   - name: sgsd-board-pragmatist
     role: Execution Pragmatist
-    model_default: disabled
+    model_default: external
+    provider: openai
+    model_id: gpt-5.6-luna
+    reasoning_effort: max
+    dispatch: codex-exec
+    codex_contract: board-position-v1
+    codex_profile: codex.readonly.audit
     expertise_ref: super-gsd/expertise/sgsd-board-pragmatist.md
     supersedes: sgsd-sgsd-board-pragmatist
     perspective:
@@ -46,14 +59,15 @@ board_members:
       - "Will this actually ship in the time we have?"
       - "Who executes it and do they have capacity?"
       - "What's the smallest version that meets the real need?"
-    state: legacy-disabled
+    state: active
     version: 2.0
     owner_dlb: DLB-05
 
   - name: sgsd-board-contrarian
     role: Contrarian Challenger
-    model_default: opus
-    model_variant: opus-4.7
+    model_default: fable
+    provider: anthropic
+    dispatch: agent
     reasoning_effort: xhigh
     expertise_ref: super-gsd/expertise/sgsd-board-contrarian.md
     supersedes: sgsd-sgsd-board-contrarian
@@ -72,7 +86,13 @@ board_members:
 
   - name: sgsd-board-moonshot
     role: Moonshot Visionary
-    model_default: disabled
+    model_default: external
+    provider: openai
+    model_id: gpt-6-astra
+    reasoning_effort: max
+    dispatch: codex-exec
+    codex_contract: board-position-v1
+    codex_profile: codex.readonly.audit
     expertise_ref: super-gsd/expertise/sgsd-board-moonshot.md
     supersedes: sgsd-sgsd-board-moonshot
     perspective:
@@ -83,14 +103,15 @@ board_members:
       - "What would this look like if we were 10x more ambitious?"
       - "Is the proposed scope actually the right scope?"
       - "What structural change would make this irrelevant?"
-    state: legacy-disabled
+    state: active
     version: 2.0
     owner_dlb: DLB-05
 
   - name: sgsd-ceo
     role: CEO (synthesizer / orchestrator)
-    model_default: opus
-    model_variant: opus-4.7
+    model_default: fable
+    provider: anthropic
+    dispatch: agent
     reasoning_effort: xhigh
     expertise_ref: super-gsd/expertise/sgsd-ceo.md
     supersedes: ssgsd-ceo
@@ -105,12 +126,24 @@ board_members:
     version: 2.0
     owner_dlb: DLB-05
 
+  - name: sgsd-board-researcher
+    role: Evidence Researcher
+    model_default: disabled
+    state: blocked-model
+    requested_model: Atlas
+    blocked_reason: operator_model_id_required
+    expertise_ref: super-gsd/expertise/sgsd-board-researcher.md
+    version: 2.1
+
 custom_board_slots: []
 
 escalation_policy:
   default_minimal_board:
     - sgsd-board-architect
     - sgsd-board-contrarian
+    - sgsd-board-pragmatist
+    - sgsd-board-moonshot
+    - sgsd-board-researcher
   escalate_add:
     - add: sgsd-board-pragmatist
       trigger_prose: "any(m.role=='Contrarian' AND m.position=='OPPOSE' AND m.confidence>=4)"

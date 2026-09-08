@@ -1,10 +1,87 @@
 # SGSD telemetry Atlas capture foundation
 
-Atlas is opt-in, local, content-free telemetry. It makes no model calls. This
-increment provides capture and calibration; it does not claim a comparison
-baseline, quota completeness, or the later correlation/reporting milestones.
+Atlas is local, content-free telemetry. After updating SGSD, its normal launch
+paths automatically start or reuse one shared receiver per OS user and machine,
+with a fresh run registration for each session or Codex dispatch. No manual
+`SGSD_ATLAS_STATE_DIR` export, per-project enable, model call, or binary download
+is required. Node 22+ is required. Windows and Linux are supported separately;
+Windows, WSL and remote hosts do not share a collector automatically.
 
-## Installation and lifecycle
+## Automatic collection and weekly check
+
+Update through the normal SGSD updater/global installer, then start a fresh
+`sg` session in any SGSD project (a directory containing `.planning`, or a child
+directory). Existing sessions are not retrofitted. The standard interactive,
+headless, remote-tmux, recovery/watchdog, narrator and Codex wrapper launch paths
+attach themselves. Standalone provider CLIs, desktop sessions and ad-hoc
+benchmark/probe runners outside those launch paths are not automatically covered.
+
+The receiver uses ephemeral loopback ports and a private discovery file under
+`~/.local/state/sgsd/telemetry/global`. Project paths are resolved and hashed;
+private registration records map those hashes back to projects. Native events
+cannot select another project's ledger by supplying their own path or run ID.
+Evidence is stored under `projects/<digest>/metrics`, with separate private
+run registrations and spools. Raw prompts, responses, tool bodies, credentials
+and provider metadata outside the allowlist are not retained. On Windows these
+files inherit the user's directory ACLs; POSIX private modes are also applied.
+
+From PowerShell, after the global update:
+
+```powershell
+node "$env:USERPROFILE/.claude/tools/telemetry-atlas/audit.cjs" --json
+```
+
+From Bash:
+
+```sh
+node "$HOME/.claude/tools/telemetry-atlas/audit.cjs" --json
+```
+
+In the source checkout, `npm run atlas:audit` runs the same read-only report.
+Exit codes: **0** = checked evidence passed; **10** = missing/degraded coverage;
+**1** = integrity failure. The report covers registered projects and runs, checks
+schema, checksums, duplicates/conflicts, closed-file manifests, project/provider
+attribution, spool backlog, stale observations and missing native requests.
+It never repairs or deletes evidence. A launcher registration alone is not proof
+of provider capture. Requests without stable provider request IDs remain coverage
+observations without token totals. Account quota snapshots are unallocated and
+must not be summed across projects. `complete_coverage` remains false: this is
+not yet a reconciliation against provider billing or every request issued.
+
+An operator prompt for the weekly check:
+
+> Run the installed Atlas read-only audit across all registered projects and
+> sessions. Report integrity failures, missing or stale provider capture,
+> rejected or duplicate data and quota limitations. Cite the report's evidence;
+> do not treat missing data as zero, sum account quotas across projects, or claim
+> full coverage from launcher health alone. Do not modify evidence or restart
+> running sessions.
+
+`SGSD_ATLAS_DISABLED=1` disables capture for a launch. An empty file named
+`disabled` in the global root stops the owned receiver and disables future
+attachment; remove that marker to allow the next launch to start it again.
+`SGSD_ATLAS_GLOBAL_ROOT` explicitly selects a different private root. Bootstrap
+failure does not block SGSD: telemetry is switched off for that launch and a gap
+is recorded where storage is available. The audit surfaces that degradation.
+
+The automatic service bounds payloads, its working indexes (eight resident
+project stores), per-project canonical capacity (128 MiB), and process memory
+(256 MiB V8 heap; shutdown above 512 MiB RSS). Capacity exhaustion stops detail
+capture with a gap; canonical evidence is never pruned. Registrations and
+canonical history accumulate, so monitor disk capacity. Limits in the optional
+Collector/Prometheus stack below do not apply to this lighter automatic service.
+
+## Optional legacy project stack
+
+The remaining sections describe the earlier, separately opt-in Linux
+Collector/Prometheus deployment. It remains available; its existing data is not
+migrated or combined with automatic ledgers. `config/telemetry-atlas.json`'s
+`enabled: false` belongs to this legacy stack, not the new automatic launcher
+default. Use a single accounting source when analysing overlapping captures.
+Neither deployment claims a comparison baseline, complete quota accounting,
+or the later correlation/reporting milestones.
+
+### Legacy installation and lifecycle
 
 Linux x86-64 with Node 22+ and GNU tar is the initial supported runtime. Run the
 explicit installer against a private absolute state directory, then use the
@@ -40,8 +117,10 @@ node "$ATLAS_TOOL_DIR/lifecycle.cjs" disable \
   --state-dir "$ATLAS_STATE_DIR" --project-dir "$ATLAS_PROJECT_DIR" --json
 ```
 
-Keep `SGSD_ATLAS_STATE_DIR` exported when invoking the existing tmux launcher so
-its health check uses the same installation. Explicit `--state-dir` overrides
+Legacy-only launchers used an exported `SGSD_ATLAS_STATE_DIR` for their health
+check. Updated standard launchers prefer automatic capture and replace inherited
+run settings; exporting the legacy state directory does not select that stack.
+Explicit `--state-dir` overrides
 must be supplied consistently to every lifecycle command. Production activation
 is a separate operator step after tests and project install provenance pass.
 When using the existing `sgsd-remote-tmux.sh` launcher, pass
@@ -143,6 +222,9 @@ not a CPU throttle in this configuration.
 ## Verification
 
 ```sh
+node super-gsd/tools/telemetry-atlas/run-self-test.cjs
+# Automatic capture, audit, launch helpers and real isolated global installation:
+node super-gsd/tools/telemetry-atlas/run-self-test.cjs --task T4
 node --test super-gsd/tools/telemetry-atlas/stack.test.cjs
 # Explicit downloads and isolated listeners; use only a disposable Linux fixture:
 SGSD_ATLAS_REAL_STACK_TEST=1 node --test super-gsd/tools/telemetry-atlas/stack.test.cjs

@@ -76,21 +76,21 @@ const BUILTIN_CLI_PROFILES = Object.freeze({
   executor: Object.freeze({
     model: 'gpt-5.5',
     reasoning: 'xhigh',
-    sandbox: 'workspace-write',
+    sandbox: 'danger-full-access',
     ephemeral: false,
-    approval: 'full-auto',
+    approval: 'never',
   }),
   review: Object.freeze({
     model: 'gpt-5.5',
     reasoning: 'xhigh',
-    sandbox: 'read-only',
-    ephemeral: true,
+    sandbox: 'danger-full-access',
+    ephemeral: false,
     approval: 'never',
   }),
   triage: Object.freeze({
     model: 'gpt-5.5',
     reasoning: 'xhigh',
-    sandbox: 'read-only',
+    sandbox: 'danger-full-access',
     ephemeral: false,
     approval: 'never',
   }),
@@ -304,8 +304,7 @@ function cloneCliProfile(profile) {
 }
 
 function defaultFlagFragment(profile) {
-  if (profile.approval === 'full-auto') return '--full-auto';
-  return profile.ephemeral ? `--sandbox ${profile.sandbox} --ephemeral` : `--sandbox ${profile.sandbox}`;
+  return `--ask-for-approval ${profile.approval} --sandbox ${profile.sandbox}${profile.ephemeral ? ' --ephemeral' : ''}`;
 }
 
 function fallbackReason(error) {
@@ -581,18 +580,13 @@ function shellQuoteDouble(value) {
 
 function buildExecutorResolvedCommand({ profile, timeout, promptFile, model, reasoning, codexCd, launcher }) {
   const command = launcher === 'cmd' ? 'cmd.exe /c codex' : 'codex';
-  let profileFlags;
-  if (profile.approval === 'full-auto') {
-    profileFlags = '--full-auto';
-  } else {
-    profileFlags = `--sandbox ${profile.sandbox}${profile.ephemeral ? ' --ephemeral' : ''}`;
-  }
-  return `timeout ${timeout}s bash -c 'cat "\$0" | ${command} exec ${profileFlags} --model "\$1" -c "model_reasoning_effort=\\"\$2\\"" --skip-git-repo-check --cd "\$3" -' ${shellQuoteDouble(promptFile)} ${shellQuoteDouble(model)} ${shellQuoteDouble(reasoning)} ${shellQuoteDouble(codexCd)}`;
+  const profileFlags = `--sandbox ${profile.sandbox}${profile.ephemeral ? ' --ephemeral' : ''}`;
+  return `timeout ${timeout}s bash -c 'cat "\$0" | ${command} --ask-for-approval ${profile.approval} exec ${profileFlags} --model "\$1" -c "model_reasoning_effort=\\"\$2\\"" --skip-git-repo-check --cd "\$3" -' ${shellQuoteDouble(promptFile)} ${shellQuoteDouble(model)} ${shellQuoteDouble(reasoning)} ${shellQuoteDouble(codexCd)}`;
 }
 
 function buildReviewResolvedCommand({ profile, timeout, promptFile, project, launcher, command, model, reasoning }) {
   const profileFlags = `--sandbox ${profile.sandbox}${profile.ephemeral ? ' --ephemeral' : ''}`;
-  return `timeout ${timeout}s bash -c 'if [[ "\$2" == "cmd" ]]; then cat "\$0" | cmd.exe /c codex exec --model "\$4" -c "model_reasoning_effort=\\"\$5\\"" ${profileFlags} --skip-git-repo-check --cd "\$1" -; else cat "\$0" | "\$3" exec --model "\$4" -c "model_reasoning_effort=\\"\$5\\"" ${profileFlags} --skip-git-repo-check --cd "\$1" -; fi' ${shellQuoteDouble(promptFile)} ${shellQuoteDouble(project)} ${shellQuoteDouble(launcher)} ${shellQuoteDouble(command)} ${shellQuoteDouble(model)} ${shellQuoteDouble(reasoning)}`;
+  return `timeout ${timeout}s bash -c 'if [[ "\$2" == "cmd" ]]; then cat "\$0" | cmd.exe /c codex --ask-for-approval ${profile.approval} exec --model "\$4" -c "model_reasoning_effort=\\"\$5\\"" ${profileFlags} --skip-git-repo-check --cd "\$1" -; else cat "\$0" | "\$3" --ask-for-approval ${profile.approval} exec --model "\$4" -c "model_reasoning_effort=\\"\$5\\"" ${profileFlags} --skip-git-repo-check --cd "\$1" -; fi' ${shellQuoteDouble(promptFile)} ${shellQuoteDouble(project)} ${shellQuoteDouble(launcher)} ${shellQuoteDouble(command)} ${shellQuoteDouble(model)} ${shellQuoteDouble(reasoning)}`;
 }
 
 function expectSelfTest(name, context, expectedProfile, extraAssert) {
@@ -629,14 +623,15 @@ function selfTestCliRegistry() {
   for (const name of CLI_PROFILE_NAMES) {
     expect(Object.prototype.hasOwnProperty.call(registry.cli_profiles, name), `cli_profiles missing ${name}`);
   }
-  expect(registry.cli_profiles.executor.model === 'gpt-5.5', 'executor model default drifted');
+  expect(registry.cli_profiles.executor.model === 'gpt-5.6-sol', 'executor model default drifted');
   expect(registry.cli_profiles.executor.reasoning === 'xhigh', 'executor reasoning default drifted');
-  expect(registry.cli_profiles.executor.sandbox === 'workspace-write', 'executor sandbox default drifted');
+  expect(registry.cli_profiles.executor.sandbox === 'danger-full-access', 'executor sandbox default drifted');
   expect(registry.cli_profiles.executor.ephemeral === false, 'executor ephemeral default drifted');
-  expect(defaultFlagFragment(registry.cli_profiles.executor) === '--full-auto', 'executor default_flag_fragment must be --full-auto');
-  expect(registry.cli_profiles.review.sandbox === 'read-only', 'review sandbox default drifted');
-  expect(registry.cli_profiles.review.ephemeral === true, 'review ephemeral default drifted');
-  expect(registry.cli_profiles.triage.sandbox === 'read-only', 'triage sandbox default drifted');
+  expect(registry.cli_profiles.executor.approval === 'never', 'executor approval default drifted');
+  expect(defaultFlagFragment(registry.cli_profiles.executor) === '--ask-for-approval never --sandbox danger-full-access', 'executor default_flag_fragment must explicitly disable approval and sandbox isolation');
+  expect(registry.cli_profiles.review.sandbox === 'danger-full-access', 'review sandbox default drifted');
+  expect(registry.cli_profiles.review.ephemeral === false, 'review must retain its session');
+  expect(registry.cli_profiles.triage.sandbox === 'danger-full-access', 'triage sandbox default drifted');
   expect(registry.cli_profiles.triage.ephemeral === false, 'triage must default non-ephemeral');
   expect(resolveCliProfile('codex.review.native', { registryPath: REGISTRY_PATH }).profile === 'review', 'codex.review.native must alias to review');
   process.stdout.write('[profile-resolver] self-test-cli-registry passed\n');
@@ -652,12 +647,12 @@ function selfTestCliParity() {
   const review = cloneCliProfile(BUILTIN_CLI_PROFILES.review);
   const triage = cloneCliProfile(BUILTIN_CLI_PROFILES.triage);
 
-  const expectedExecutorDirect = 'timeout 1200s bash -c \'cat "$0" | codex exec --full-auto --model "$1" -c "model_reasoning_effort=\\"$2\\"" --skip-git-repo-check --cd "$3" -\' "prompt.md" "gpt-5.5" "xhigh" "PROJECT"';
-  const expectedExecutorCmd = 'timeout 1200s bash -c \'cat "$0" | cmd.exe /c codex exec --full-auto --model "$1" -c "model_reasoning_effort=\\"$2\\"" --skip-git-repo-check --cd "$3" -\' "prompt.md" "gpt-5.5" "xhigh" "PROJECT"';
-  const expectedReviewDirect = 'timeout 30s bash -c \'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; fi\' "prompt.md" "PROJECT" "direct" "codex" "gpt-5.5" "xhigh"';
-  const expectedReviewCmd = 'timeout 30s bash -c \'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; fi\' "prompt.md" "PROJECT" "cmd" "cmd.exe" "gpt-5.5" "xhigh"';
-  const expectedTriageDirect = 'timeout 30s bash -c \'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox read-only --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox read-only --skip-git-repo-check --cd "$1" -; fi\' "prompt.md" "PROJECT" "direct" "codex" "gpt-5.5" "xhigh"';
-  const expectedTriageCmd = 'timeout 30s bash -c \'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox read-only --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox read-only --skip-git-repo-check --cd "$1" -; fi\' "prompt.md" "PROJECT" "cmd" "cmd.exe" "gpt-5.5" "xhigh"';
+  const expectedExecutorDirect = 'timeout 1200s bash -c \'cat "$0" | codex --ask-for-approval never exec --sandbox danger-full-access --model "$1" -c "model_reasoning_effort=\\"$2\\"" --skip-git-repo-check --cd "$3" -\' "prompt.md" "gpt-5.5" "xhigh" "PROJECT"';
+  const expectedExecutorCmd = 'timeout 1200s bash -c \'cat "$0" | cmd.exe /c codex --ask-for-approval never exec --sandbox danger-full-access --model "$1" -c "model_reasoning_effort=\\"$2\\"" --skip-git-repo-check --cd "$3" -\' "prompt.md" "gpt-5.5" "xhigh" "PROJECT"';
+  const expectedReviewDirect = 'timeout 30s bash -c \'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex --ask-for-approval never exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox danger-full-access --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" --ask-for-approval never exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox danger-full-access --skip-git-repo-check --cd "$1" -; fi\' "prompt.md" "PROJECT" "direct" "codex" "gpt-5.5" "xhigh"';
+  const expectedReviewCmd = 'timeout 30s bash -c \'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex --ask-for-approval never exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox danger-full-access --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" --ask-for-approval never exec --model "$4" -c "model_reasoning_effort=\\"$5\\"" --sandbox danger-full-access --skip-git-repo-check --cd "$1" -; fi\' "prompt.md" "PROJECT" "cmd" "cmd.exe" "gpt-5.5" "xhigh"';
+  const expectedTriageDirect = expectedReviewDirect;
+  const expectedTriageCmd = expectedReviewCmd;
 
   expect(buildExecutorResolvedCommand({ profile: executor, timeout: 1200, promptFile: prompt, model, reasoning, codexCd: project, launcher: 'direct' }) === expectedExecutorDirect, 'executor direct dry-run parity failed');
   expect(buildExecutorResolvedCommand({ profile: executor, timeout: 1200, promptFile: prompt, model, reasoning, codexCd: project, launcher: 'cmd' }) === expectedExecutorCmd, 'executor cmd dry-run parity failed');
@@ -682,7 +677,7 @@ function selfTestCliFailOpen() {
 
   const corruptRequestedReview = resolveCliProfile('review', { registryPath: corruptPath, defaultProfile: 'executor', logPath: fixture.logPath });
   expect(corruptRequestedReview.status === 'fallback' && corruptRequestedReview.reason === 'registry_corrupt' && corruptRequestedReview.profile === 'review', 'corrupt registry must fall back to requested review built-in, not wrapper executor');
-  expect(corruptRequestedReview.profile_data.sandbox === 'read-only' && corruptRequestedReview.profile_data.approval === 'never', 'requested review fallback must stay read-only/never');
+  expect(corruptRequestedReview.profile_data.sandbox === 'danger-full-access' && corruptRequestedReview.profile_data.approval === 'never' && corruptRequestedReview.profile_data.ephemeral === false, 'requested review fallback must stay full-access/never/non-ephemeral');
 
   const invalidProfiles = cloneBuiltinCliProfiles();
   invalidProfiles.triage.sandbox = 'moon';
@@ -894,4 +889,5 @@ module.exports = {
   buildExecutorResolvedCommand,
   buildReviewResolvedCommand,
   requireDependency,
+  main,
 };

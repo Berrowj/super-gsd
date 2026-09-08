@@ -10,7 +10,9 @@ const file = path.resolve(__dirname, '../../config/model-routing.json');
 test('routing catalog includes Fable, Astral, Opus, and Codex', () => {
   const config = require(file);
   validateRouting(config);
-  assert.deepEqual(Object.keys(config.models).sort(), ['astral', 'codex', 'fable', 'opus']);
+  for (const model of ['astral', 'codex', 'fable', 'opus', 'astra-max', 'luna-max', 'sol', 'terra']) assert.ok(config.models[model]);
+  assert.equal(config.models['astra-max'].model, 'gpt-6-astra');
+  assert.equal(config.models['luna-max'].model, 'gpt-5.6-luna');
   assert.equal(config.model_routing.orchestrator.default, 'fable');
 });
 

@@ -11,12 +11,21 @@ const { spawnSync } = require('node:child_process');
 const sourceRoot = path.resolve(__dirname, '../../..');
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
-test('real global install delivers self-contained Atlas and installed statusline records quota without changing stdout', { skip: process.platform !== 'linux', timeout: 180000 }, t => {
+test('real global install delivers self-contained Atlas and installed statusline records quota without changing stdout', { skip: process.platform !== 'linux', timeout: 180000 }, async t => {
   // Resolve Node before isolating HOME: installer and hooks must not depend on
   // an NVM shim whose target is re-resolved under the empty fixture home.
   const nodeExecutable = fs.realpathSync(process.execPath);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-atlas-global-install-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const globalRoot = path.join(root, 'automatic');
+  t.after(async () => {
+    if (fs.existsSync(globalRoot)) {
+      fs.writeFileSync(path.join(globalRoot, 'disabled'), 'fixture cleanup\n');
+      // The real detached fixture service observes this marker within 5 seconds.
+      await new Promise(resolve => setTimeout(resolve, 6000));
+      assert.equal(fs.existsSync(path.join(globalRoot, 'service.json')), false, 'owned fixture service stopped');
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  });
   const fixtureHome = path.join(root, 'home');
   const projectDir = path.join(root, 'project');
   const stateDir = path.join(root, 'state');
@@ -33,6 +42,10 @@ test('real global install delivers self-contained Atlas and installed statusline
     if (!fs.statSync(path.join(__dirname, name)).isFile()) continue;
     assert.ok(fs.existsSync(path.join(targetRoot, name)), `global Atlas file delivered: ${name}`);
     assert.equal(hash(path.join(targetRoot, name)), hash(path.join(__dirname, name)), `global Atlas hash matches: ${name}`);
+  }
+  for (const name of ['atlas-shell.sh', 'atlas-powershell.ps1']) {
+    assert.equal(hash(path.join(fixtureHome, '.claude', 'scripts', 'lib', name)),
+      hash(path.join(sourceRoot, 'super-gsd', 'scripts', 'lib', name)), `global bootstrap helper delivered: ${name}`);
   }
   // Activate the hook's existing SGSD-project branch only after the global
   // installation, keeping this fixture independent of project-install closure.
@@ -60,5 +73,20 @@ test('real global install delivers self-contained Atlas and installed statusline
   assert.equal(JSON.stringify(rows).includes('PRIVATE_GLOBAL_INSTALL_CANARY'), false);
   assert.equal(fs.statSync(spool).mode & 0o777, 0o700);
   for (const name of files) assert.equal(fs.statSync(path.join(spool, name)).mode & 0o777, 0o600);
+  const automaticEnv = { ...env, SGSD_ATLAS_GLOBAL_ROOT: globalRoot };
+  const prepare = spawnSync(nodeExecutable, [path.join(targetRoot, 'global.cjs'), 'prepare', '--project-dir', projectDir],
+    { cwd: projectDir, env: automaticEnv, encoding: 'utf8', timeout: 10000 });
+  assert.equal(prepare.status, 0, prepare.stderr);
+  const prepared = JSON.parse(prepare.stdout);
+  assert.equal(prepared.enabled, true, prepare.stderr);
+  assert.match(prepared.environment.SGSD_RUN_ID, /^sgsd-/);
+  const health = spawnSync(nodeExecutable, [path.join(targetRoot, 'global.cjs'), 'status'],
+    { env: automaticEnv, encoding: 'utf8', timeout: 5000 });
+  assert.equal(health.status, 0, health.stderr);
+  assert.equal(JSON.parse(health.stdout).health.status, 'healthy');
+  const audit = spawnSync(nodeExecutable, [path.join(targetRoot, 'audit.cjs'), '--json'],
+    { env: automaticEnv, encoding: 'utf8', timeout: 10000 });
+  assert.equal(audit.status, 10, audit.stderr); // No native provider call was made.
+  assert.equal(JSON.parse(audit.stdout).complete_coverage, false);
   assert.equal(installed.status, 0, `existing global installer gates failed after Atlas delivery:\n${installed.stdout}\n${installed.stderr}`);
 });

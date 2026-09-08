@@ -37,16 +37,16 @@ function getMember(name, boardYamlPath = DEFAULT_BOARD_PATH) {
 }
 
 function isDispatchableMember(member) {
-  if (!member) return false;
-  const state = member.state || 'active';
-  const model = String(member.model_default || member.model || '').toLowerCase();
-  return state === 'active' && !['disabled', 'sonnet', 'haiku'].includes(model);
+  try { require('./board-dispatch.cjs').describe(member); return true; }
+  catch { return false; }
 }
 
 function addDispatchable(roster, reg, name) {
   const member = reg.byName[name];
   if (!member) throw new Error(`member '${name}' not in registry`);
-  if (isDispatchableMember(member)) roster.add(name);
+  if ((member.state || 'active') !== 'active') return;
+  if (!isDispatchableMember(member)) throw new Error(`active board member '${name}' has invalid dispatch configuration`);
+  roster.add(name);
 }
 
 function resolveRoster(brief, firstRoundResults = null, boardYamlPath = DEFAULT_BOARD_PATH) {

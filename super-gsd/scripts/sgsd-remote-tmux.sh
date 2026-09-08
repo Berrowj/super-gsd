@@ -280,13 +280,20 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
   exit 0
 fi
 
-# Installation, enablement and process start are explicit lifecycle operations.
-# Attachment only checks the running stack; its entire subprocess is bounded.
+# Shared Atlas starts or attaches for every new SGSD session.
 ATLAS_ENV_PREFIX=""
 ATLAS_EXIT_CMD=":"
 ATLAS_LIFECYCLE="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/lifecycle.cjs"
+ATLAS_GLOBAL="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/global.cjs"
 SGSD_RUN_ID="sgsd-${FRAMEWORK_HEAD:0:12}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-if [[ "$CLAUDE_MODE" != shell && -f "$ATLAS_LIFECYCLE" ]] && command -v timeout >/dev/null 2>&1; then
+if [[ -f "$ATLAS_GLOBAL" ]]; then
+  ATLAS_ENV_PREFIX="$(node "$ATLAS_GLOBAL" prepare --project-dir "$PROJECT_DIR" --format prefix || true)"
+  if [[ "$ATLAS_ENV_PREFIX" != env\ * ]]; then
+    ATLAS_ENV_PREFIX="env CLAUDE_CODE_ENABLE_TELEMETRY=0 OTEL_LOGS_EXPORTER=none OTEL_METRICS_EXPORTER=none SGSD_ATLAS_STATE_DIR= SGSD_RUN_ID="
+  else
+    ATLAS_EXIT_CMD="$ATLAS_ENV_PREFIX node $(q "$ATLAS_GLOBAL") finish >/dev/null 2>&1"
+  fi
+elif [[ "$CLAUDE_MODE" != shell && -f "$ATLAS_LIFECYCLE" ]] && command -v timeout >/dev/null 2>&1; then
   ATLAS_STATE_ARGS=()
   if [[ -n "${SGSD_ATLAS_STATE_DIR:-}" ]]; then ATLAS_STATE_ARGS=(--state-dir "$SGSD_ATLAS_STATE_DIR"); fi
   ATLAS_ENV_PREFIX="$(timeout --signal=TERM --kill-after=0.05s 0.7s node "$ATLAS_LIFECYCLE" attach \
@@ -315,7 +322,7 @@ if command -v claude >/dev/null 2>&1; then
       OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude SGSD greeting'; $ATLAS_ENV_PREFIX claude --dangerously-skip-permissions $(q "$GREET_PROMPT"); $ATLAS_EXIT_CMD; exec bash -l"
       ;;
     shell)
-      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator shell]'; echo 'Run: claude --dangerously-skip-permissions'; exec bash -l"
+      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator shell]'; echo 'Run: claude --dangerously-skip-permissions'; exec $ATLAS_ENV_PREFIX bash -l"
       ;;
     *)
       die "unsupported Claude mode: $CLAUDE_MODE"

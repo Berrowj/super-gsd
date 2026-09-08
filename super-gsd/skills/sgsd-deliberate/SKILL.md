@@ -21,6 +21,22 @@ $ARGUMENTS is either:
 Token budget: 10,400 (1 round) to 16,400 (2 rounds). Only use for high-stakes decisions.
 </objective>
 
+<worker_connection>
+Before any external seat launch, read `/sgsd-workers` and supervise it from this
+same CEO/Fable session. Record a stable `UNIT=fable.ceo.<deliberation-run-id>`.
+Pass `--owner "$UNIT"` when preparing every descriptor, including every round
+and retry. Require its returned `worker_owner` to match; launch environment
+alone cannot override the descriptor's embedded `--owner` flag. Run that command
+with Bash `run_in_background: true` and `SGSD_WORKER_OWNER="$UNIT"`.
+Poll owned worker questions while other seats run; answer approved context or
+escalate operator-only authority. Wait for final exit by servicing the inbox,
+not by blocking on a result the worker cannot produce until it gets an answer.
+Record worker UUID, background task ID and seat/round/attempt/report mapping.
+Keep validated votes across compaction; never invent or duplicate missing ones.
+Legacy `codex.readonly.audit` is an advisory role name: OS mode is full access,
+not a read-only sandbox. The role still must not edit implementation files.
+</worker_connection>
+
 <step_0_gate>
 ## Step 0: Pre-Gates (two checks, both mandatory)
 
@@ -66,15 +82,54 @@ const round1Roster = boardRegistry.resolveRoster(brief);
 ```
 
 Round 1 roster is the registry's `default_minimal_board` plus `always_present`.
+The CEO is the synthesizer, not a voting seat: do not spawn the CEO as its own
+board member. List inactive/blocked registry seats in the operator report with
+their reason; a blocked seat is not an abstention. Do not claim the full requested
+lineup ran. An active seat with invalid configuration stops the deliberation.
 Escalation happens only after Round 1 results exist.
 </step_2_5_roster>
 
 <step_3_round1>
 ## Step 3: Spawn Board Members (Round 1)
 
-Dispatch the roster returned by `boardRegistry.resolveRoster(brief)` in parallel.
+Dispatch voting seats from the resolved roster in parallel. Resolve EACH seat's
+transport before invoking it, using the installed or source `scripts/lib/board-dispatch.cjs`.
+The registry is authoritative. Never use Agent() for an OpenAI/external seat.
 
-After each Agent() return, validate the YAML response:
+Prepare a prompt file containing the original brief, bounded project context,
+expertise, and the complete role body from that seat's agent definition. Use a
+new run directory under `.planning/deliberations/`; old memos are context only.
+Then, from the project's Bash environment:
+
+```bash
+node super-gsd/scripts/lib/board-dispatch.cjs \
+  --member sgsd-board-architect --project . --owner "$UNIT" \
+  --prompt-file .planning/deliberations/<run-id>/architect-prompt.md
+```
+
+For a global install, use the canonical source runtime at
+`~/.claude/super-gsd/source/super-gsd/scripts/lib/board-dispatch.cjs` instead.
+Use that same canonical source for registry/schema/vote helpers and role bodies.
+Do not use the partial flat hook runtime under `~/.claude/scripts/lib`: it does
+not contain the board wrapper or its YAML dependencies. If the canonical source
+or its dependencies are missing, stop and report the installation issue.
+The command emits a JSON descriptor, not a model response:
+
+- `dispatch: agent`: call Agent with the seat role prompt and the descriptor's
+  explicit `model`. The model may differ from the installed agent frontmatter
+  when an operator passes `--model <preset>` to the resolver.
+- `dispatch: codex-exec`: run the returned `command` verbatim through Bash.
+  It invokes the existing wrapper with exact model ID, reasoning effort,
+  `codex.readonly.audit`, `board-position-v1`, timeout, and a NEW `report_path`.
+  Service `/sgsd-workers` until its process exits; only exit zero permits reading that report as a
+  position. Do not extract a vote from progress output or a failed report.
+
+`--model fable`, `--model astra-max`, or `--model luna-max` is an explicit per-seat
+operator override. Never choose an override to conceal an unavailable model.
+Record descriptor provider/model/effort, seat, round, exit, and report path in
+the debate log. Do not ask the model to guess its own identity.
+
+Both transports use the SAME existing validator:
 
 ```javascript
 const deliberationSchema = require('super-gsd/scripts/lib/deliberation-schema.cjs');
@@ -84,7 +139,11 @@ if (!result.valid) {
     `Previous response failed schema: ${result.errors.join('; ')}. ` +
     `Re-emit as valid YAML matching ALL 10 required fields. ` +
     `NO prose wrapper. NO markdown fences.`;
-  const retryRaw = Agent(memberName, { prompt: retryPrompt });
+  // Retry ONCE through the SAME resolved transport/model/effort, including
+  // the original brief/role/context plus retryPrompt. For codex-exec, prepare
+  // another descriptor with --owner "$UNIT" and the new prompt file for a fresh report path.
+  // Wrapper exit 6 is a malformed-position retry; never read it as a vote.
+  const retryRaw = dispatchSameSeatWithFreshAttempt(retryPrompt);
   const retry = deliberationSchema.validate(retryRaw);
   if (!retry.valid) {
     throw new Error(`Board member '${memberName}' malformed after retry: ${retry.errors.join('; ')}`);
@@ -93,6 +152,14 @@ if (!result.valid) {
 }
 return result.parsed;
 ```
+
+`dispatchSameSeatWithFreshAttempt` above denotes the Agent/Bash procedure just
+specified, not an installed function. A second malformed response stops the
+deliberation. Timeout, authentication/model error, circuit-open, unavailable
+validator, or report-write failure stops it immediately: record an incomplete
+board, surface the blocker, and do not synthesize a final decision from missing
+votes. Never downgrade the model, change authentication or the worker access policy,
+reuse an old report, or convert a provider failure into SUPPORT/OPPOSE/ABSTAIN.
 
 Every Round 1 result is therefore a parsed object with:
 - `position`
@@ -121,8 +188,9 @@ Escalate roster only if the runtime registry says so:
 const round2Roster = boardRegistry.resolveRoster(brief, round1Results);
 ```
 
-Round 2 re-dispatch uses the same `deliberation-schema` validate + retry-once pattern after each
-Agent() return.
+Round 2 re-dispatch repeats the provider-aware procedure, fresh report paths, and
+same-schema retry-once rule from Step 3. Respect the brief's max_rounds and the
+skill's two-round limit. Do not silently route external retries through Agent().
 </step_4_round2>
 
 <step_5_synthesize>
@@ -144,7 +212,7 @@ Write the memo frontmatter with:
 type: deliberation-memo
 date: {YYYY-MM-DD}
 brief: {path to brief}
-board: [architect, pragmatist, contrarian, moonshot]
+board: [<actual successfully dispatched voting seat names>]
 rounds: {1 or 2}
 vote: "{decision}" # use `VOTE_TIE` in this field when tiebreaker_applied === true
 signed_sum: {sum}

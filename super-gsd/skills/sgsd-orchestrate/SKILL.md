@@ -1,6 +1,6 @@
 ---
 name: sgsd-orchestrate
-description: "Token-efficient autonomous orchestrator. Claude/Opus orchestrates only; research, planning, plan-check, verification, gates, and code execution are hard-routed to Codex GPT-5.5 xhigh."
+description: "Token-efficient Fable orchestration with supervised Codex workers. Research, planning, review, verification, gates and code use configured Codex models and reasoning effort."
 argument-hint: "[go|auto|continue|status|next|stop]"
 allowed-tools:
   - Read
@@ -33,7 +33,8 @@ Exit conditions (ONLY these 3):
    close/advance attempts
 2. Board plus a separate Codex challenge cannot produce a safe local recovery
    path because the remaining blocker is credentials, destructive ambiguity,
-   external access, or another operator-only boundary
+   external access, or another operator-only boundary; an operator-only worker
+   authority question uses the direct exception in Blocker Recovery below
 3. User says stop/pause
 
 Autopilot continuation rule:
@@ -58,6 +59,27 @@ Runtime compaction and external files (`STATE.md`, `ORCHESTRATOR-CHECKPOINT.md`,
 metrics JSONL, and milestone artifacts) are the context-management mechanism.
 </objective>
 
+<worker_connection>
+Before dispatching ANY Codex unit, read `/sgsd-workers`. Launch its existing
+wrapper via Bash `run_in_background: true`, with a checkpointed
+`SGSD_WORKER_OWNER=fable.orchestrate.<run-id>`, then service the project inbox
+while it runs. This applies to research, planning, classification, reviewers,
+verifiers, executors and recovery challenges—not only board seats.
+
+Persist worker UUID, background task handle, exact selected model/effort and
+fresh report path. Answer missing context from approved evidence; escalate
+operator-only actions without inventing approval. Check command receipts and
+the original wrapper's exit/report. On compaction, reconcile existing workers
+before any replacement dispatch. Keep serial file-writer rules and all gates.
+
+Fable is the default orchestrator. Take each worker's exact Codex model and
+effort from its configured role/profile or explicit operator selection, and
+pass that resolved selection to the wrapper. Board seats use their registry
+descriptor. Legacy fixed Opus/GPT-5.5/xhigh examples below are not routing
+authority. Never send a Codex seat through Claude Agent(), silently substitute
+a model, launch a second Fable, or restore sandboxed/ephemeral execution.
+</worker_connection>
+
 <blocker_recovery_hard_loop>
 ## Blocker Recovery Hard Loop
 
@@ -65,6 +87,13 @@ In auto mode, ordinary blockers do not stop the loop. If any later section says
 to halt, checkpoint, or ask the operator because Codex failed, a report was
 malformed, a plan is uncertain, context is missing, VTP is degraded, tests fail,
 or an implementation path dead-ends, run this recovery path first:
+
+Exception: an operator-only worker question or its expired response deadline
+uses `/sgsd-workers` directly. Board voting and another Codex run cannot supply
+new deployment/destructive/external authority. Escalate immediately, preserve
+existing worker/report evidence and paid votes, and do not launch a recovery
+round merely to repeat the question. Continue other authorized work; if only
+the operator decision remains, checkpoint and stop without this recovery loop.
 
 Codex-on-Windows read failures are not operator-only blockers. If stderr/stdout
 contains `CreateProcessAsUserW`, `error 216`, `os error 216`, or any equivalent
@@ -84,7 +113,7 @@ recovery.
    - default minimal board from `board-registry.resolveRoster(brief)`
    - fresh-clone board dispatch is Sonnet-free; active default is
      `sgsd-board-architect`, `sgsd-board-contrarian`, and `sgsd-ceo`
-   - Architect and Contrarian require Opus 4.7 with xhigh reasoning intent
+   - Resolve each seat's provider/model/effort from its registry descriptor
    - `sgsd-ceo` synthesizes the decision
 3. Write the board memo under `.planning/decisions/` or the phase directory.
 4. Send the board decision to a separate Codex challenge using
@@ -109,8 +138,8 @@ Those are intermediate states.
 
 Current provider lock:
 
-- Orchestration is Claude/Opus 4.7 with xhigh thinking.
-- Codex GPT-5.5/xhigh owns research, planning, plan-check, verification,
+- Orchestration defaults to Fable; explicit operator routing remains authoritative.
+- Codex with its resolved model/effort owns research, planning, plan-check, verification,
   source-changing execution, spec-compliance review, per-dispatch ATC,
   phase-level ATC, MUDA, and other Codex-owned gates.
 - Sonnet is not a fresh-clone default provider and is not a Codex fallback. If
@@ -387,7 +416,7 @@ On resume (checkpoint exists):
 <executor_routing>
 ## Executor Routing - HARD LOCK: Claude orchestrates, Codex executes
 
-This SGSD install is Codex-delivery locked. Claude/Opus is allowed to
+This SGSD install is Codex-delivery locked. Fable is allowed to
 orchestrate and summarize. Codex owns planning, research, classification,
 verification, gates, and code-mutating executor work. Claude MUST NOT perform
 those delivery roles and MUST NOT spawn Claude/Sonnet agents for them.
@@ -396,8 +425,8 @@ Hard rules:
 
 1. Every code-mutating executor dispatch MUST run through:
    `super-gsd/scripts/codex-executor.sh`.
-2. The executor model is always `gpt-5.5`.
-3. The executor reasoning effort is always `xhigh`.
+2. Resolve the executor's configured Codex wire model; pass it explicitly when selected.
+3. Resolve its configured reasoning effort independently; do not replace it with a legacy literal.
 4. Ignore `.planning/config.json` if it says `executor_provider` is missing,
    `"claude"`, or any non-Codex value. Treat that config as stale and proceed
    with Codex anyway.
@@ -432,7 +461,7 @@ Required executor path for every pending plan/task:
    Include the SDD implementer contract: fresh context, one task/plan only,
    run verification, self-review, and report concerns/blockers explicitly.
 
-3. Run Codex:
+3. Run Codex with Bash run_in_background: true; service /sgsd-workers throughout:
      bash super-gsd/scripts/codex-executor.sh \
        --prompt-file "{phase_dir}/{plan_id}-CODEX-EXECUTOR-PROMPT.md" \
        --report-out  "{phase_dir}/{plan_id}-CODEX-EXECUTOR-REPORT.md" \
@@ -440,7 +469,7 @@ Required executor path for every pending plan/task:
        --phase       "{phase_number}" \
        --plan        "{plan_id}"
 
-4. Read the report file:
+4. After inbox supervision and successful wrapper exit, read the report file:
      {phase_dir}/{plan_id}-CODEX-EXECUTOR-REPORT.md
 
 5. Run Step 9.4 spec-compliance review and write:
@@ -1108,7 +1137,7 @@ REPEAT:
            DAG. This is used only if direct Codex hits a Windows host read
            failure; it is not permission to touch unrelated files.
 
-        5. Bash:
+        5. Bash (run_in_background: true; supervise via /sgsd-workers):
            ```bash
            bash super-gsd/scripts/codex-executor.sh \
              --prompt-file "{promptPath}" \
@@ -1119,7 +1148,7 @@ REPEAT:
              --patch-fallback-files "{filesPath}"
            ```
 
-        6. Read `reportPath`.
+        6. Service owned questions and check receipts until wrapper exit, then read `reportPath`.
 
         7. Continue with the existing Step 9, Step 9.4, and Step 9.5 pipeline
            for this report: process executor output, enforce commit discipline,

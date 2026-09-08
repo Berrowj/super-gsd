@@ -1105,9 +1105,12 @@ Narrative:
     Set-Content -Path $promptFile -Value $prompt -Encoding utf8 -NoNewline
 
     $workerScript = [System.IO.Path]::GetTempFileName() + ".ps1"
+    $atlasHelper = (Join-Path $PSScriptRoot 'lib/atlas-powershell.ps1').Replace("'", "''")
+    $atlasProject = $ProjectDir.Replace("'", "''")
     $workerBody = @"
 `$ErrorActionPreference = 'SilentlyContinue'
 try {
+    if (Test-Path -LiteralPath '$atlasHelper') { . '$atlasHelper'; `$atlasSaved = Start-SgsdAtlas -ProjectDir '$atlasProject' -Role narrator }
     `$psi = New-Object System.Diagnostics.ProcessStartInfo
     `$psi.FileName = 'cmd.exe'
     `$psi.Arguments = '/c claude --print --dangerously-skip-permissions --model claude-haiku-4-5-20251001'
@@ -1138,6 +1141,7 @@ try {
     `$fc = 0; if (Test-Path '$failStamp') { `$fc = [int](Get-Content '$failStamp' | Select-Object -First 1) }
     Set-Content -Path '$failStamp' -Value ([string](`$fc + 1)) -Encoding ascii
 } finally {
+    if (Get-Command Restore-SgsdAtlas -ErrorAction SilentlyContinue) { Restore-SgsdAtlas -Saved `$atlasSaved }
     Remove-Item '$lockFile' -Force -ErrorAction SilentlyContinue
     Remove-Item '$promptFile' -Force -ErrorAction SilentlyContinue
     Remove-Item `$MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue

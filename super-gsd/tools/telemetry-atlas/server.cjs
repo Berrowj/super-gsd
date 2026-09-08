@@ -74,7 +74,7 @@ async function startServer(options = {}) {
   const instanceId = options.instanceId || crypto.randomUUID();
   if (typeof instanceId !== 'string' || !/^[A-Za-z0-9._:-]{1,160}$/.test(instanceId)) throw new Error('invalid_instance_id');
   const projectId = digest(projectDir);
-  const store = createStore(options.partitionId ? {
+  const store = options.store || createStore(options.partitionId ? {
     ledgerPath: path.join(projectDir, '.planning', 'metrics', `sgsd-atlas-events-${String(options.partitionId).replace(/[^a-zA-Z0-9._-]/g, '_')}.jsonl`),
     gapPath: path.join(projectDir, '.planning', 'metrics', 'sgsd-atlas-gaps.jsonl'), ...options.storeOptions,
   } : { projectDir, ...options.storeOptions });
@@ -95,10 +95,10 @@ async function startServer(options = {}) {
     const result = store.ingest(event);
     if (Object.hasOwn(counters, result.status)) counters[result.status]++;
     if (result.status === 'accepted' && event.event_type === 'api_request' && event.execution?.status === 'api_request') {
-      for (const token of ['input', 'output', 'cache_read', 'cache_creation']) {
+      for (const token of ['input', 'output', 'cache_read', 'cache_creation', 'reasoning']) {
         const amount = event.usage?.[`${token}_tokens`];
         if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) continue;
-        const labels = { provider: 'anthropic', model_family: modelFamily(event.runtime?.model), token_type: token };
+        const labels = { provider: ['anthropic','openai'].includes(event.runtime?.provider) ? event.runtime.provider : 'unknown', model_family: modelFamily(event.runtime?.model), token_type: token };
         const key = JSON.stringify(labels);
         const value = (requestTokens.get(key)?.amount || 0) + amount;
         if (Number.isFinite(value)) requestTokens.set(key, { labels, amount: value });
@@ -108,7 +108,11 @@ async function startServer(options = {}) {
   }
   const ingestServer = http.createServer(async (request, response) => {
     if (!boundary(request, response)) return;
-    if (request.method !== 'POST' || !['/v1/events', '/v1/logs', '/v1/metrics'].includes(request.url)) {
+    const route = options.resolveRoute ? options.resolveRoute(request.url) : null;
+    if (options.resolveRoute && !route) { json(response, 403, { reason: 'unregistered_run' }); return; }
+    const pathname = route?.pathname || request.url;
+    const scoped = event => options.scopeEvent ? options.scopeEvent(event, route) : event;
+    if (request.method !== 'POST' || !['/v1/events', '/v1/logs', '/v1/metrics'].includes(pathname)) {
       json(response, 404, { reason: 'not_found' }); return;
     }
     if (!/^application\/json(?:\s*;.*)?$/i.test(request.headers['content-type'] || '') || request.headers['content-encoding']) {
@@ -120,15 +124,15 @@ async function startServer(options = {}) {
       const raw = await readBody(request, maxBody, timeout);
       let value;
       try { value = JSON.parse(raw); } catch { json(response, 400, { status: 'rejected', reason: 'invalid_json' }); counters.rejected++; return; }
-      if (request.url === '/v1/logs') {
+      if (pathname === '/v1/logs') {
         let normalized;
-        try { normalized = normalizeLogs(value); } catch { counters.rejected++; json(response, 400, { reason: 'invalid_otlp' }); return; }
+        try { normalized = route?.provider === 'openai' ? require('./codex-otlp.cjs').normalizeLogs(value) : normalizeLogs(value); } catch { counters.rejected++; json(response, 400, { reason: 'invalid_otlp' }); return; }
         let rejected = normalized.rejected;
         let retry = false;
         counters.rejected += rejected;
         coverage.missing_stable_identity += normalized.missing_stable_identity;
         for (const event of normalized.events) {
-          const result = ingest(event);
+          const result = ingest(scoped(event));
           if (retryable(result)) retry = true;
           if (result.status === 'rejected') rejected++;
           else if (event.event_type === 'api_request') requestSeen = true;
@@ -141,7 +145,7 @@ async function startServer(options = {}) {
         if (retry) { json(response, 503, { reason: 'storage_unavailable' }); return; }
         json(response, 200, { partialSuccess: { rejectedLogRecords: rejected } }); return;
       }
-      if (request.url === '/v1/metrics') {
+      if (pathname === '/v1/metrics') {
         let normalized;
         try { normalized = normalizeMetrics(value); } catch { counters.rejected++; json(response, 400, { reason: 'invalid_otlp' }); return; }
         for (const observation of normalized.observations) native.set(JSON.stringify([observation.kind, observation.labels]), observation);
@@ -149,7 +153,7 @@ async function startServer(options = {}) {
         coverage.native_metrics = normalized.rejected ? 'partial' : native.size ? 'observed' : 'unavailable';
         json(response, 200, { partialSuccess: { rejectedDataPoints: normalized.rejected } }); return;
       }
-      const result = ingest(value);
+      const result = ingest(scoped(value));
       json(response, retryable(result) ? 503 : result.status === 'rejected' ? 400 : 202, result);
     } catch (error) {
       counters.rejected++;
@@ -199,7 +203,7 @@ async function startServer(options = {}) {
 
   const ignoredSpool = new Set();
   const spoolDir = options.stateDir ? path.join(path.resolve(options.stateDir), 'quota-spool') : null;
-  function drainSpool() {
+  function drainSpool(spoolDir, route) {
     if (!spoolDir || closed) return;
     let directory;
     try {
@@ -207,7 +211,7 @@ async function startServer(options = {}) {
       directory = fs.opendirSync(spoolDir);
       let entry; let scanned = 0; let consumed = 0;
       while (scanned++ < 256 && consumed < 32 && (entry = directory.readSync())) {
-        if (!entry.isFile() || !/^[a-f0-9]{64}(?:-[0-9]+-[a-zA-Z0-9-]+)?\.json$/.test(entry.name) || ignoredSpool.has(entry.name)) continue;
+        if (!entry.isFile() || !/^[a-f0-9]{64}(?:-[0-9]+-[a-zA-Z0-9-]+)?\.json$/.test(entry.name) || ignoredSpool.has(path.join(spoolDir, entry.name))) continue;
         consumed++;
         const file = path.join(spoolDir, entry.name);
         try {
@@ -224,7 +228,7 @@ async function startServer(options = {}) {
           const statusline = event.source?.kind === 'claude_statusline' && ['quota', 'coverage'].includes(event.event_type);
           const lifecycle = event.source?.kind === 'atlas_lifecycle' && event.event_type === 'coverage';
           if (!statusline && !lifecycle) throw new Error('invalid_spool');
-          const result = ingest(event);
+          const result = ingest(options.scopeEvent ? options.scopeEvent(event, route) : event);
           if (['accepted', 'duplicate', 'conflict'].includes(result.status)) fs.unlinkSync(file);
           else if (retryable(result)) {
             coverage.quota_spool_rejected++;
@@ -234,7 +238,7 @@ async function startServer(options = {}) {
         } catch (error) {
           // Invalid content is terminal; filesystem pressure and transient I/O
           // leave the private file eligible for a later bounded drain.
-          if ((error.message === 'invalid_spool' || error instanceof SyntaxError) && ignoredSpool.size < 256) ignoredSpool.add(entry.name);
+          if ((error.message === 'invalid_spool' || error instanceof SyntaxError) && ignoredSpool.size < 256) ignoredSpool.add(path.join(spoolDir, entry.name));
           coverage.quota_spool_rejected++;
           if (typeof store.gap === 'function') store.gap('quota_spool_rejected');
         }
@@ -242,7 +246,10 @@ async function startServer(options = {}) {
     } catch { /* Missing/private spool or temporary filesystem failure is fail-open. */ }
     finally { if (directory) directory.closeSync(); }
   }
-  const sampler = spoolDir ? setInterval(drainSpool, bounded(options.spoolPollMs, 1000, 20, 1000)) : null;
+  const sampler = spoolDir || options.spoolSources ? setInterval(() => {
+    const sources = options.spoolSources ? options.spoolSources() : [{ directory: spoolDir }];
+    for (const source of sources) drainSpool(source.directory, source.route);
+  }, bounded(options.spoolPollMs, 1000, 20, 1000)) : null;
   sampler?.unref();
   const url = (address) => `http://${address.address.includes(':') ? `[${address.address}]` : address.address}:${address.port}`;
   return Object.freeze({ addresses, store, instanceId, projectId,

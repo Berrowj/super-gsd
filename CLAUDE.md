@@ -165,15 +165,31 @@ me to run /sgsd-triage?"
 Canonical command: `/sgsd-orchestrate auto`. Treat `/SGSD-orchestrate auto` as
 the same operator intent; slash command implementations may still be lowercase.
 
-Current provider lock:
+Current worker connection and provider contract:
 
-- Orchestration is Claude/Opus 4.7 with xhigh thinking.
-- Codex GPT-5.5/xhigh owns phase research, planning, plan-check, verification,
+- Orchestration defaults to Fable. Explicit operator model selection wins over
+  legacy model literals in this document.
+- Codex with resolved model/effort owns phase research, planning, plan-check, verification,
   source-changing execution, spec-compliance review, per-dispatch ATC,
   phase-level ATC, MUDA, and other Codex-owned gates.
 - Sonnet is not a fresh-clone default provider and is not a Codex fallback. If a
   later legacy line says to dispatch Sonnet for one of those surfaces, treat it
   as stale and route through Codex instead.
+
+Every Codex dispatch must follow `/sgsd-workers`: start the existing wrapper
+with Bash `run_in_background: true` and a checkpointed per-unit
+`SGSD_WORKER_OWNER`; poll its project inbox, answer approved context, escalate
+operator-only authority, and await wrapper exit/report validation. Preserve
+worker UUIDs, task handles and report paths across compaction; discover live
+workers before launching replacements. A queued/applied reply is not a passed
+gate. SGSD worker mode is retained App Server + `danger-full-access` + approval
+`never`; advisory no-edit roles remain workflow contracts, not OS isolation.
+Never use `--last`, silently change models/auth, or start another Fable to answer
+a question. The full supervision procedure overrides legacy blocking examples.
+An operator-only worker authority question (or its response deadline) is also
+an explicit exception to the ordinary board/challenge recovery requirement:
+escalate directly and do not spend on another model round to recreate missing
+permission. Continue other authorized work; otherwise checkpoint for the operator.
 
 In auto mode, SGSD owns the whole delivery loop. Phase-close summaries,
 milestone-close summaries, cost summaries, research completion, planning

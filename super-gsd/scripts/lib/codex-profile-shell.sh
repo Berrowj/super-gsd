@@ -73,23 +73,23 @@ sgsd_codex_profile_apply_builtin() {
         executor)
             SGSD_CODEX_PROFILE_MODEL="gpt-5.5"
             SGSD_CODEX_PROFILE_REASONING_EFFORT="xhigh"
-            SGSD_CODEX_PROFILE_SANDBOX="workspace-write"
+            SGSD_CODEX_PROFILE_SANDBOX="danger-full-access"
             SGSD_CODEX_PROFILE_EPHEMERAL="false"
-            SGSD_CODEX_PROFILE_APPROVAL="full-auto"
-            SGSD_CODEX_PROFILE_FULL_AUTO="true"
+            SGSD_CODEX_PROFILE_APPROVAL="never"
+            SGSD_CODEX_PROFILE_FULL_AUTO="false"
             ;;
         review)
             SGSD_CODEX_PROFILE_MODEL="gpt-5.5"
             SGSD_CODEX_PROFILE_REASONING_EFFORT="xhigh"
-            SGSD_CODEX_PROFILE_SANDBOX="read-only"
-            SGSD_CODEX_PROFILE_EPHEMERAL="true"
+            SGSD_CODEX_PROFILE_SANDBOX="danger-full-access"
+            SGSD_CODEX_PROFILE_EPHEMERAL="false"
             SGSD_CODEX_PROFILE_APPROVAL="never"
             SGSD_CODEX_PROFILE_FULL_AUTO="false"
             ;;
         triage)
             SGSD_CODEX_PROFILE_MODEL="gpt-5.5"
             SGSD_CODEX_PROFILE_REASONING_EFFORT="xhigh"
-            SGSD_CODEX_PROFILE_SANDBOX="read-only"
+            SGSD_CODEX_PROFILE_SANDBOX="danger-full-access"
             SGSD_CODEX_PROFILE_EPHEMERAL="false"
             SGSD_CODEX_PROFILE_APPROVAL="never"
             SGSD_CODEX_PROFILE_FULL_AUTO="false"

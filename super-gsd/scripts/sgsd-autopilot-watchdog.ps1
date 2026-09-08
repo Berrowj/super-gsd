@@ -94,10 +94,11 @@ function Start-RecoveryClaude {
     $prompt = 'Read .planning/AUTOPILOT-RECOVERY.md and .planning/STATE.md, recover the active phase, then continue: /sgsd-orchestrate go'
     $escapedProject = $ProjectDir.Replace("'", "''")
     $escapedPrompt = $prompt.Replace("'", "''")
-    $cmd = "cd '$escapedProject'; claude --print --dangerously-skip-permissions -p '$escapedPrompt'"
+    $atlasHelper = (Join-Path $PSScriptRoot 'lib/atlas-powershell.ps1').Replace("'", "''")
+    $cmd = "cd '$escapedProject'; if (Test-Path -LiteralPath '$atlasHelper') { . '$atlasHelper'; `$atlasSaved = Start-SgsdAtlas -Role recovery }; try { claude --print --dangerously-skip-permissions -p '$escapedPrompt' } finally { if (Get-Command Restore-SgsdAtlas -ErrorAction SilentlyContinue) { Restore-SgsdAtlas -Saved `$atlasSaved } }"
 
     try {
-        Start-Process powershell.exe -WorkingDirectory $ProjectDir -ArgumentList @(
+        Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory $ProjectDir -ArgumentList @(
             "-NoExit",
             "-NoProfile",
             "-ExecutionPolicy", "Bypass",

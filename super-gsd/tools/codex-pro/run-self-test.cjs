@@ -2,7 +2,6 @@
 'use strict';
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 function requireDependency(name) {
@@ -81,92 +80,7 @@ function runProfileResolver(args) {
   try {
     if (args.includes('--help')) return result(0, 'Usage');
     if (args.includes('--list')) return result(0, `${Object.keys(profileResolver.loadRegistry()).join('\n')}\n`);
-    if (args.includes('--self-test-plan')) {
-      return result(profileResolver.resolveProfile({ phase_type: 'plan' }).profile === 'codex.plan' ? 0 : 1);
-    }
-    if (args.includes('--self-test-bounded')) {
-      const resolved = profileResolver.resolveProfile({ phase_type: 'execute', risk: 'low', allowed_files: ['src/x.ts'] });
-      return result(resolved.profile === 'codex.execute.bounded' && resolved.requires_worktree === true && resolved.native_review_required === true ? 0 : 1);
-    }
-    if (args.includes('--self-test-audit')) {
-      return result(profileResolver.resolveProfile({ phase_type: 'audit' }).profile === 'codex.readonly.audit' ? 0 : 1);
-    }
-    if (args.includes('--self-test-cli-registry')) {
-      const registry = profileResolver.loadFullRegistry(REGISTRY_PATH);
-      const ok = Object.keys(registry.profiles).length === 10
-        && registry.cli_profiles.executor.approval === 'full-auto'
-        && registry.cli_profiles.review.ephemeral === true
-        && registry.cli_profiles.triage.ephemeral === false
-        && profileResolver.resolveCliProfile('codex.review.native', { registryPath: REGISTRY_PATH }).profile === 'review';
-      return result(ok ? 0 : 1);
-    }
-    if (args.includes('--self-test-cli-parity')) {
-      const builtins = profileResolver.BUILTIN_CLI_PROFILES;
-      const executor = profileResolver.buildExecutorResolvedCommand({
-        profile: builtins.executor,
-        timeout: 1200,
-        promptFile: 'prompt.md',
-        model: 'gpt-5.5',
-        reasoning: 'xhigh',
-        codexCd: 'PROJECT',
-        launcher: 'direct',
-      });
-      const review = profileResolver.buildReviewResolvedCommand({
-        profile: builtins.review,
-        timeout: 30,
-        promptFile: 'prompt.md',
-        project: 'PROJECT',
-        launcher: 'direct',
-        command: 'codex',
-        model: 'gpt-5.5',
-        reasoning: 'xhigh',
-      });
-      const triage = profileResolver.buildReviewResolvedCommand({
-        profile: builtins.triage,
-        timeout: 30,
-        promptFile: 'prompt.md',
-        project: 'PROJECT',
-        launcher: 'direct',
-        command: 'codex',
-        model: 'gpt-5.5',
-        reasoning: 'xhigh',
-      });
-      return result(executor.includes('--full-auto') && review.includes('--ephemeral') && !triage.includes('--ephemeral') ? 0 : 1);
-    }
-    if (args.includes('--self-test-cli-fail-open')) {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-codex-pro-runner-'));
-      const logPath = path.join(dir, 'codex-profile-resolution-log.jsonl');
-      const missing = profileResolver.resolveCliProfile('executor', { registryPath: path.join(dir, 'missing.yaml'), defaultProfile: 'executor', logPath });
-      const corruptPath = path.join(dir, 'corrupt.yaml');
-      fs.writeFileSync(corruptPath, 'profiles: [\n  nope: : :\n', 'utf8');
-      const corrupt = profileResolver.resolveCliProfile('review', { registryPath: corruptPath, defaultProfile: 'review', logPath });
-      const corruptRequestedReview = profileResolver.resolveCliProfile('review', { registryPath: corruptPath, defaultProfile: 'executor', logPath });
-      return result(missing.status === 'fallback'
-        && corrupt.status === 'fallback'
-        && corruptRequestedReview.status === 'fallback'
-        && corruptRequestedReview.profile === 'review'
-        && corruptRequestedReview.profile_data.sandbox === 'read-only'
-        && corruptRequestedReview.profile_data.approval === 'never'
-        && countJsonlRows(logPath) >= 3 ? 0 : 1);
-    }
-    if (args.includes('--self-test-cli-guard')) {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-codex-pro-guard-'));
-      const fixture = profileResolver.showCliProfiles({ registryPath: REGISTRY_PATH }).cli_profiles;
-      const registryPath = path.join(dir, 'codex-profiles.yaml');
-      const logPath = path.join(dir, 'codex-profile-resolution-log.jsonl');
-      fs.writeFileSync(registryPath, yaml.dump({ profiles: loadProfiles(), cli_profiles: fixture }, { lineWidth: -1, noRefs: true, sortKeys: false }), 'utf8');
-      const before = fs.readFileSync(registryPath, 'utf8');
-      let refusalMessage = '';
-      try {
-        profileResolver.setCliProfileField('triage', 'sandbox', 'danger-full-access', { registryPath, logPath });
-      } catch (error) {
-        refusalMessage = error.message;
-      }
-      const after = fs.readFileSync(registryPath, 'utf8');
-      const safe = profileResolver.setCliProfileField('triage', 'ephemeral', 'true', { registryPath, logPath });
-      const updated = profileResolver.loadFullRegistry(registryPath);
-      return result(refusalMessage.includes('CONFIRM SGSD CODEX PROFILE triage sandbox danger-full-access') && before === after && safe.status === 'set' && updated.cli_profiles.triage.ephemeral === true ? 0 : 1);
-    }
+    if (args.some((arg) => arg.startsWith('--self-test-'))) return result(profileResolver.main(args));
     if (args.includes('--show-cli')) {
       return result(0, JSON.stringify(profileResolver.showCliProfiles({ registryPath: REGISTRY_PATH }), null, 2));
     }

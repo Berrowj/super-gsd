@@ -32,8 +32,8 @@ board_members:
     model_default: opus
     state: active
   - name: disabled-ceo
-    model_default: sonnet
-    state: active
+    model_default: disabled
+    state: legacy-disabled
   - name: active-ceo
     model_default: opus
     state: active
@@ -73,10 +73,10 @@ escalation_policy:
   }
 });
 
-run('production board defaults to Opus architect, Opus contrarian, and Opus CEO only', () => {
+run('production board uses provider-aware active seats and explicitly blocks unknown Researcher', () => {
   const board = boardRegistry.loadBoard();
   const roster = boardRegistry.resolveRoster({});
-  assert.deepStrictEqual(roster, ['sgsd-board-architect', 'sgsd-board-contrarian', 'sgsd-ceo']);
+  assert.deepStrictEqual(roster, ['sgsd-board-architect', 'sgsd-board-contrarian', 'sgsd-board-pragmatist', 'sgsd-board-moonshot', 'sgsd-ceo']);
 
   for (const name of roster) {
     const member = board.byName[name];
@@ -87,7 +87,8 @@ run('production board defaults to Opus architect, Opus contrarian, and Opus CEO 
     assert.notStrictEqual(member.model_default, 'disabled', `${name} must not be disabled`);
   }
 
-  assert.match(board.byName['sgsd-board-architect'].model_default, /^opus/i);
-assert.match(board.byName['sgsd-board-contrarian'].model_default, /^opus/i);
-assert.match(board.byName['sgsd-ceo'].model_default, /^opus/i);
+  assert.equal(board.byName['sgsd-board-architect'].model_id, 'gpt-6-astra');
+  assert.equal(board.byName['sgsd-board-contrarian'].model_default, 'fable');
+  assert.equal(board.byName['sgsd-ceo'].model_default, 'fable');
+  assert.equal(board.byName['sgsd-board-researcher'].state, 'blocked-model');
 });

@@ -10,7 +10,7 @@
 #
 # Why a separate wrapper:
 #   - Different contract (no 5-field structure)
-#   - Different sandbox (workspace-write, not read-only)
+#   - Executor role authorizes scoped implementation under the active plan
 #   - Different timeout default (executor work can take 10-20+ min, not 30s)
 #   - Different log file (.planning/metrics/codex-executor-log.jsonl)
 #
@@ -28,7 +28,7 @@
 #   --phase N       JSONL log tag (numeric)
 #   --plan NN-PP    JSONL log tag (string)
 #   --patch-fallback-files <p>
-#                  newline-separated allowlist for read-pack patch fallback
+#                  legacy compatibility flag; explicit patch mode is a separate launch
 #   --profile NAME  CLI dispatch profile (default: executor)
 #   --dry-run       print resolved invocation, exit 0 without calling codex
 #
@@ -37,8 +37,9 @@
 #   1  generic codex failure (non-zero exit, non-auth, non-timeout)
 #   3  codex binary not on PATH
 #   4  auth-denied (OPENAI_API_KEY set OR codex stderr matched auth/401/unauth)
-#   5  timeout (GNU timeout returned 124)
-#   8  Windows Codex file-read blocked and no patch fallback file was supplied
+#   5  timeout (worker adapter returned 124)
+#   8  worker file-read failure requiring explicit recovery
+#   9  wrapper completion receipt could not be persisted
 #
 # OAuth hygiene: same as codex-exec.sh — refuses to run if OPENAI_API_KEY is
 # set in environment (would silently degrade auth provenance). Use OAuth via
@@ -78,6 +79,7 @@ export PATH
 
 SCRIPT_DIR="${SGSD_CODEX_EXECUTOR_ORIGINAL_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}"
 source "$SCRIPT_DIR/lib/codex-profile-shell.sh"
+source "$SCRIPT_DIR/lib/codex-worker-shell.sh"
 
 PROMPT_FILE=""
 REPORT_OUT=""
@@ -89,6 +91,7 @@ SKIP_NETWORK=false
 PROFILE_OVERRIDE=""
 PHASE_TAG=""
 PLAN_TAG=""
+STEP_TAG=""
 PATCH_FALLBACK_FILES=""
 
 while [[ $# -gt 0 ]]; do
@@ -99,6 +102,8 @@ while [[ $# -gt 0 ]]; do
         --timeout)     TIMEOUT_SECONDS="$2"; shift 2 ;;
         --phase)       PHASE_TAG="$2";   shift 2 ;;
         --plan)        PLAN_TAG="$2";    shift 2 ;;
+        --step)        STEP_TAG="$2";    shift 2 ;;
+        --owner)       export SGSD_WORKER_OWNER="$2"; shift 2 ;;
         --patch-fallback-files) PATCH_FALLBACK_FILES="$2"; shift 2 ;;
         --dry-run)     DRY_RUN=true;     shift ;;
         --profile)     PROFILE_OVERRIDE="$2"; shift 2 ;;
@@ -111,36 +116,22 @@ done
 
 if [[ "$SELF_TEST" == true ]]; then
     ST_TMP="$(mktemp -d)"
-    ST_PROMPT="$ST_TMP/prompt.txt"
-    ST_REPORT="$ST_TMP/report.txt"
-    ST_WORKSPACE="$(pwd -P)"
-    printf 'executor self-test prompt\n' > "$ST_PROMPT"
-
-    ST_EXPECT_DIRECT="timeout 1200s bash -c 'cat \"\$0\" | codex exec --full-auto --model \"\$1\" -c \"model_reasoning_effort=\\\"\$2\\\"\" --skip-git-repo-check --cd \"\$3\" -' \"$ST_PROMPT\" \"gpt-5.5\" \"xhigh\" \"$ST_WORKSPACE\""
-    ST_EXPECT_CMD="timeout 1200s bash -c 'cat \"\$0\" | cmd.exe /c codex exec --full-auto --model \"\$1\" -c \"model_reasoning_effort=\\\"\$2\\\"\" --skip-git-repo-check --cd \"\$3\" -' \"$ST_PROMPT\" \"gpt-5.5\" \"xhigh\" \"$ST_WORKSPACE\""
-
-    ST_DIRECT="$(SGSD_CODEX_FORCE_LAUNCHER=direct "$0" --dry-run --prompt-file "$ST_PROMPT" --report-out "$ST_REPORT" --workspace "$ST_WORKSPACE" | awk -F'resolved: ' '/resolved:/ { print $2; exit }')"
-    ST_CMD="$(SGSD_CODEX_FORCE_LAUNCHER=cmd "$0" --dry-run --prompt-file "$ST_PROMPT" --report-out "$ST_REPORT" --workspace "$ST_WORKSPACE" | awk -F'resolved: ' '/resolved:/ { print $2; exit }')"
-
-    echo "=== codex-executor --self-test ==="
-    if [[ "$ST_DIRECT" != "$ST_EXPECT_DIRECT" ]]; then
-        echo "direct dry-run parity: FAIL" >&2
-        echo "expected: $ST_EXPECT_DIRECT" >&2
-        echo "actual:   $ST_DIRECT" >&2
-        rm -rf "$ST_TMP"
-        exit 1
+    mkdir -p "$ST_TMP/project/.planning"
+    printf 'executor self-test fixture\n' > "$ST_TMP/prompt"
+    ST_FIXTURE="$SCRIPT_DIR/../tools/codex-worker/fixtures/app-server.cjs"
+    ST_PREFIX="$(node -e 'process.stdout.write(JSON.stringify([process.argv[1]]))' "$ST_FIXTURE")"
+    SGSD_CODEX_APP_SERVER_COMMAND="$(command -v node)" SGSD_CODEX_APP_SERVER_ARGS="$ST_PREFIX" \
+        WORKER_FIXTURE_MODE=complete WORKER_FIXTURE_REPORT="executor self-test complete" SGSD_ATLAS_DISABLED=1 \
+        "$0" --workspace "$ST_TMP/project" --prompt-file "$ST_TMP/prompt" --report-out "$ST_TMP/report" --timeout 10
+    ST_RC=$?
+    if [[ "$ST_RC" -eq 0 ]] && grep -q 'executor self-test complete' "$ST_TMP/report"; then
+        echo "codex-executor self-test: full-access worker completion PASS"
+    else
+        echo "codex-executor self-test: worker completion FAIL" >&2
+        ST_RC=1
     fi
-    echo "direct dry-run parity: PASS"
-    if [[ "$ST_CMD" != "$ST_EXPECT_CMD" ]]; then
-        echo "cmd dry-run parity: FAIL" >&2
-        echo "expected: $ST_EXPECT_CMD" >&2
-        echo "actual:   $ST_CMD" >&2
-        rm -rf "$ST_TMP"
-        exit 1
-    fi
-    echo "cmd dry-run parity: PASS"
     rm -rf "$ST_TMP"
-    exit 0
+    exit "$ST_RC"
 fi
 if [[ "$SELF_TEST" == false && ( -z "$PROMPT_FILE" || -z "$REPORT_OUT" ) ]]; then
     echo "codex-executor: --prompt-file and --report-out are required" >&2
@@ -183,57 +174,8 @@ CODEX_PROFILE_FULL_AUTO="$SGSD_CODEX_PROFILE_FULL_AUTO"
 if [[ "$WORKSPACE" =~ ^[A-Za-z]:\\ ]] && command -v wslpath >/dev/null 2>&1; then
     WORKSPACE="$(wslpath -u "$WORKSPACE" 2>/dev/null || echo "$WORKSPACE")"
 fi
-CODEX_CD="$WORKSPACE"
-CODEX_LAUNCHER="direct"
-CODEX_BIN="codex"
-# Under WSL, prefer a native-Linux codex over the Windows interop shim. The
-# Linux build sandboxes via landlock, avoiding the CreateProcessAsUserW/error-216
-# file-read block that the cmd.exe->Windows-codex path hits (and that forces the
-# read-pack patch fallback). A /mnt/* resolution IS the Windows shim; only then
-# fall back to cmd.exe. See SPIKE-OMNIGENT-vector1: Linux codex reads the repo
-# clean, Windows codex 216s.
-if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
-    CODEX_ON_PATH="$(command -v codex 2>/dev/null || true)"
-    if [[ -n "$CODEX_ON_PATH" && "$CODEX_ON_PATH" != /mnt/* ]]; then
-        : # native-Linux codex present — keep direct launcher (POSIX --cd, no 216)
-    elif command -v cmd.exe >/dev/null 2>&1; then
-        CODEX_LAUNCHER="cmd"
-        CODEX_BIN="cmd.exe"
-        if command -v wslpath >/dev/null 2>&1; then
-            CODEX_CD="$(wslpath -w "$WORKSPACE" 2>/dev/null || echo "$WORKSPACE")"
-        fi
-    fi
-fi
-
-case "${SGSD_CODEX_FORCE_LAUNCHER:-}" in
-    direct)
-        CODEX_LAUNCHER="direct"
-        CODEX_BIN="codex"
-        CODEX_CD="$WORKSPACE"
-        ;;
-    cmd)
-        CODEX_LAUNCHER="cmd"
-        CODEX_BIN="cmd.exe"
-        CODEX_CD="$WORKSPACE"
-        ;;
-    "") ;;
-    *) echo "codex-executor: invalid SGSD_CODEX_FORCE_LAUNCHER='${SGSD_CODEX_FORCE_LAUNCHER}'" >&2; exit 1 ;;
-esac
-# codex binary check
-if [[ "$DRY_RUN" == false && "$CODEX_LAUNCHER" == "direct" ]] && ! command -v codex >/dev/null 2>&1; then
-    echo "codex-executor: 'codex' CLI not on \$PATH" >&2
-    exit 3
-fi
-
-if [[ "$CODEX_PROFILE_FULL_AUTO" == "true" ]]; then
-    CODEX_EXECUTOR_PROFILE_FLAGS="--full-auto"
-else
-    CODEX_EXECUTOR_PROFILE_FLAGS="--sandbox ${CODEX_PROFILE_SANDBOX}"
-    if [[ "$CODEX_PROFILE_EPHEMERAL" == "true" ]]; then
-        CODEX_EXECUTOR_PROFILE_FLAGS="$CODEX_EXECUTOR_PROFILE_FLAGS --ephemeral"
-    fi
-fi
-RESOLVED="timeout ${TIMEOUT_SECONDS}s bash -c 'cat \"\$0\" | $([[ "$CODEX_LAUNCHER" == "cmd" ]] && echo "cmd.exe /c codex" || echo "codex") exec ${CODEX_EXECUTOR_PROFILE_FLAGS} --model \"\$1\" -c \"model_reasoning_effort=\\\"\$2\\\"\" --skip-git-repo-check --cd \"\$3\" -' \"$PROMPT_FILE\" \"$CODEX_MODEL\" \"$CODEX_REASONING_EFFORT\" \"$CODEX_CD\""
+sgsd_codex_worker_prepare "$PROJECT" "$WORKSPACE" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$TIMEOUT_SECONDS" executor || exit $?
+RESOLVED="$(sgsd_codex_worker_preview) < $(printf %q "$PROMPT_FILE")"
 if [[ "$DRY_RUN" == true ]]; then
     echo "codex-executor DRY RUN"
     echo "  resolved: $RESOLVED"
@@ -278,24 +220,21 @@ mkdir -p "$(dirname "$LIVE_OUT")"
     echo "============================================================"
 } >> "$WATCH_OUT"
 
-trap 'rm -f "$STDOUT_TMP" "$STDERR_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true; if [[ $$ == "${SGSD_CODEX_EXECUTOR_CREATOR_PID:-}" ]]; then rm -f "${SGSD_CODEX_EXECUTOR_TEMP_COPY:-}" 2>/dev/null || true; fi' EXIT
+trap 'wrapper_exit=$?; sgsd_codex_worker_finish "$wrapper_exit" || { [[ "$wrapper_exit" -ne 0 ]] || wrapper_exit=9; }; rm -f "$STDOUT_TMP" "$STDERR_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true; if [[ $$ == "${SGSD_CODEX_EXECUTOR_CREATOR_PID:-}" ]]; then rm -f "${SGSD_CODEX_EXECUTOR_TEMP_COPY:-}" 2>/dev/null || true; fi; exit "$wrapper_exit"' EXIT
+sgsd_codex_worker_begin || exit $?
 
-set +e
-if [[ "$CODEX_LAUNCHER" == "cmd" ]]; then
-    timeout "${TIMEOUT_SECONDS}s" bash -c 'if [[ "$4" == "true" ]]; then cat "$0" | cmd.exe /c codex exec --full-auto --model "$1" -c "model_reasoning_effort=\"$2\"" --skip-git-repo-check --cd "$6" -; elif [[ "$5" == "true" ]]; then cat "$0" | cmd.exe /c codex exec --model "$1" -c "model_reasoning_effort=\"$2\"" --sandbox "$3" --ephemeral --skip-git-repo-check --cd "$6" -; else cat "$0" | cmd.exe /c codex exec --model "$1" -c "model_reasoning_effort=\"$2\"" --sandbox "$3" --skip-git-repo-check --cd "$6" -; fi' \
-        "$PROMPT_FILE" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_PROFILE_SANDBOX" "$CODEX_PROFILE_FULL_AUTO" "$CODEX_PROFILE_EPHEMERAL" "$CODEX_CD" \
-        2> >(tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDERR_TMP") \
-        | tee -a "$LIVE_OUT" -a "$WATCH_OUT" \
-        > "$STDOUT_TMP"
-    RC=${PIPESTATUS[0]}
-else
-    timeout "${TIMEOUT_SECONDS}s" bash -c 'if [[ "$4" == "true" ]]; then cat "$0" | codex exec --full-auto --model "$1" -c "model_reasoning_effort=\"$2\"" --skip-git-repo-check --cd "$6" -; elif [[ "$5" == "true" ]]; then cat "$0" | codex exec --model "$1" -c "model_reasoning_effort=\"$2\"" --sandbox "$3" --ephemeral --skip-git-repo-check --cd "$6" -; else cat "$0" | codex exec --model "$1" -c "model_reasoning_effort=\"$2\"" --sandbox "$3" --skip-git-repo-check --cd "$6" -; fi' \
-        "$PROMPT_FILE" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_PROFILE_SANDBOX" "$CODEX_PROFILE_FULL_AUTO" "$CODEX_PROFILE_EPHEMERAL" "$CODEX_CD" \
-        2> >(tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDERR_TMP") \
-        | tee -a "$LIVE_OUT" -a "$WATCH_OUT" \
-        > "$STDOUT_TMP"
-    RC=${PIPESTATUS[0]}
+sgsd_atlas_codex_args() { SGSD_ATLAS_CODEX_ARGS=(); }
+ATLAS_HELPER="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}/lib/atlas-shell.sh"
+if [[ -f "$ATLAS_HELPER" ]]; then
+    source "$ATLAS_HELPER"
+    sgsd_atlas_attach executor openai "$PROJECT"
 fi
+set +e
+sgsd_codex_worker_run "$PROMPT_FILE" \
+    2> >(tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDERR_TMP") \
+    | tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDOUT_TMP"
+RC=${PIPESTATUS[0]}
+if declare -F sgsd_atlas_finish >/dev/null; then sgsd_atlas_finish; fi
 {
     echo ""
     echo "============================================================"
@@ -324,29 +263,12 @@ codex_read_block_detected() {
         "$STDERR_TMP" "$STDOUT_TMP" "$REPORT_OUT" 2>/dev/null
 }
 
-run_patch_fallback() {
-    echo "codex-executor: Windows Codex file-read failure detected; routing to read-pack patch fallback" >&2
-    if [[ -n "$PATCH_FALLBACK_FILES" ]]; then
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-        bash "$SCRIPT_DIR/codex-patch-executor.sh" \
-            --prompt-file "$PROMPT_FILE" \
-            --report-out "$REPORT_OUT" \
-            --workspace "$WORKSPACE" \
-            --files "$PATCH_FALLBACK_FILES" \
-            --timeout "$TIMEOUT_SECONDS" \
-            --phase "$PHASE_TAG" \
-            --plan "$PLAN_TAG"
-        exit $?
-    fi
-    echo "codex-executor: read-pack patch fallback requires --patch-fallback-files" >&2
-    exit 8
-}
-
 # Codex CLI on Windows can return exit 0 while placing the read-block failure
 # in stdout/report text. Detect this before success handling or telemetry would
 # falsely record a completed executor run.
 if [[ $RC -ne 124 ]] && codex_read_block_detected; then
-    run_patch_fallback
+    echo "codex-executor: worker file-read failure; explicit recovery required, no automatic replacement worker" >&2
+    exit 8
 fi
 
 # JSONL log
@@ -358,10 +280,12 @@ plan_field=$([[ -z "$PLAN_TAG" ]] && echo "null" || echo "\"$PLAN_TAG\"")
 stderr_preview="$(head -c 200 "$STDERR_TMP" 2>/dev/null | tr -d '\r' | tr '\n' ' ' | sed 's/"/\\"/g')"
 timeout_hit="false"
 [[ $RC -eq 124 ]] && timeout_hit="true"
+PROMPT_BYTES=0
+if [[ -f "$PROMPT_FILE" ]]; then PROMPT_BYTES=$(wc -c < "$PROMPT_FILE" | tr -d ' '); fi
 
 printf '{"ts":"%s","phase":%s,"plan":%s,"role":"executor","model":"%s","reasoning_effort":"%s","exit":%d,"duration_ms":%d,"prompt_bytes":%d,"report_bytes":%d,"timeout_hit":%s,"stderr_preview":"%s"}\n' \
     "$TS" "$phase_field" "$plan_field" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" \
-    "$RC" "$DURATION_MS" "$(wc -c < "$PROMPT_FILE" | tr -d ' ')" "$REPORT_BYTES" \
+    "$RC" "$DURATION_MS" "$PROMPT_BYTES" "$REPORT_BYTES" \
     "$timeout_hit" "$stderr_preview" \
     >> "$LOG"
 
@@ -381,5 +305,6 @@ if [[ $RC -ne 0 ]]; then
     exit 1
 fi
 
+sgsd_codex_worker_finish 0 || exit 9
 echo "codex-executor: OK — $REPORT_OUT (${REPORT_BYTES}B), codex took ${DURATION_MS}ms"
 exit 0

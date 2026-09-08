@@ -8,9 +8,9 @@ const { spawnSync } = require('node:child_process');
 const suites = {
   store: 'store.test.cjs', receiver: 'receiver.test.cjs',
   runtime: 'runtime.test.cjs', stack: 'stack.test.cjs',
-  install: 'install.test.cjs',
+  install: 'install.test.cjs', global: 'global.test.cjs', audit: 'audit.test.cjs', launch: 'launch.test.cjs',
 };
-const tasks = { T1: ['store'], T2: ['store','receiver','runtime'], T3: ['runtime','stack','install'] };
+const tasks = { T1: ['store'], T2: ['store','receiver','runtime'], T3: ['runtime','stack','install'], T4: ['global','audit','launch','install'] };
 const cases = {
   'ingestion-dedup-conflict': ['store'], 'privacy-canary': ['store','receiver','stack'],
   'malformed-tail': ['store'], 'receiver-health-metrics': ['receiver'],
@@ -18,12 +18,13 @@ const cases = {
   'claude-otlp-metrics-json': ['receiver','stack'], 'lifecycle-roundtrip': ['runtime'],
   'launcher-equivalence': ['runtime'], 'statusline-quota-equivalence': ['runtime','receiver'],
   'install-delivery': ['install'],
+  'automatic-capture': ['global','launch'], 'integrity-audit': ['audit'],
 };
 const args = process.argv.slice(2);
 let selected = Object.keys(suites);
 if (args.length) {
   if (args.length !== 2 || !['--task','--case'].includes(args[0])) {
-    process.stderr.write('usage: run-self-test.cjs [--task T1|T2|T3 | --case NAME]\n'); process.exit(2);
+    process.stderr.write('usage: run-self-test.cjs [--task T1|T2|T3|T4 | --case NAME]\n'); process.exit(2);
   }
   selected = (args[0] === '--task' ? tasks : cases)[args[1]];
   if (!selected) { process.stderr.write('unknown_atlas_test_selector\n'); process.exit(2); }
