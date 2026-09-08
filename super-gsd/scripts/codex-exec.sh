@@ -36,23 +36,10 @@
 set -u
 ORIGINAL_ARGS=("$@")
 
-# SSH/non-login shells on dev boxes often skip ~/.bashrc user PATH additions.
-# Codex is installed as a user-local Node shim, so make that path deterministic
-# before probing `codex` or invoking scripts with /usr/bin/env node.
-if [[ -d "$HOME/.local/bin" ]]; then
-    PATH="$HOME/.local/bin:$PATH"
-fi
-if [[ -d "$HOME/.nvm/versions/node" ]]; then
-    SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
-    if [[ -n "$SGSD_NODE_BIN" ]]; then
-        PATH="$SGSD_NODE_BIN:$PATH"
-    fi
-fi
-export PATH
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/lib/codex-profile-shell.sh"
 source "$SCRIPT_DIR/lib/codex-worker-shell.sh"
+sgsd_codex_worker_bootstrap "$@" || exit $?
+source "$SCRIPT_DIR/lib/codex-profile-shell.sh"
 
 # ── Defaults ────────────────────────────────────────────────────────────────
 PROMPT_FILE=""
@@ -329,7 +316,7 @@ if [[ "$SELF_TEST" == true ]]; then
     EXIT_CODE=0
 
     # Probe 1 — codex on PATH (exit 10)
-    if command -v "$CODEX_COMMAND" >/dev/null 2>&1; then
+    if [[ "${SGSD_CODEX_SELECTION_STATUS:-}" == "ready" ]] && command -v "$CODEX_COMMAND" >/dev/null 2>&1; then
         ST_PATH=true
     else
         EXIT_CODE=10
@@ -593,7 +580,11 @@ EOS
         effort_json="$(json_escape "$CODEX_REASONING_EFFORT")"
         # Probe metadata
         PROBE_VERSION="2"
-        CODEX_VERSION="$("$CODEX_COMMAND" --version 2>/dev/null | head -1 || echo unknown)"
+        if [[ "${SGSD_CODEX_SELECTION_STATUS:-}" == "ready" ]]; then
+            CODEX_VERSION="$("$CODEX_COMMAND" --version 2>/dev/null | head -1 || echo unknown)"
+        else
+            CODEX_VERSION="unknown"
+        fi
         codex_version_json="$(json_escape "$CODEX_VERSION")"
         auth_method_json="$(json_escape "${ST_AUTH_METHOD:-unknown}")"
         stderr_json="$(json_escape "${ST_CONTRACT_STDERR:-}")"

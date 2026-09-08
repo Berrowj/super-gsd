@@ -34,14 +34,34 @@ fs.copyFileSync(path.join(process.env.FIXTURE_DEP_SOURCE, '.package-lock.json'),
 `, { mode: 0o700 });
 }
 
+function writeInstalledPeerCommand(file, label) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `#!/usr/bin/env node
+'use strict';
+require('node:fs').writeFileSync(process.env.WORKER_FIXTURE_SELECTED_EXECUTABLE, ${JSON.stringify(label)} + '\\n');
+require(process.env.WORKER_FIXTURE_PEER);
+`, { mode: 0o700 });
+}
+
 test('isolated global install delivers the full worker closure and its installed wrapper runs it', { skip: process.platform !== 'linux', timeout: 180000 }, t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'worker-install-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const fixtureHome = path.join(root, 'home'), project = path.join(root, 'project'); fs.mkdirSync(project);
   fs.mkdirSync(path.join(fixtureHome, '.claude/get-shit-done'), { recursive: true });
   const nodeExecutable = fs.realpathSync(process.execPath);
+  const callerBin = path.join(root, 'caller bin'), localBin = path.join(fixtureHome, '.local/bin');
+  const nvmBin = path.join(fixtureHome, '.nvm/versions/node/v99.0.0/bin');
+  const selectedExecutableLog = path.join(root, 'selected executable');
+  const fixturePeer = path.join(fixtureHome, '.claude/super-gsd/tools/codex-worker/fixtures/app-server.cjs');
+  writeInstalledPeerCommand(path.join(callerBin, 'codex'), 'caller');
+  writeInstalledPeerCommand(path.join(localBin, 'codex'), 'user-local');
+  writeInstalledPeerCommand(path.join(nvmBin, 'codex'), 'nvm');
+  fs.symlinkSync(nodeExecutable, path.join(nvmBin, 'node'));
   const env = { ...process.env, HOME: fixtureHome, USERPROFILE: fixtureHome, OPENAI_API_KEY: '', SGSD_ATLAS_DISABLED: '1',
-    PATH: `${path.dirname(nodeExecutable)}:${process.env.PATH}` };
+    PATH: `${callerBin}:${path.dirname(nodeExecutable)}:${process.env.PATH}`,
+    WORKER_FIXTURE_PEER: fixturePeer, WORKER_FIXTURE_SELECTED_EXECUTABLE: selectedExecutableLog };
+  delete env.SGSD_CODEX_APP_SERVER_COMMAND;
+  delete env.SGSD_CODEX_COMMAND;
   const result = spawnSync('bash', [path.join(source, 'install.sh'), '--install-global', '--project-dir', project],
     { cwd: project, env, encoding: 'utf8', timeout: 150000, maxBuffer: 4 * 1024 * 1024 });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
@@ -85,11 +105,11 @@ test('isolated global install delivers the full worker closure and its installed
   const report = path.join(project, 'report'), capture = path.join(project, 'app-server-capture.jsonl');
   const run = spawnSync('bash', [path.join(installed, 'scripts/codex-executor.sh'), '--workspace', project,
     '--prompt-file', path.join(project, 'prompt'), '--report-out', report, '--timeout', '10'],
-  { cwd: project, env: { ...isolatedEnv, SGSD_CODEX_APP_SERVER_COMMAND: nodeExecutable,
-    SGSD_CODEX_APP_SERVER_ARGS: JSON.stringify([path.join(installed, 'tools/codex-worker/fixtures/app-server.cjs')]),
+  { cwd: project, env: { ...isolatedEnv, SGSD_CODEX_APP_SERVER_ARGS: '[]',
     WORKER_FIXTURE_MODE: 'complete', WORKER_FIXTURE_REPORT: 'installed worker completed', WORKER_FIXTURE_CAPTURE: capture,
-    SGSD_CODEX_COMMAND: path.join(root, 'no-legacy-fallback') }, encoding: 'utf8', timeout: 20000 });
+  }, encoding: 'utf8', timeout: 20000 });
   assert.equal(run.status, 0, run.stderr); assert.match(fs.readFileSync(report, 'utf8'), /installed worker completed/);
+  assert.equal(fs.readFileSync(selectedExecutableLog, 'utf8').trim(), 'caller');
   const messages = fs.readFileSync(capture, 'utf8').trim().split('\n').map(JSON.parse);
   const thread = messages.find(message => message.method === 'thread/start');
   const turn = messages.find(message => message.method === 'turn/start');

@@ -26,6 +26,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$SCRIPT_DIR/lib/codex-worker-shell.sh"
+sgsd_codex_worker_bootstrap "$@" || exit $?
 
 PROMPT_FILE=""
 REPORT_OUT=""

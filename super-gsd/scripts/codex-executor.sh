@@ -48,8 +48,12 @@
 
 set -u
 
+SCRIPT_DIR="${SGSD_CODEX_EXECUTOR_ORIGINAL_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}"
+source "$SCRIPT_DIR/lib/codex-worker-shell.sh"
+sgsd_codex_worker_bootstrap "$@" || exit $?
+
 if [[ "${SGSD_CODEX_EXECUTOR_REEXECED:-}" != "1" ]]; then
-    SGSD_CODEX_EXECUTOR_ORIGINAL_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+    SGSD_CODEX_EXECUTOR_ORIGINAL_SCRIPT_DIR="$SCRIPT_DIR"
     SGSD_CODEX_EXECUTOR_TEMP_COPY="$(mktemp -t codex-executor.XXXXXX.sh)"
     cp "$0" "$SGSD_CODEX_EXECUTOR_TEMP_COPY"
     chmod u+x "$SGSD_CODEX_EXECUTOR_TEMP_COPY" 2>/dev/null || true
@@ -63,23 +67,7 @@ if [[ -n "${SGSD_CODEX_EXECUTOR_TEMP_COPY:-}" && "$$" == "${SGSD_CODEX_EXECUTOR_
     trap 'rm -f "$SGSD_CODEX_EXECUTOR_TEMP_COPY" 2>/dev/null || true' EXIT
 fi
 
-# SSH/non-login shells on dev boxes often skip ~/.bashrc user PATH additions.
-# Codex and Claude are installed as user-local Node shims, so make that path
-# deterministic before probing `codex` or invoking scripts with /usr/bin/env node.
-if [[ -d "$HOME/.local/bin" ]]; then
-    PATH="$HOME/.local/bin:$PATH"
-fi
-if [[ -d "$HOME/.nvm/versions/node" ]]; then
-    SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
-    if [[ -n "$SGSD_NODE_BIN" ]]; then
-        PATH="$SGSD_NODE_BIN:$PATH"
-    fi
-fi
-export PATH
-
-SCRIPT_DIR="${SGSD_CODEX_EXECUTOR_ORIGINAL_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}"
 source "$SCRIPT_DIR/lib/codex-profile-shell.sh"
-source "$SCRIPT_DIR/lib/codex-worker-shell.sh"
 
 PROMPT_FILE=""
 REPORT_OUT=""

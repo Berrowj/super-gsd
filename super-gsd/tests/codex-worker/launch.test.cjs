@@ -13,7 +13,29 @@ const control = path.resolve(__dirname, '../../tools/codex-worker/control.cjs');
 const bashOnly = process.platform === 'win32' ? 'Run the Bash process tests under WSL/Linux' : false;
 const boardReport = 'position: SUPPORT\nconfidence: 4\nrisks_raised: []\nevidence_cited: []\nfalsifier: a failed test\nimplementation_concerns: []\nknown_deadends: []\nintuition: bounded\nwhy_principled: evidence\nrationale: fixture\n';
 const reviewerReport = 'FINDINGS: none\nCRITICAL: 0\nWARNINGS: 0\nPASS_RATE: 1/1\nONE_LINER: fixture\nFINDINGS_DETAIL: retained detail\n';
-function fixture(t) {
+function writePeerCommand(file, label) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `#!/usr/bin/env node
+'use strict';
+const fs = require('node:fs');
+if (process.argv[2] === '--version') { process.stdout.write('codex-app-server-fixture\\n'); process.exit(0); }
+if (process.argv[2] === 'login' && process.argv[3] === 'status') { process.stdout.write('Logged in\\n'); process.exit(0); }
+fs.writeFileSync(process.env.WORKER_FIXTURE_SELECTED_EXECUTABLE, ${JSON.stringify(label)} + '\\n');
+if (process.env.WORKER_FIXTURE_SELECTED_ARGV) fs.writeFileSync(process.env.WORKER_FIXTURE_SELECTED_ARGV, JSON.stringify(process.argv.slice(2)));
+require(process.env.WORKER_FIXTURE_PEER);
+`, { mode: 0o700 });
+}
+function isolatedNativeTools(root) {
+  const directory = path.join(root, 'isolated native tools'); fs.mkdirSync(directory);
+  for (const name of ['awk', 'bash', 'cat', 'chmod', 'cp', 'date', 'dirname', 'find', 'grep', 'head', 'mkdir',
+    'mktemp', 'mv', 'rm', 'sed', 'sort', 'tail', 'tee', 'timeout', 'tr', 'wc']) {
+    const source = ['/usr/bin', '/bin'].map(base => path.join(base, name)).find(candidate => fs.existsSync(candidate));
+    assert.ok(source, `native fixture tool is available: ${name}`);
+    fs.symlinkSync(fs.realpathSync(source), path.join(directory, name));
+  }
+  return directory;
+}
+function fixture(t, { defaultDiscovery = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "worker launch 'quoted'-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, '.planning'));
@@ -21,13 +43,28 @@ function fixture(t) {
   const prompt = path.join(root, 'prompt.md'), report = path.join(root, 'report.txt'), capture = path.join(root, 'rpc.jsonl');
   fs.writeFileSync(prompt, 'Bounded fixture task. Ask the supervising unit if context is missing.\n');
   const fixtureHome = path.join(root, 'home'); fs.mkdirSync(fixtureHome);
+  const callerBin = path.join(root, 'caller bin');
+  const localBin = path.join(fixtureHome, '.local/bin');
+  const nvmBin = path.join(fixtureHome, '.nvm/versions/node/v99.0.0/bin');
+  const selectedExecutableLog = path.join(root, 'selected executable');
+  writePeerCommand(path.join(callerBin, 'codex'), 'caller');
+  writePeerCommand(path.join(localBin, 'codex'), 'user-local');
+  writePeerCommand(path.join(nvmBin, 'codex'), 'nvm');
+  fs.symlinkSync(fs.realpathSync(process.execPath), path.join(nvmBin, 'node'));
   const env = { ...process.env, HOME: fixtureHome, USERPROFILE: fixtureHome,
-    PATH: `${path.dirname(fs.realpathSync(process.execPath))}:/usr/bin:/bin`,
+    PATH: `${callerBin}:${path.dirname(fs.realpathSync(process.execPath))}:/usr/bin:/bin`,
     OPENAI_API_KEY: '', SGSD_ATLAS_DISABLED: '1', SGSD_CODEX_APP_SERVER_COMMAND: process.execPath,
     SGSD_CODEX_APP_SERVER_ARGS: JSON.stringify([peer]), WORKER_FIXTURE_CAPTURE: capture, WORKER_FIXTURE_MODE: 'complete',
-    SGSD_CODEX_COMMAND: path.join(root, 'must-not-use-one-shot'), SGSD_WORKER_OWNER: 'fable.fixture' };
+    SGSD_CODEX_COMMAND: path.join(root, 'must-not-use-one-shot'), SGSD_WORKER_OWNER: 'fable.fixture',
+    CODEX_HOME: path.join(root, 'isolated codex home'),
+    WORKER_FIXTURE_PEER: peer, WORKER_FIXTURE_SELECTED_EXECUTABLE: selectedExecutableLog };
+  if (defaultDiscovery) {
+    delete env.SGSD_CODEX_APP_SERVER_COMMAND;
+    delete env.SGSD_CODEX_COMMAND;
+    env.SGSD_CODEX_APP_SERVER_ARGS = '[]';
+  }
   delete env.SGSD_CODEX_FORCE_LAUNCHER; delete env.SGSD_WORKER_RESUME_ID;
-  return { root, prompt, report, capture, env };
+  return { root, prompt, report, capture, env, callerBin, localBin, nvmBin, selectedExecutableLog };
 }
 function launch(t, argv, f, env = {}) {
   const child = spawn('bash', argv, { cwd: f.root, env: { ...f.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -69,18 +106,19 @@ test('board wrapper pauses for its exact worker reply before validating the comp
 });
 
 test('review wrapper preserves the additive report contract and full-access worker metadata', { skip: bashOnly }, async t => {
-  const f = fixture(t);
+  const f = fixture(t, { defaultDiscovery: true });
   const running = launch(t, [path.join(scripts, 'codex-exec.sh'), '--project', f.root, '--prompt-file', f.prompt,
     '--report-out', f.report, '--phase', '170', '--plan', '170-03', '--step', 'spec-review', '--timeout', '10'], f,
   { WORKER_FIXTURE_REPORT: reviewerReport });
   const result = await running.done; assert.equal(result.code, 0, result.stderr);
+  assert.equal(fs.readFileSync(f.selectedExecutableLog, 'utf8').trim(), 'caller');
   assert.match(fs.readFileSync(f.report, 'utf8'), /FINDINGS_DETAIL: retained detail/);
   const record = mailbox.list(f.root)[0]; assert.equal(record.role, 'reviewer'); assert.equal(record.step, 'spec-review');
 });
 
 test('executor and explicit patch wrapper use the worker adapter and retain scoped completion', { skip: bashOnly }, async t => {
   for (const patch of [false, true]) {
-    const f = fixture(t), workspace = path.join(f.root, 'nested workspace'); fs.mkdirSync(workspace);
+    const f = fixture(t, { defaultDiscovery: true }), workspace = path.join(f.root, 'nested workspace'); fs.mkdirSync(workspace);
     fs.writeFileSync(path.join(workspace, 'a.txt'), 'before\n'); fs.writeFileSync(path.join(f.root, 'files.txt'), 'a.txt\n');
     const args = [path.join(scripts, patch ? 'codex-patch-executor.sh' : 'codex-executor.sh'), '--workspace', workspace,
       '--prompt-file', f.prompt, '--report-out', f.report, '--phase', '170', '--plan', '170-03', '--step', 'implementation', '--timeout', '10'];
@@ -88,11 +126,132 @@ test('executor and explicit patch wrapper use the worker adapter and retain scop
     const report = patch ? 'PATCH_BEGIN\ndiff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-before\n+after\nPATCH_END\nREPORT_BEGIN\nONE_LINER: fixture\nREPORT_END' : 'Executor completed fixture';
     const result = await launch(t, args, f, { WORKER_FIXTURE_REPORT: report }).done;
     assert.equal(result.code, 0, result.stderr); assert.ok(fs.readFileSync(f.report, 'utf8').includes(report));
+    assert.equal(fs.readFileSync(f.selectedExecutableLog, 'utf8').trim(), 'caller');
+    assert.equal(frames(f).filter(frame => frame.method === 'turn/start').length, 1);
     const record = mailbox.list(f.root)[0]; assert.equal(record.status, 'completed'); assert.equal(record.role, 'executor');
     assert.equal(record.plan, '170-03'); assert.equal(record.step, 'implementation');
     assert.equal(frames(f).find(frame => frame.method === 'thread/start').params.cwd, workspace);
     assert.equal(fs.existsSync(path.join(workspace, '.planning/worker-sessions')), false);
     assert.equal(JSON.parse(fs.readFileSync(path.join(f.root, '.planning/worker-sessions', record.worker_id, 'wrapper-result.json'))).exit_code, 0);
+  }
+});
+
+test('explicit selectors are pinned before PATH and cwd changes with prefix argv intact', { skip: bashOnly }, async t => {
+  for (const kind of ['basename', 'absolute', 'relative']) {
+    const f = fixture(t, { defaultDiscovery: true });
+    const workspace = path.join(f.root, 'nested workspace'); fs.mkdirSync(workspace);
+    const selectedArgv = path.join(f.root, `selected argv ${kind}`);
+    const env = { WORKER_FIXTURE_REPORT: 'Executor completed fixture', WORKER_FIXTURE_SELECTED_ARGV: selectedArgv };
+    if (kind === 'basename') {
+      env.SGSD_CODEX_COMMAND = 'codex';
+    } else {
+      const command = path.join(f.root, `selected ${kind} "quoted"`, 'codex command');
+      writePeerCommand(command, `explicit-${kind}`);
+      env.SGSD_CODEX_APP_SERVER_COMMAND = kind === 'absolute' ? command : path.relative(f.root, command);
+      env.SGSD_CODEX_COMMAND = path.join(f.nvmBin, 'codex');
+      env.SGSD_CODEX_APP_SERVER_ARGS = JSON.stringify(['prefix with spaces', 'prefix"quote']);
+    }
+    const result = await launch(t, [path.join(scripts, 'codex-executor.sh'), '--workspace', workspace,
+      '--prompt-file', f.prompt, '--report-out', f.report, '--timeout', '10'], f, env).done;
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(fs.readFileSync(f.selectedExecutableLog, 'utf8').trim(), kind === 'basename' ? 'caller' : `explicit-${kind}`);
+    const argv = JSON.parse(fs.readFileSync(selectedArgv, 'utf8'));
+    if (kind !== 'basename') assert.deepEqual(argv.slice(0, 2), ['prefix with spaces', 'prefix"quote']);
+    assert.equal(argv.filter(value => value === 'app-server').length, 1);
+    assert.equal(frames(f).filter(frame => frame.method === 'turn/start').length, 1);
+  }
+});
+
+test('default discovery falls back natively and env-node Codex runs when Node exists only in nvm', { skip: bashOnly }, async t => {
+  const f = fixture(t, { defaultDiscovery: true });
+  f.env.PATH = isolatedNativeTools(f.root);
+  const result = await launch(t, [path.join(scripts, 'codex-executor.sh'), '--workspace', f.root,
+    '--prompt-file', f.prompt, '--report-out', f.report, '--timeout', '10'], f,
+  { WORKER_FIXTURE_REPORT: 'Executor completed fixture' }).done;
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(fs.readFileSync(f.selectedExecutableLog, 'utf8').trim(), 'user-local');
+  assert.equal(frames(f).filter(frame => frame.method === 'turn/start').length, 1);
+});
+
+test('invalid explicit selectors and interop executables fail without fallback dispatch', { skip: bashOnly }, async t => {
+  for (const selector of ['missing-command', 'missing-app', 'interop']) {
+    const f = fixture(t, { defaultDiscovery: true });
+    const command = selector === 'interop' ? path.join(f.root, 'codex.exe') : 'missing-explicit-codex';
+    if (selector === 'interop') writePeerCommand(command, 'must-not-run');
+    const selection = selector === 'missing-app'
+      ? { SGSD_CODEX_APP_SERVER_COMMAND: command, SGSD_CODEX_COMMAND: path.join(f.callerBin, 'codex') }
+      : { SGSD_CODEX_COMMAND: command };
+    const result = await launch(t, [path.join(scripts, 'codex-executor.sh'), '--workspace', f.root,
+      '--prompt-file', f.prompt, '--report-out', f.report, '--timeout', '10'], f,
+    { ...selection, WORKER_FIXTURE_REPORT: 'must not complete' }).done;
+    assert.equal(result.code, 3, result.stderr);
+    assert.match(result.stderr, selector === 'interop' ? /unsupported.*interop|interop.*unsupported/i : /not found/i);
+    assert.equal(fs.existsSync(f.capture), false);
+    assert.equal(fs.existsSync(f.selectedExecutableLog), false);
+  }
+});
+
+test('help and dry-run checks do not require a real Codex', { skip: bashOnly }, t => {
+  const f = fixture(t, { defaultDiscovery: true });
+  const emptyHome = path.join(f.root, 'empty home'); fs.mkdirSync(emptyHome);
+  const env = { ...f.env, HOME: emptyHome, USERPROFILE: emptyHome,
+    PATH: `${path.dirname(fs.realpathSync(process.execPath))}:${isolatedNativeTools(f.root)}` };
+  delete env.SGSD_CODEX_APP_SERVER_COMMAND;
+  delete env.SGSD_CODEX_COMMAND;
+  for (const name of ['codex-exec.sh', 'codex-executor.sh', 'codex-patch-executor.sh']) {
+    const help = spawnSync('bash', [path.join(scripts, name), '--help'], { cwd: f.root, env, encoding: 'utf8', timeout: 5000 });
+    assert.equal(help.status, 0, `${name}: ${help.stderr}`);
+    const args = [path.join(scripts, name), name === 'codex-exec.sh' ? '--project' : '--workspace', f.root,
+      '--prompt-file', f.prompt, '--report-out', f.report, '--dry-run'];
+    if (name === 'codex-patch-executor.sh') {
+      fs.writeFileSync(path.join(f.root, 'files'), 'a.txt\n'); fs.writeFileSync(path.join(f.root, 'a.txt'), 'before\n');
+      args.push('--files', path.join(f.root, 'files'), '--no-apply');
+    }
+    const dryRun = spawnSync('bash', args, { cwd: f.root, env, encoding: 'utf8', timeout: 5000 });
+    assert.equal(dryRun.status, 0, `${name}: ${dryRun.stderr}`);
+    assert.match(dryRun.stdout, /DRY RUN/);
+  }
+});
+
+test('offline exit-priority table bypasses executable selection', { skip: bashOnly }, t => {
+  const f = fixture(t, { defaultDiscovery: true });
+  const emptyHome = path.join(f.root, 'empty home'); fs.mkdirSync(emptyHome);
+  const env = { ...f.env, HOME: emptyHome, USERPROFILE: emptyHome,
+    PATH: `${path.dirname(fs.realpathSync(process.execPath))}:/usr/bin:/bin`,
+    SGSD_CODEX_COMMAND: path.join(f.root, 'nonexistent-codex-offline-review') };
+  delete env.SGSD_CODEX_APP_SERVER_COMMAND;
+  const result = spawnSync('bash', [path.join(scripts, 'codex-exec.sh'), '--prompt-file', '/dev/null',
+    '--report-out', '/dev/null', '--project', f.root, '--self-test-exit-priority'],
+  { cwd: f.root, env, encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /exit priority table/);
+  assert.equal(fs.existsSync(f.capture), false);
+});
+
+test('fake-only online self-test pins the incoming CLI before PATH recovery', { skip: bashOnly, timeout: 65000 }, t => {
+  const f = fixture(t, { defaultDiscovery: true });
+  const result = spawnSync('bash', [path.join(scripts, 'codex-exec.sh'), '--self-test'],
+    { cwd: f.root, env: { ...f.env, WORKER_FIXTURE_REPORT: reviewerReport }, encoding: 'utf8', timeout: 55000 });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(fs.readFileSync(f.selectedExecutableLog, 'utf8').trim(), 'caller');
+  assert.equal(frames(f).filter(frame => frame.method === 'turn/start').length, 1);
+});
+
+test('online self-test diagnoses explicit invalid and interop selectors without dispatching a fallback', { skip: bashOnly }, t => {
+  for (const kind of ['missing', 'interop']) {
+    const f = fixture(t, { defaultDiscovery: true });
+    const command = kind === 'missing' ? `missing-${path.basename(f.root).replace(/[^a-zA-Z0-9]/g, '')}` : path.join(f.root, 'codex.exe');
+    if (kind === 'missing') {
+      writePeerCommand(path.join(f.localBin, command), 'must-not-run');
+      writePeerCommand(path.join(f.nvmBin, command), 'must-not-run');
+    } else writePeerCommand(command, 'must-not-run');
+    const result = spawnSync('bash', [path.join(scripts, 'codex-exec.sh'), '--self-test'],
+      { cwd: f.root, env: { ...f.env, PATH: isolatedNativeTools(f.root), SGSD_CODEX_COMMAND: command,
+        WORKER_FIXTURE_REPORT: reviewerReport }, encoding: 'utf8', timeout: 10000 });
+    assert.equal(result.status, 10, result.stdout + result.stderr);
+    assert.match(result.stdout, /Probe 1 PATH:\s+FAIL/);
+    assert.equal(fs.existsSync(f.capture), false);
+    assert.equal(fs.existsSync(f.selectedExecutableLog), false);
   }
 });
 

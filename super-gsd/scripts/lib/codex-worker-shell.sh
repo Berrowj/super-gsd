@@ -2,6 +2,121 @@
 # Shared source/installed worker transport. No one-shot or Windows-interoperability fallback.
 SGSD_WORKER_WRAPPER_FINISHED=true
 
+sgsd_codex_worker_nvm_bin() {
+    [[ -d "$HOME/.nvm/versions/node" ]] || return 1
+    find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1
+}
+
+sgsd_codex_worker_absolute_executable() {
+    local requested="$1" resolved directory name
+    resolved="$(command -v -- "$requested" 2>/dev/null || true)"
+    [[ -n "$resolved" && -f "$resolved" && -x "$resolved" ]] || return 1
+    if [[ "$resolved" == /* ]]; then
+        printf '%s\n' "$resolved"
+        return 0
+    fi
+    directory="${resolved%/*}"
+    name="${resolved##*/}"
+    [[ "$directory" != "$resolved" ]] || directory="."
+    directory="$(cd -- "$directory" 2>/dev/null && pwd -P)" || return 1
+    printf '%s/%s\n' "$directory" "$name"
+}
+
+sgsd_codex_worker_is_interop() {
+    local executable="$1" proc_version=""
+    case "${executable,,}" in
+        *.exe|*.cmd|*.bat) return 0 ;;
+    esac
+    if [[ -r /proc/version ]]; then IFS= read -r proc_version < /proc/version || true; fi
+    [[ "${proc_version,,}" == *microsoft* && "$executable" == /mnt/* ]]
+}
+
+# Pin the caller-visible native Codex before adding user-local Node paths. The
+# adapter reads its selector from the environment, so exporting the absolute
+# result is part of selection rather than a later availability check.
+sgsd_codex_worker_bootstrap() {
+    local argument expect_value=false self_test=false dry_run=false offline_only=false explicit=false
+    local selected candidate="" incoming="" nvm_bin=""
+    for argument in "$@"; do
+        if [[ "$expect_value" == true ]]; then expect_value=false; continue; fi
+        case "$argument" in
+            --help|-h) return 0 ;;
+            --self-test) self_test=true ;;
+            --self-test-exit-priority) offline_only=true ;;
+            --dry-run) dry_run=true ;;
+            --prompt-file|--report-out|--timeout|--project|--workspace|--phase|--plan|--step|--profile|--owner|--files|--contract|--model|--reasoning|--timeout-tier|--milestone|--patch-fallback-files)
+                expect_value=true ;;
+        esac
+    done
+
+    if [[ -n "${SGSD_CODEX_APP_SERVER_COMMAND:-}" ]]; then
+        selected="$SGSD_CODEX_APP_SERVER_COMMAND"
+        explicit=true
+    elif [[ -n "${SGSD_CODEX_COMMAND:-}" ]]; then
+        selected="$SGSD_CODEX_COMMAND"
+        explicit=true
+    else
+        selected="codex"
+    fi
+    CODEX_COMMAND="$selected"
+    SGSD_CODEX_SELECTION_STATUS="offline"
+
+    if [[ "$offline_only" != true ]]; then
+        incoming="$(sgsd_codex_worker_absolute_executable "$selected" || true)"
+        if [[ -z "$incoming" ]]; then
+            SGSD_CODEX_SELECTION_STATUS="missing"
+        elif sgsd_codex_worker_is_interop "$incoming"; then
+            SGSD_CODEX_SELECTION_STATUS="interop"
+        else
+            candidate="$incoming"
+            SGSD_CODEX_SELECTION_STATUS="ready"
+        fi
+        if [[ -z "$candidate" && "$explicit" == true ]]; then
+            if [[ "$self_test" != true ]]; then
+                export SGSD_CODEX_SELECTION_STATUS
+                if [[ "$SGSD_CODEX_SELECTION_STATUS" == "interop" ]]; then
+                    echo "SGSD_WORKER: unsupported Windows interop; use native Node and Codex in this shell" >&2
+                else
+                    echo "SGSD_WORKER: '$selected' CLI not found on incoming PATH" >&2
+                fi
+                return 3
+            fi
+        elif [[ -z "$candidate" ]]; then
+            candidate="$(sgsd_codex_worker_absolute_executable "$HOME/.local/bin/codex" || true)"
+            [[ -z "$candidate" ]] || ! sgsd_codex_worker_is_interop "$candidate" || candidate=""
+            nvm_bin="$(sgsd_codex_worker_nvm_bin || true)"
+            if [[ -z "$candidate" && -n "$nvm_bin" ]]; then
+                candidate="$(sgsd_codex_worker_absolute_executable "$nvm_bin/codex" || true)"
+                [[ -z "$candidate" ]] || ! sgsd_codex_worker_is_interop "$candidate" || candidate=""
+            fi
+            if [[ -n "$candidate" ]]; then SGSD_CODEX_SELECTION_STATUS="ready"; fi
+            if [[ -z "$candidate" && "$dry_run" != true && "$self_test" != true ]]; then
+                export SGSD_CODEX_SELECTION_STATUS
+                if [[ "$SGSD_CODEX_SELECTION_STATUS" == "interop" ]]; then
+                    echo "SGSD_WORKER: unsupported Windows interop Codex shim; install native Codex in WSL" >&2
+                else
+                    echo "SGSD_WORKER: 'codex' CLI not found on incoming PATH or native fallback locations" >&2
+                fi
+                return 3
+            fi
+        fi
+        if [[ -n "$candidate" ]]; then
+            CODEX_COMMAND="$candidate"
+            CODEX_BIN="$candidate"
+            export SGSD_CODEX_APP_SERVER_COMMAND="$candidate"
+        fi
+    fi
+    export SGSD_CODEX_SELECTION_STATUS
+
+    if [[ -d "$HOME/.local/bin" ]]; then PATH="$HOME/.local/bin:$PATH"; fi
+    [[ -n "$nvm_bin" ]] || nvm_bin="$(sgsd_codex_worker_nvm_bin || true)"
+    if [[ -n "$nvm_bin" ]]; then
+        SGSD_NODE_BIN="$nvm_bin"
+        PATH="$SGSD_NODE_BIN:$PATH"
+    fi
+    export PATH
+}
+
 sgsd_codex_worker_prepare() {
     local project="$1" workspace="$2" model="$3" reasoning="$4" deadline="$5" role="$6"
     local helper_dir node_platform
@@ -20,16 +135,12 @@ sgsd_codex_worker_prepare() {
     CODEX_LAUNCHER="direct"
     CODEX_PROJECT="$project"
     CODEX_CD="$workspace"
-    CODEX_BIN="$(command -v "$CODEX_COMMAND" 2>/dev/null || true)"
+    CODEX_BIN="$(sgsd_codex_worker_absolute_executable "$CODEX_COMMAND" || true)"
     node_platform="$(node -p 'process.platform' 2>/dev/null)"
     # Crossing cmd.exe/Windows Node loses POSIX cwd, stdio and private mailbox
     # semantics. A native CLI earlier on PATH is used without an interop shim.
-    if [[ "$node_platform" == "win32" || "$CODEX_BIN" == *.exe || "$CODEX_BIN" == *.cmd || "$CODEX_BIN" == *.bat ]]; then
+    if [[ "$node_platform" == "win32" ]] || { [[ -n "$CODEX_BIN" ]] && sgsd_codex_worker_is_interop "$CODEX_BIN"; }; then
         echo "SGSD_WORKER: unsupported Windows interop; use native Node and Codex in this shell" >&2
-        return 3
-    fi
-    if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null && [[ "$CODEX_BIN" == /mnt/* ]]; then
-        echo "SGSD_WORKER: unsupported Windows interop Codex shim; install native Codex in WSL" >&2
         return 3
     fi
     if [[ -z "$CODEX_BIN" && "${DRY_RUN:-false}" != true ]]; then
