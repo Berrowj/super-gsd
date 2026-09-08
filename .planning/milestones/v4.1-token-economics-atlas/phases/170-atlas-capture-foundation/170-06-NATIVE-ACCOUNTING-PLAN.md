@@ -30,6 +30,7 @@ No new provider call, proxy, always-running App Server or gate implementation.
 
 Files: new `super-gsd/tools/codex-worker/usage.cjs` and
 `super-gsd/tests/codex-worker/usage.test.cjs`; existing Atlas `contract.cjs`,
+one small shared source-accounting predicate module if required,
 `global-store.cjs`, `quota-sampler.cjs`, `global.cjs` registration/prepare wiring only, `server.cjs`
 typed spool/native-health wiring only, `audit.cjs`; related Atlas
 `store.test.cjs`, `global.test.cjs`, `receiver.test.cjs`, `audit.test.cjs`.
@@ -95,6 +96,10 @@ test script only if the existing test glob does not include the new tests.
   at registration and install the complete new dependency closure. Existing
   non-worker/manual Codex paths remain honestly legacy/partial, not silently
   advertised as using a reader they do not run.
+  Current installer copies the worker to both global tool roots but Atlas only
+  to the flat root. A new relative worker-to-Atlas import requires delivering
+  the Atlas closure beside the nested worker too; do not rely on a source-tree
+  fallback or a host-global module to make the installed test pass.
 - [ ] Run full worker, board, model-routing and Atlas suites on native Linux;
   installed empty-tree smoke must exercise the new module. Document source,
   response-versus-request identity, subsets, provenance and incomplete coverage.
@@ -126,6 +131,9 @@ runtime fingerprint/transition helper(s) if needed; `global.test.cjs`,
 - [ ] Wire installed Linux update after successful install/revision checks and
   before project pin/complete output. Failure leaves project pin unchanged;
   `--check` and `--no-install` never invoke transition. Do not edit Windows updater.
+  Preserve the running updater's parsed body across its own source/install
+  replacement (for example, parse its main function before invoking it). Test
+  self-replacement; do not broaden this into the parked installer transaction.
 - [ ] Tests: stable URLs/run IDs/old endpoint after replacement; queued event
   survival/dedup; competing launch/restart; requester crash/timeout and recovery;
   PID reuse/impostor/port takeover; disabled/absent; fingerprint immutability;
@@ -145,6 +153,10 @@ Files: executor reports, state and benchmark evidence pointers under `.planning/
   run normal DEVCP updater only from the already approved Clarity project. Prove
   source/install hashes and loaded receiver fingerprint/unchanged endpoints.
   Preserve all old panes/configs and all other project pins.
+  For the first upgrade, execute an exact hash-verified published updater staged
+  outside installer targets if the currently installed updater predates this
+  transition. This is the normal reviewed updater, not a hand-edited remote fix;
+  its current-project pin must still follow successful receiver verification.
 - [ ] Create one fresh normal-launcher Fable session and run unchanged B0-B7 only
   after B0 passes. Max five live wrapper attempts, 180 seconds each, 20 minutes
   live total. No source edits during benchmark, extra paid probes or retries.
