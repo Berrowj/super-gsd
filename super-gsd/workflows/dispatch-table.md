@@ -99,9 +99,8 @@ From `.planning/config.json`:
 ## Model Routing from config.json
 
 ```bash
-# Read model_routing from config.json
-CONFIG=$(cat .planning/config.json)
-MODEL_EXECUTOR=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.executor||'codex')")
-MODEL_CLASSIFIER=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.classifier||'codex')")
-MODEL_ORCHESTRATOR=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.orchestrator||'opus')")
+# Resolve each section independently from the validated routing catalog.
+MODEL_EXECUTOR=$(AGENT_ROLE=execution.executor SGSD_MODEL_ROUTING_FILE="$PWD/.planning/config.json" node super-gsd/scripts/lib/model-routing.cjs)
+MODEL_CLASSIFIER=$(AGENT_ROLE=lightweight.classifier SGSD_MODEL_ROUTING_FILE="$PWD/.planning/config.json" node super-gsd/scripts/lib/model-routing.cjs)
+MODEL_ORCHESTRATOR=$(AGENT_ROLE=orchestrator SGSD_MODEL_ROUTING_FILE="$PWD/.planning/config.json" node super-gsd/scripts/lib/model-routing.cjs)
 ```

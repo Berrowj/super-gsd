@@ -1,29 +1,37 @@
 {
+  "schema_version": 2,
+  "models": {
+    "fable": { "provider": "anthropic", "model": "fable" },
+    "astral": { "provider": "openai", "model": "astral" },
+    "opus": { "provider": "anthropic", "model": "opus-4.7-xhigh" },
+    "codex": { "provider": "openai", "model": "codex-gpt-5.5-xhigh" }
+  },
   "model_routing": {
     "orchestrator": {
-      "model": "opus-4.7-xhigh",
+      "default": "fable",
+      "allowed": ["fable", "opus", "codex", "astral"],
       "budget_per_unit": 1500,
       "notes": "Lean state machine. Read-dispatch-process-commit-loop. Never authors research, plans, code, or gates."
     },
     "deliberation": {
-      "ceo": { "model": "opus-4.7-xhigh", "budget": 2000 },
-      "board_members": { "model": "codex-gpt-5.5-xhigh", "budget_per_member": 2000, "max_round_2": 1500 }
+      "ceo": { "default": "opus", "allowed": ["fable", "opus", "codex", "astral"], "budget": 2000 },
+      "board_members": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget_per_member": 2000, "max_round_2": 1500 }
     },
     "execution": {
-      "researcher": { "model": "codex-gpt-5.5-xhigh", "budget": 3000 },
-      "planner": { "model": "codex-gpt-5.5-xhigh", "budget": 2500 },
-      "plan_checker": { "model": "codex-gpt-5.5-xhigh", "budget": 1500 },
-      "executor": { "model": "codex-gpt-5.5-xhigh", "budget": 4000 },
-      "verifier": { "model": "codex-gpt-5.5-xhigh", "budget": 3000 },
-      "code_reviewer": { "model": "codex-gpt-5.5-xhigh", "budget": 2500 },
-      "code_fixer": { "model": "codex-gpt-5.5-xhigh", "budget": 2000 }
+      "researcher": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 3000 },
+      "planner": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 2500 },
+      "plan_checker": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 1500 },
+      "executor": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 4000 },
+      "verifier": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 3000 },
+      "code_reviewer": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 2500 },
+      "code_fixer": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 2000 }
     },
     "lightweight": {
-      "classifier": { "model": "codex-gpt-5.5-xhigh", "budget": 200 },
-      "context_selector": { "model": "codex-gpt-5.5-xhigh", "budget": 300 },
-      "commit_writer": { "model": "codex-gpt-5.5-xhigh", "budget": 150 },
-      "stuck_detector": { "model": "codex-gpt-5.5-xhigh", "budget": 200 },
-      "decay_scorer": { "model": "codex-gpt-5.5-xhigh", "budget": 150 }
+      "classifier": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 200 },
+      "context_selector": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 300 },
+      "commit_writer": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 150 },
+      "stuck_detector": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 200 },
+      "decay_scorer": { "default": "codex", "allowed": ["fable", "opus", "codex", "astral"], "budget": 150 }
     }
   },
   "token_efficiency": {

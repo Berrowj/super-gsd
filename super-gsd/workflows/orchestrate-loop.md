@@ -257,13 +257,11 @@ Token budget check:
 ### Step 7: Dispatch
 
 ```bash
-# Resolve model: classifier output takes precedence, fallback to config.json model_routing
-CONFIG_MODEL=$(cat .planning/config.json | node -e "
-  const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-  const role=process.env.AGENT_ROLE||'executor';
-  process.stdout.write(c.model_routing?.[role]||'codex');
-")
-DISPATCH_MODEL="${CLASSIFIER_MODEL:-$CONFIG_MODEL}"
+# Resolve model: explicit role override, then classifier output, then role default.
+DISPATCH_MODEL=$(AGENT_ROLE="${AGENT_ROLE:-execution.executor}" \
+  CLASSIFIER_MODEL="${CLASSIFIER_MODEL:-}" \
+  SGSD_MODEL_ROUTING_FILE="${SGSD_MODEL_ROUTING_FILE:-$PWD/.planning/config.json}" \
+  node super-gsd/scripts/lib/model-routing.cjs)
 
 # Apply @file: IPC guard on all gsd-tools output
 RESULT=$(node "$GSD_TOOLS" state advance-plan)
