@@ -58,9 +58,14 @@ typed spool/native-health wiring only, `audit.cjs`; related Atlas
   old ledgers or changing legacy registrations. Provider/role/project authority
   still comes from registration; strict source/schema checks at spool and direct
   ingestion must reject forged/mismatched accounting envelopes.
+  Native rollout observations enter through the verified private spool route;
+  a canonical HTTP body or unqualified direct-ingest call cannot self-authorize
+  that source. Carry intake authority out-of-band, never in event fields.
 - [ ] Extend existing spool drain and native-request health observation honestly.
   Extend audit to recognise real native completed response IDs, without claiming
   HTTP request identity or complete coverage. Keep quota, gap and integrity WARNs.
+  Put capture/spool gaps in the registered global project/root evidence location,
+  not only project-local `.planning/metrics`, which the global audit does not read.
 - [ ] Tests: split/truncated/oversized lines; privacy canaries in all ignored
   record types; missing path/usage/identity; invalid numbers; wrong thread/turn;
   old resumed/fork history; repeated scans/restarts; duplicate/conflicting IDs;
@@ -82,6 +87,8 @@ test script only if the existing test glob does not include the new tests.
 - [ ] First RED: native-shaped fake peer writes durable usage before completion;
   actual adapter currently emits no canonical observation. Exercise real mailbox,
   RPC, final report validation and spool boundary, mocking only provider exchange.
+  Include the existing timeout callback's early `rpc.close()`, and a fault that
+  already killed the transport; a final-only success-path projector is insufficient.
 - [ ] Establish source baseline after verified thread open and before turn/start;
   bind acknowledged thread/turn, collect periodically and before `rpc.close()` on
   normal/failed/interrupted/timeout paths. Keep the existing bounded deadline and
