@@ -155,3 +155,8 @@ ran native Linux usage/store/global/audit (57 PASS / 0 FAIL / 0 SKIP in 1.735 s)
 and confirmed the clean diff. Source remained unchanged after main's passing
 verification. Both SPEC and QUALITY passed; Task 1 is ready for its local
 commit. No publication, DEVCP transition or live acceptance is implied.
+
+Task 1 committed locally as `472814a` after both reviews and main verification.
+The only remaining untracked path immediately after commit was the user's
+`.planning/tmp/`, preserved untouched. Task 2 adapter lifecycle, Linux wrapper
+authority and nested installed runtime closure implementation is now active.
