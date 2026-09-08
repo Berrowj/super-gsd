@@ -46,7 +46,10 @@ not read project-local gap files; provider response reuse across project ledgers
 needs an audit check; installed nested workers need the adjacent Atlas closure;
 and an updater must survive replacement of its own script while running.
 
-These are design checks, not passing implementation tests. Source Task 1 has not
-started yet; 170-05's native-input repair is currently the only implementation
-task in flight. No complete provider reconciliation or safe weekly totals are
-claimed from the existing incomplete capture.
+These are design checks, not passing implementation tests. At 21:29 UTC,
+170-05's three source repairs are committed and independently reviewed through
+`976f439`. Main's fresh final Atlas baseline is 58 PASS/0 FAIL/4 top-level skips
+plus nested runtime 15 PASS/0 FAIL/1 opt-in skip. Native-accounting Task 1 is now
+entering implementation; no other source implementation task is in flight.
+No complete provider reconciliation or safe weekly totals are claimed from
+the existing incomplete capture.
