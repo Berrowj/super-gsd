@@ -20,6 +20,11 @@ or restore sandboxed worker flags; those modes cannot satisfy this connection.
 For live workers use `/sgsd-workers`, not profile mutation. Launch the existing
 wrapper with Bash `run_in_background: true`, then service its exact project/
 worker inbox until the wrapper exits and the existing report checks pass.
+Use priority-first supervision: before launching, prepare absolute control and
+project paths, owner/dispatch bindings, the fresh report path and its expected
+schema/validator. Check owned inboxes before lengthy reads; pending questions
+preempt failed-worker investigation, so defer unrelated diagnostics until each
+question is answered from approved evidence or escalated.
 </worker_connection>
 
 <commands>

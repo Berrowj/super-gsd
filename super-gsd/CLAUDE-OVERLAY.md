@@ -31,6 +31,11 @@ gate. SGSD worker mode is retained App Server + `danger-full-access` + approval
 `never`; advisory no-edit roles remain workflow contracts, not OS isolation.
 Never use `--last`, silently change models/auth, or start another Fable to answer
 a question. This procedure overrides legacy blocking examples below.
+Supervision is priority-first: before launching any unit or advisory wave,
+prepare absolute control/project paths, owner/dispatch bindings, fresh report
+paths and expected schemas/validators. Check owned inboxes before lengthy reads
+or report work. Pending questions preempt failed-peer investigation;
+defer unrelated diagnostics until the question is answered or escalated.
 An operator-only worker authority question (or its response deadline) is also
 an explicit exception to the ordinary board/challenge recovery requirement:
 escalate directly and do not spend on another model round to recreate missing

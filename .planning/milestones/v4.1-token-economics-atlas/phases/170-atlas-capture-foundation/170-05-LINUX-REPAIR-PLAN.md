@@ -37,10 +37,10 @@ Files: `super-gsd/scripts/lib/codex-worker-shell.sh`,
 `super-gsd/tests/codex-worker/launch.test.cjs`,
 `super-gsd/tests/codex-worker/install.test.cjs`.
 
-- [ ] Run the existing Linux wrapper/installation baseline with native Node.
+- [x] Run the existing Linux wrapper/installation baseline with native Node.
   The development worktree is already linked; do not create another worktree,
   change host toolchain/configuration, or modify `.planning/tmp/`.
-- [ ] Extend the isolated native fixture with a user-local executable and a
+- [x] Extend the isolated native fixture with a user-local executable and a
   competing nvm executable. Let the original PATH select the user-local one,
   and assert which executable actually receives the App Server frames. Remove
   the fixture's absolute `SGSD_CODEX_APP_SERVER_COMMAND` override for default
@@ -56,7 +56,7 @@ Files: `super-gsd/scripts/lib/codex-worker-shell.sh`,
   assert.equal(frames(f).filter(frame => frame.method === 'turn/start').length, 1);
   ```
 
-- [ ] Add a shared bootstrap function and invoke it before profile/Node work in
+- [x] Add a shared bootstrap function and invoke it before profile/Node work in
   all three wrappers. Selection precedence stays:
 
   ```bash
@@ -72,12 +72,12 @@ Files: `super-gsd/scripts/lib/codex-worker-shell.sh`,
   invalid or interop selector remains a visible failure, not a fallback.
   Do not introduce `eval`, shell command strings, version-based CLI selection,
   one-shot fallback, model substitution, installation or removal.
-- [ ] Protect explicit absolute/basename override precedence, quoted/spaced and
+- [x] Protect explicit absolute/basename override precedence, quoted/spaced and
   relative executable paths, native shebangs, Node available only in nvm,
   invalid explicit selectors and Windows/WSL interop refusal. Preserve `--help`
   and offline self-test behavior when no real Codex is installed. Include patch
   wrapper coverage and the isolated installed wrapper's competing-binary case.
-- [ ] Verify GREEN on the new tests, existing worker suite, board dispatch and
+- [x] Verify GREEN on the new tests, existing worker suite, board dispatch and
   Linux install contracts. Use these bounded commands from the repository root:
 
   ```bash
@@ -100,7 +100,7 @@ worker-supervision paragraphs in `super-gsd/CLAUDE-OVERLAY.md`, `CLAUDE.md`,
 `super-gsd/skills/sgsd-deliberate/SKILL.md`,
 `super-gsd/skills/sgsd-codex-control/SKILL.md`, `super-gsd/agents/sgsd-ceo.md`.
 
-- [ ] Read the skill-writing instructions before editing any SKILL.md. The prior
+- [x] Read the skill-writing instructions before editing any SKILL.md. The prior
   actual-Fable 83.9-second failure is behavioral RED evidence. Add a static
   regression requiring `priority-first`, prelaunch preparation and explicitly
   deferred unrelated diagnostics; run it and observe the missing contract.
@@ -111,18 +111,18 @@ worker-supervision paragraphs in `super-gsd/CLAUDE-OVERLAY.md`, `CLAUDE.md`,
   assert.match(text, /defer unrelated diagnostics/i);
   ```
 
-- [ ] Update the existing supervision loop: prepare absolute control paths,
+- [x] Update the existing supervision loop: prepare absolute control paths,
   dispatch bindings and schemas before launch; check owned inboxes before
   lengthy reading/report work; service pending questions before diagnosing a
   failed peer. Poll every 5-10 seconds, with the unchanged 30-second target.
   Once both benchmark questions are pending, retain the required five-second
   hold and exact-target negative tests. Never precompute challenge answers.
-- [ ] Preserve operator-only escalation, normal safe-source answers, stale/
+- [x] Preserve operator-only escalation, normal safe-source answers, stale/
   duplicate rejection, receipt-versus-success distinctions and report gates.
   No automatic answer generator, second Fable, new broad supervisor daemon,
   model/effort change or time-target relaxation. Keep the worker skill concise
   and its existing XML structure and under-200-line contract.
-- [ ] Run `node --test super-gsd/tests/codex-worker/orchestration.test.cjs`;
+- [x] Run `node --test super-gsd/tests/codex-worker/orchestration.test.cjs`;
   expected no failures. Static GREEN establishes instruction presence, not live
   latency. Live proof remains in the later fresh bounded benchmark. Review and
   commit task-owned paths only.

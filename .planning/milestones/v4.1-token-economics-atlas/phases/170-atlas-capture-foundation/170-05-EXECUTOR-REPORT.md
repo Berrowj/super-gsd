@@ -84,9 +84,54 @@ kept receipts distinct from success, but no commands or timing were tested.
 This synthetic PASS does not erase the real failure or prove the planned edit;
 post-edit pressure checks and the later actual Fable benchmark remain required.
 
+Task 2 static RED on `8181238` plus test-only edits: native Linux
+`node --test super-gsd/tests/codex-worker/orchestration.test.cjs` reported
+2 PASS/2 FAIL. The two failures identify the missing `priority-first` contract
+in the worker skill and an orchestration entrypoint. Scoped instruction changes
+are now in progress; no provider or remote operation was used.
+
+Main independently ran the initial instruction patch: 4 PASS/0 FAIL/0 SKIP,
+180.501 ms. Independent specification review found two gaps: the 30-second
+wording measured another poll instead of applied reply, and the benchmark's
+both-pending/challenge/hold exception was unstated. Two added regressions then
+reported 4 PASS/2 FAIL before the instruction repair and 6 PASS/0 FAIL after it.
+Main requested one final ordering clarification: wrong-project/owner checks
+precede replies, but the duplicate-answer check follows the first applied reply.
+That final ordering clause was reproduced as 5 PASS/1 FAIL and fixed to 6 PASS/0
+FAIL. Independent specification re-review: PASS. Main independently reran the
+corrected skill tests: 6 PASS/0 FAIL/0 SKIP, 226.568 ms, clean whitespace check.
+
+Independent quality review: ready for integration, no blocking regression.
+It identified one LOW static-coverage gap: removing the literal wrong-project/
+wrong-owner clause or moving the duplicate check after the remaining reply still
+passed the tests. Two test-only assertions now reject both in-memory mutants;
+the production skill was never replaced for these checks. Main independently
+reran the final suite: 6 PASS/0 FAIL/0 SKIP, 154.184 ms; diff check clean. The
+small test-only correction also passed independent quality re-review: LOW
+finding closed, ready for integration, both mutants independently rejected.
+
+Updated-skill synthetic pressure exercise: the independent reviewer chose B's
+pending ordinary question (observed 19 seconds ago) before A's 45-second failure
+diagnostic and C's 40-second report validation; verified exact bindings, reply,
+receipt and status without treating delivery as task success. It preserved the
+both-pending/hold/negative-check order, generated nothing while only one question
+was pending, and escalated a credential variant without manufacturing authority.
+No control commands were executed. This is instruction-pressure evidence, not
+actual Fable or measured latency; the prior 83.9-second behavioral RED remains.
+
+## Task 3 native-input baseline
+
+Before telemetry input changes, main ran native Linux `npm run test:atlas`:
+57 PASS/0 FAIL/4 top-level SKIP, 68.863 seconds, exit 0. The nested custom runtime
+suite separately reported 15 PASS/0 FAIL/1 SKIP. Skip reasons: three PowerShell
+launcher cases on Linux, opt-in pinned stack installation, and nested opt-in real
+stack lifecycle. The actual global empty-tree installer test ran. Runtime quota
+p95 was 0.639 ms in this Linux invocation; this does not close Windows latency.
+
 ## Remaining work
 
-- Task 2: priority-first Fable supervision and instruction pressure test.
+- Task 2 source/instruction pressure checks complete; actual Fable latency still
+  requires the fresh bounded benchmark after the combined candidate is deployed.
 - Task 3: Claude session identity flag and native Codex `event.kind` recognition,
   with honest missing-identity coverage.
 - Paired 170-06: genuine native per-response accounting and owned same-port

@@ -66,6 +66,13 @@ wrapper via Bash `run_in_background: true`, with a checkpointed
 while it runs. This applies to research, planning, classification, reviewers,
 verifiers, executors and recovery challenges—not only board seats.
 
+Use priority-first supervision. Before launching any unit or advisory wave,
+prepare absolute control/project paths, owner and dispatch bindings, fresh report
+paths, and expected report schemas/validators. Once workers are live, check owned
+inboxes before lengthy reading or report work. Pending questions preempt failed-
+peer investigation: defer unrelated diagnostics until each question is answered
+from approved evidence or escalated through the operator path.
+
 Persist worker UUID, background task handle, exact selected model/effort and
 fresh report path. Answer missing context from approved evidence; escalate
 operator-only actions without inventing approval. Check command receipts and

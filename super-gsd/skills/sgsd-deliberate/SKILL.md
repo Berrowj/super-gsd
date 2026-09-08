@@ -24,6 +24,11 @@ Token budget: 10,400 (1 round) to 16,400 (2 rounds). Only use for high-stakes de
 <worker_connection>
 Before any external seat launch, read `/sgsd-workers` and supervise it from this
 same CEO/Fable session. Record a stable `UNIT=fable.ceo.<deliberation-run-id>`.
+Use priority-first supervision: before launching any seat, prepare absolute
+control/project paths, every seat/round/attempt binding, fresh report path and
+expected position schema/validator. Check owned inboxes before lengthy reading
+or vote processing; pending questions preempt failed-seat investigation, so
+defer unrelated diagnostics until they are answered or escalated.
 Pass `--owner "$UNIT"` when preparing every descriptor, including every round
 and retry. Require its returned `worker_owner` to match; launch environment
 alone cannot override the descriptor's embedded `--owner` flag. Run that command
