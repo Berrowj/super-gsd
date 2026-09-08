@@ -12,6 +12,9 @@
   Codex-owned gates. Dispatch runs through the
   existing `codex-*` scripts and agent names, which are file identifiers and do
   not change.
+- Resolve each dispatch's model and effort from its selected registry profile
+  or board descriptor. Display names are not wire IDs; never hard-code an
+  Astra/Luna label or substitute another model when resolution fails.
 - Sonnet is not a fresh-clone default provider and is not a Codex fallback.
   If a later legacy line says to dispatch Sonnet for one of those surfaces, treat
   it as stale and route through Codex instead.
@@ -111,7 +114,7 @@ Codex host read failures are routing problems, not operator decisions, while
 `CreateProcessAsUserW`, `error 216`, or an equivalent file-read block, build a
 bounded `{planId}-CODEX-FILES.txt` allowlist/read-pack and let Codex author a
 unified diff through patch mode. The orchestrator may assemble the read-pack and
-apply Astra Max's patch; it must not author the code delta.
+apply the Codex worker's patch; it must not author the code delta.
 
 ## Super GSD — Autonomous Execution Engine
 
@@ -234,19 +237,19 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 
 | # | Condition | Action | Agent | Model |
 |---|-----------|--------|-------|-------|
-| 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Run readiness audit through Codex/local checks | codex-readiness | astra-max |
+| 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Run readiness audit through Codex/local checks | codex-readiness | resolved profile |
 | 0.5 | READINESS status = BLOCKED or PARTIAL AND user said "go" | Auto-continue on DEGRADED-PATH if one exists; pause only when no runnable path remains | — | — |
 | 1 | Phase not discussed | Suggest /gsd-discuss-phase | — | — |
-| 2 | Phase needs RESEARCH.md | Dispatch Codex research | codex-research | astra-max |
-| 3 | Phase needs PLAN.md | Dispatch Codex planning | codex-plan | astra-max |
-| 4 | Plans need checking | Dispatch Codex plan-check | codex-plan-check | astra-max |
-| 4.5 | About to make FIRST executor dispatch of a phase | Run phase-readiness re-probe | codex-readiness | astra-max |
+| 2 | Phase needs RESEARCH.md | Dispatch Codex research | codex-research | resolved profile |
+| 3 | Phase needs PLAN.md | Dispatch Codex planning | codex-plan | resolved profile |
+| 4 | Plans need checking | Dispatch Codex plan-check | codex-plan-check | resolved profile |
+| 4.5 | About to make FIRST executor dispatch of a phase | Run phase-readiness re-probe | codex-readiness | resolved profile |
 | 4.6 | Phase-readiness returned DRIFT | Continue on deterministic degraded/local path; checkpoint only if no runnable executor path remains | — | — |
-| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | astra-max |
-| 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | astra-max |
-| 6 | All plans executed | Dispatch Codex verifier | codex-verify | astra-max |
+| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | resolved profile |
+| 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | resolved profile |
+| 6 | All plans executed | Dispatch Codex verifier | codex-verify | resolved profile |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
-| 8 | Verification failed | Dispatch Codex planner --gaps | codex-plan | astra-max |
+| 8 | Verification failed | Dispatch Codex planner --gaps | codex-plan | resolved profile |
 | 9 | All phases complete | Exit loop | — | — |
 
 ### Readiness Gates — unattended-run contract
@@ -274,8 +277,8 @@ Readiness is **stale** if any phase directory under
 | Orchestrator (you) | Fable | Judgment, dispatch, synthesis |
 | Classifier | Codex/local | Derive locally from plan frontmatter/cache |
 | Context selector | Codex/local | Pick relevant sgsd-recall queries from plan evidence |
-| Code execution | Astra Max | Fable orchestrates; Astra Max edits; patch mode handles Windows read-blocks |
-| Verifier/checker/gates | Astra Max | Verification, readiness, ATC, MUDA, and plan-check |
+| Code execution | Resolved Codex profile | Fable orchestrates; the selected worker edits; patch mode handles Windows read-blocks |
+| Verifier/checker/gates | Resolved Codex profile | Verification, readiness, ATC, MUDA, and plan-check |
 
 ### Sub-Agent Prompt Composition
 

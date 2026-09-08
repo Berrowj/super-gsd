@@ -22,11 +22,11 @@ formal_phase_close: NOT_CLAIMED
 
 Files: the existing 170-02 automatic Atlas and 170-03 worker source/config/instruction/test changes; `package.json`; the three 2026-09-08 worker analyses and HTML explainer; their phase plans/reports; this plan. Include required missing model-routing tests and the v4.1 planning/design prerequisites from the local feature history. Do not publish unrelated phase-169 edits or `.planning/tmp` contents.
 
-- [ ] Record current branch, dirty-file inventory and local/published SHAs. Preserve the harness-owned worktree; no recursive cleanup, reset, forced checkout or force push.
-- [ ] Preserve the local work on a recoverable branch/commit before integration. Construct the release candidate on the fetched `origin/master`, preserving its CEO/Contrarian Fable selection, model-routing schema and payload-cwd Codex hook fixes. Resolve overlaps semantically; never replace all published files with an older tree.
-- [ ] Keep `.planning/config.json` operator choices from the published revision unless a change is strictly required and separately explained. Do not resurrect obsolete live checkpoints. Preserve local-only historical work on its original branch.
-- [ ] Correct the benchmark's ambiguous board helper reference to `super-gsd/scripts/lib/board-dispatch.cjs` and append the new observed clean `f9f5d0d2` baseline without erasing the earlier observation. Do not claim the benchmark passed.
-- [ ] Review the candidate diff for missing runtime dependencies, ignored/untracked release files, secrets, evidence dumps and unrelated changes. Commit with a bounded release message; do not publish yet.
+- [x] Record current branch, dirty-file inventory and local/published SHAs. Preserve the harness-owned worktree; no recursive cleanup, reset, forced checkout or force push.
+- [x] Preserve the local work on a recoverable branch/commit before integration. Construct the release candidate on the fetched `origin/master`, preserving its CEO/Contrarian Fable selection, model-routing schema and payload-cwd Codex hook fixes. Resolve overlaps semantically; never replace all published files with an older tree.
+- [x] Keep `.planning/config.json` operator choices from the published revision unless a change is strictly required and separately explained. Do not resurrect obsolete live checkpoints. Preserve local-only historical work on its original branch.
+- [x] Correct the benchmark's ambiguous board helper reference to `super-gsd/scripts/lib/board-dispatch.cjs` and append the new observed clean `f9f5d0d2` baseline without erasing the earlier observation. Do not claim the benchmark passed.
+- [x] Review the candidate diff for missing runtime dependencies, ignored/untracked release files, secrets, evidence dumps and unrelated changes. Commit with a bounded release message; do not publish yet.
 
 ## Task 2: Verify and review the exact candidate
 
@@ -41,9 +41,9 @@ node super-gsd/tools/codex-pro/run-self-test.cjs
 git diff --check origin/master..HEAD
 ```
 
-- [ ] Run the Windows baseline and native Linux/WSL candidate suites. Record pass/fail/skip totals. Require the isolated global-install and Bash wrapper tests to actually run on Linux. Do not run an unbounded repository-wide test discovery or any paid worker probe.
-- [ ] Validate changed Bash syntax, JSON/config parsing and the existing hook-manifest verification command. Check any changed hook tests using existing tooling.
-- [ ] Independently review specification compliance, then code quality/integration. Fix only concrete release blockers under this plan, with regression evidence; unresolved failures prevent publication.
+- [x] Run the Windows baseline and native Linux/WSL candidate suites. Record pass/fail/skip totals. Require the isolated global-install and Bash wrapper tests to actually run on Linux. Do not run an unbounded repository-wide test discovery or any paid worker probe.
+- [x] Validate changed Bash syntax, JSON/config parsing and the existing hook-manifest verification command. Check any changed hook tests using existing tooling.
+- [x] Independently review specification compliance, then code quality/integration. Fix only concrete release blockers under this plan, with regression evidence; unresolved failures prevent publication except the operator's explicit Linux-only/Windows-deferred decision recorded below.
 - [ ] Record exact evidence and limitations in `170-04-EXECUTOR-REPORT.md`. Confirm the source and benchmark are present in the committed release tree. Recheck upstream immediately before a normal fast-forward push; if it moved, reconcile and reverify affected paths. Never force push or bypass hooks.
 
 ## Task 3: Deploy through the guarded updater
@@ -66,3 +66,25 @@ Use `.planning/analyses/2026-09-08-devcp-worker-acceptance-benchmark.md`. At mos
 - [ ] Report WORKER_BRIDGE, ATLAS_OBSERVED_CAPTURE and DEVCP_ROLLOUT separately, with the new session/evidence location. Preserve pre-existing worktree/pane limitations and missing exhaustive coverage. Do not mark phase 170 or a milestone closed.
 
 Rollback boundary: if installation or benchmark fails, preserve source/history/evidence and existing panes. Do not automatically revert the published branch, delete telemetry or kill unrelated processes. Report the exact failure and the smallest next action.
+
+## Prepublication repairs identified by Task 2
+
+Operator decision at 2026-09-08 18:16 UTC: "proceed with devcp/linux for now but
+we still need t fix windows". A verified Linux deployment may proceed with the
+diagnosed Windows quota latency criterion explicitly unresolved. This is not
+a Windows pass, a waived phase/release gate, or all-platform rollout completion.
+Windows remains required follow-up work; do not weaken its threshold or change
+host security settings. Other release/test failures still block publication.
+
+- Installed model-resolution closure: `super-gsd/install.sh` and the existing
+  `super-gsd/tests/codex-worker/install.test.cjs` must prove the installed
+  generic wrapper uses the shipped profile model/effort, and the installed
+  board helper can resolve its registry/config/dependencies without a source
+  checkout. Preserve operator configuration and require RED/GREEN evidence.
+- Hermetic launcher fixture: the existing fake Claude in Atlas
+  `runtime.test.cjs` must be discoverable on the fixture PATH. A native shell
+  without the host Claude CLI exposed this dependency; no live CLI is needed
+  by this offline test.
+- Investigate the unchanged Windows quota recorder's measured p95 failures.
+  Do not relax the ten-millisecond threshold, remove filesystem safety checks,
+  or change host security settings to obtain a pass.

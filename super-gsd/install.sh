@@ -276,6 +276,49 @@ copy_tree_files() {
   fi
 }
 
+global_runtime_dependencies_ready() {
+  local dependency_root="$SCRIPT_DIR/tools/plan-schema/node_modules"
+  local yaml_entry="$dependency_root/js-yaml/index.js"
+  local argparse_entry="$dependency_root/argparse/argparse.js"
+  [[ -f "$yaml_entry" && -f "$argparse_entry" ]] || return 1
+  node --no-global-search-paths - "$yaml_entry" "$argparse_entry" >/dev/null 2>&1 <<'NODE'
+const yaml = require(process.argv[2]);
+const argparse = require(process.argv[3]);
+if (yaml.load('ready: true\n').ready !== true || typeof yaml.dump !== 'function'
+    || typeof argparse.ArgumentParser !== 'function') process.exit(1);
+NODE
+}
+
+ensure_global_runtime_dependencies() {
+  global_runtime_dependencies_ready && return 0
+  local dependency_root="$SCRIPT_DIR/tools/plan-schema"
+  if [[ ! -f "$dependency_root/package.json" || ! -f "$dependency_root/package-lock.json" ]]; then
+    echo "ERROR: pinned plan-schema package manifest/lock missing; refusing global install" >&2
+    return 1
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "ERROR: npm is required to bootstrap the installed profile/board runtime" >&2
+    return 1
+  fi
+  if ! command -v timeout >/dev/null 2>&1; then
+    echo "ERROR: timeout is required to bound the installed runtime dependency bootstrap" >&2
+    return 1
+  fi
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "ERROR: installed runtime dependencies are absent; dry-run will not run npm ci" >&2
+    return 1
+  fi
+  log "Bootstrapping pinned profile/board runtime dependencies..."
+  if ! (cd "$dependency_root" && timeout --signal=TERM --kill-after=5s 120s npm ci --ignore-scripts --no-audit --no-fund); then
+    echo "ERROR: installed runtime dependency bootstrap failed" >&2
+    return 1
+  fi
+  if ! global_runtime_dependencies_ready; then
+    echo "ERROR: installed runtime dependency bootstrap was incomplete" >&2
+    return 1
+  fi
+}
+
 remove_path_if_exists() {
   target="$1"
   if [ "$DRY_RUN" = true ]; then
@@ -651,6 +694,12 @@ install_global_assets() {
   fi
   copy_files_to_root "$GLOBAL_SCRIPTS_DIR/lib" "${script_lib_sources[@]}"
   copy_tree_files "$SCRIPT_DIR/tools/codex-worker" "$CLAUDE_DIR/super-gsd/tools/codex-worker"
+  copy_file "$SCRIPT_DIR/tools/codex-pro/profile-resolver.cjs" "$CLAUDE_DIR/super-gsd/tools/codex-pro/profile-resolver.cjs"
+  copy_file "$SCRIPT_DIR/registry/codex-profiles.yaml" "$CLAUDE_DIR/super-gsd/registry/codex-profiles.yaml"
+  copy_file "$SCRIPT_DIR/registry/board-members.yaml" "$CLAUDE_DIR/super-gsd/registry/board-members.yaml"
+  copy_file "$SCRIPT_DIR/config/model-routing.json" "$CLAUDE_DIR/super-gsd/config/model-routing.json"
+  copy_tree_files "$SCRIPT_DIR/tools/plan-schema/node_modules/js-yaml" "$CLAUDE_DIR/super-gsd/tools/plan-schema/node_modules/js-yaml"
+  copy_tree_files "$SCRIPT_DIR/tools/plan-schema/node_modules/argparse" "$CLAUDE_DIR/super-gsd/tools/plan-schema/node_modules/argparse"
   if [[ -f "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" ]]; then
     copy_file "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" "$CLAUDE_DIR/super-gsd/tools/state-resolver/resolve.cjs"
   fi
@@ -823,6 +872,13 @@ precheck_installation_refusals() {
   if [[ ! -f "$INSTALL_CONTRACT_SCRIPT" ]]; then
     echo "ERROR: hook install contract missing: $INSTALL_CONTRACT_SCRIPT" >&2
     exit 1
+  fi
+  # Missing hook sources are independent of npm and must refuse before the
+  # bootstrap can mutate the source tree. Manifest checking and candidate hook
+  # smoke consume the pinned plan-schema dependencies themselves.
+  refuse_missing_codex_hook_entry_sources || exit 1
+  if [[ "$INSTALL_GLOBAL" == true ]]; then
+    ensure_global_runtime_dependencies
   fi
   node "$INSTALL_CONTRACT_SCRIPT" --check-manifest || exit $?
   local candidate_output

@@ -295,7 +295,9 @@ test('real launcher bounds a stalled attachment and preserves direct Claude argv
     const recorded = path.join(root, 'operator-command');
     fs.writeFileSync(path.join(bin, 'tmux'), '#!/bin/bash\ncase "$1" in\n has-session) exit 1;;\n new-session) printf "%s" "${@: -1}" > "$ATLAS_TEST_COMMAND";;\n display-message|split-window) printf "%%1\\n";;\nesac\n', { mode: 0o700 });
     const argsFile = path.join(root, 'claude-argv');
-    const fakeClaude = path.join(root, 'fake-claude');
+    // Discovery is part of the launcher contract; do not depend on a host CLI
+    // being installed merely to exercise the recorded command with this fake.
+    const fakeClaude = path.join(bin, 'claude');
     fs.writeFileSync(fakeClaude, '#!/bin/bash\nprintf "%s\\n" "$@" > "$ATLAS_TEST_ARGV"\n', { mode: 0o700 });
     const started = performance.now();
     const launch = spawnSync('bash', [path.join(__dirname, '../../scripts/sgsd-remote-tmux.sh'), '--project', projectDir,
