@@ -16,6 +16,11 @@
 
 set -u
 
+# Selection must observe the shell exactly as the caller supplied it. The
+# shared helper adds Node recovery paths only after pinning that executable.
+SGSD_CALLER_CWD="$(pwd -P)"
+SGSD_CALLER_PATH="$PATH"
+
 PROJECT_DIR="${SGSD_PROJECT_DIR:-/opt/clarity/project-clarity-erp}"
 SESSION="${SGSD_TMUX_SESSION:-clarity-sgsd}"
 SCRIPTS_DIR="${SGSD_SCRIPTS_DIR:-}"
@@ -126,17 +131,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# SSH/non-login shells on dev boxes often skip profile PATH additions.
-if [[ -d "$HOME/.local/bin" ]]; then
-  PATH="$HOME/.local/bin:$PATH"
-fi
-if [[ -d "$HOME/.nvm/versions/node" ]]; then
-  SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
-  if [[ -n "$SGSD_NODE_BIN" ]]; then
-    PATH="$SGSD_NODE_BIN:$PATH"
-  fi
-fi
-export PATH
+SGSD_LAUNCHER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" \
+  || die "cannot resolve launcher directory"
 
 PROJECT_DIR="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" || die "project not found: $PROJECT_DIR"
 [[ -d "$PROJECT_DIR/.planning" ]] || die "missing .planning/ under $PROJECT_DIR"
@@ -188,6 +184,16 @@ export SGSD_SCRIPTS_DIR="$SCRIPTS_DIR"
 export SGSD_AGENTS_DIR="$AGENTS_DIR"
 export SGSD_SOURCE_DIR="$SOURCE_DIR"
 
+select_codex() {
+  local selector_helper="$SGSD_LAUNCHER_DIR/lib/codex-worker-shell.sh"
+  [[ -f "$selector_helper" ]] || die "missing Codex selector helper: $selector_helper"
+  PATH="$SGSD_CALLER_PATH"
+  cd "$SGSD_CALLER_CWD" || die "cannot restore caller cwd: $SGSD_CALLER_CWD"
+  # shellcheck source=lib/codex-worker-shell.sh
+  source "$selector_helper"
+  sgsd_codex_worker_bootstrap --dry-run
+}
+
 COCKPIT_SERVER_START="$SCRIPTS_DIR/start-cockpit-server.sh"
 
 if [[ "$SESSION" =~ [^A-Za-z0-9_.:-] ]]; then
@@ -218,7 +224,11 @@ doctor() {
   check_cmd bash || true
   check_cmd node || true
   check_cmd claude || true
-  check_cmd codex || true
+  if [[ "${SGSD_CODEX_SELECTION_STATUS:-missing}" == ready ]]; then
+    printf "  [OK]   codex: %s\n" "$SGSD_CODEX_APP_SERVER_COMMAND"
+  else
+    printf "  [MISS] codex (%s)\n" "${SGSD_CODEX_SELECTION_STATUS:-missing}"
+  fi
   check_cmd pwsh || true
   [[ -f "$COCKPIT_SERVER_START" ]] && echo "  [OK]   localhost cockpit start script: $COCKPIT_SERVER_START" || echo "  [MISS] localhost cockpit start script"
   if [[ -f "$PROJECT_DIR/.planning/runtime/cockpit-server.url" ]]; then
@@ -253,13 +263,16 @@ start_localhost_cockpit() {
 }
 
 if [[ "$DOCTOR" = true ]]; then
+  select_codex || die "explicit Codex selector is unavailable"
   doctor
   exit 0
 fi
 
+select_codex || die "explicit Codex selector is unavailable"
 command -v tmux >/dev/null 2>&1 || die "tmux is not installed"
 command -v claude >/dev/null 2>&1 || warn "Claude CLI not on PATH; operator pane will open a shell"
-command -v codex >/dev/null 2>&1 || warn "Codex CLI not on PATH; Codex execution will fail until fixed"
+[[ "${SGSD_CODEX_SELECTION_STATUS:-missing}" == ready ]] \
+  || warn "Codex CLI not on incoming PATH or native fallback locations; Codex execution will fail until fixed"
 
 mkdir -p "$PROJECT_DIR/.planning/metrics"
 touch "$PROJECT_DIR/.planning/metrics/codex-live-output.txt" 2>/dev/null || true
@@ -338,7 +351,13 @@ CODEX_CMD="cd $PROJECT_Q; if command -v pwsh >/dev/null 2>&1 && [ -f $SCRIPTS_Q/
 
 NARRATIVE_CMD="cd $PROJECT_Q; if command -v pwsh >/dev/null 2>&1 && [ -f $SCRIPTS_Q/sgsd-narrative.ps1 ]; then pwsh -NoLogo -NoProfile -File $SCRIPTS_Q/sgsd-narrative.ps1 -ProjectDir $PROJECT_Q; else clear; echo '[SGSD live tails]'; tail -n 80 -F .planning/ORCHESTRATOR-LIVE.jsonl .planning/metrics/narrative.md .planning/metrics/codex-live-output.txt .planning/metrics/codex-executor-live.txt 2>/dev/null; fi"
 
-tmux new-session -d -s "$SESSION" -n SGSD -c "$PROJECT_DIR" "$OPERATOR_CMD"
+tmux new-session \
+  -e "PATH=$PATH" \
+  -e "SGSD_CODEX_APP_SERVER_COMMAND=${SGSD_CODEX_APP_SERVER_COMMAND-}" \
+  -e "SGSD_CODEX_COMMAND=${SGSD_CODEX_COMMAND-}" \
+  -e "SGSD_CODEX_APP_SERVER_ARGS=${SGSD_CODEX_APP_SERVER_ARGS-}" \
+  -e "SGSD_CODEX_FORCE_LAUNCHER=${SGSD_CODEX_FORCE_LAUNCHER-}" \
+  -d -s "$SESSION" -n SGSD -c "$PROJECT_DIR" "$OPERATOR_CMD"
 OPERATOR_PANE="$(tmux display-message -p -t "$SESSION:0" "#{pane_id}")"
 tmux set-window-option -t "$SESSION:0" remain-on-exit on >/dev/null
 tmux set-option -t "$SESSION" status on >/dev/null

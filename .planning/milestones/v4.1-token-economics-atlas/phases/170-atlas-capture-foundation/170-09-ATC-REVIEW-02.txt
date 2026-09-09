@@ -1,0 +1,5 @@
+FINDINGS: 0
+CRITICAL: 0
+WARNINGS: 0
+PASS_RATE: 10/10
+ONE_LINER: Native selection and bounded new-session handoff satisfy the scoped contracts with complete zero-provider coverage.

@@ -18,18 +18,10 @@
 
 set -u
 
-# SSH/non-login shells on dev boxes often skip ~/.bashrc user PATH additions.
-# Keep boot health checks consistent with interactive Warp tabs.
-if [[ -d "$HOME/.local/bin" ]]; then
-    PATH="$HOME/.local/bin:$PATH"
-fi
-if [[ -d "$HOME/.nvm/versions/node" ]]; then
-    SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
-    if [[ -n "$SGSD_NODE_BIN" ]]; then
-        PATH="$SGSD_NODE_BIN:$PATH"
-    fi
-fi
-export PATH
+# Preserve the incoming selection context until the shared worker helper has
+# pinned Codex. That helper performs the existing user-local Node recovery.
+SGSD_CALLER_CWD="$(pwd -P)"
+SGSD_CALLER_PATH="$PATH"
 
 PROJECT=""
 SCRIPTS="${SGSD_SCRIPTS_DIR:-}"
@@ -67,6 +59,9 @@ while [[ $# -gt 0 ]]; do
         *) echo "sgsd-boot: unknown argument: $1" >&2; exit 2 ;;
     esac
 done
+
+SGSD_LAUNCHER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" \
+    || die "cannot resolve launcher directory"
 
 # Resolve project root
 if [[ -z "$PROJECT" ]]; then
@@ -144,6 +139,20 @@ step() {
 }
 
 if [[ "$SKIP_PREFLIGHT" != true ]]; then
+    SELECTOR_HELPER="$SGSD_LAUNCHER_DIR/lib/codex-worker-shell.sh"
+    if [[ ! -f "$SELECTOR_HELPER" ]]; then
+        step FAIL "Codex selector helper missing"
+        exit 7
+    fi
+    PATH="$SGSD_CALLER_PATH"
+    cd "$SGSD_CALLER_CWD" || die "cannot restore caller cwd: $SGSD_CALLER_CWD"
+    # shellcheck source=lib/codex-worker-shell.sh
+    source "$SELECTOR_HELPER"
+    if ! sgsd_codex_worker_bootstrap --dry-run; then
+        step FAIL "Codex CLI explicit selector unavailable"
+        exit 7
+    fi
+
     echo "PREFLIGHT"
     echo "---------"
 
@@ -234,13 +243,27 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
         exit 6
     fi
 
-    if command -v codex >/dev/null 2>&1; then
-        step OK "Codex CLI available"
+    if [[ "${SGSD_CODEX_SELECTION_STATUS:-missing}" == ready \
+          && -n "${SGSD_CODEX_APP_SERVER_COMMAND:-}" ]]; then
+        step OK "Codex CLI available ($SGSD_CODEX_APP_SERVER_COMMAND)"
     else
         step FAIL "Codex CLI missing from PATH"
         exit 7
     fi
-    CODEX_LOGIN_STATUS="$(codex login status 2>&1 || true)"
+
+    CODEX_PREFIX_ARGS=()
+    if [[ -n "${SGSD_CODEX_APP_SERVER_ARGS:-}" ]]; then
+        if ! node -e 'const v=JSON.parse(process.argv[1]);if(!Array.isArray(v)||v.some(x=>typeof x!=="string"||x.includes("\0")))process.exit(2)' \
+             "$SGSD_CODEX_APP_SERVER_ARGS" >/dev/null 2>&1; then
+            step FAIL "Codex CLI prefix arguments are invalid"
+            exit 7
+        fi
+        while IFS= read -r -d '' CODEX_PREFIX_ARG; do
+            CODEX_PREFIX_ARGS+=("$CODEX_PREFIX_ARG")
+        done < <(node -e 'for(const x of JSON.parse(process.argv[1]))process.stdout.write(x+"\0")' \
+            "$SGSD_CODEX_APP_SERVER_ARGS")
+    fi
+    CODEX_LOGIN_STATUS="$("$SGSD_CODEX_APP_SERVER_COMMAND" "${CODEX_PREFIX_ARGS[@]}" login status 2>&1 || true)"
     if printf '%s' "$CODEX_LOGIN_STATUS" | grep -qi '^Logged in'; then
         step OK "Codex auth ready ($(printf '%s' "$CODEX_LOGIN_STATUS" | head -1))"
     else

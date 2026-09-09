@@ -524,6 +524,20 @@ All1,106 P3RNwg inputs stayed unchanged; original04 stayed unchanged; the adapte
 is terminal. Its one native response was queued with zero pending but is not yet
 independently joined here. No source import or additional test was performed.
 
+Subsequent independent content-free reconciliation completed16:15:01Z at
+`/home/jackberrow/.cache/sgsd-native-verification/root-contract05-response-3uFz97`.
+One native response matches one actual accepted canonical row through existing
+projection/accounting checks; missing and duplicate counts and worker pending
+are zero for this exact turn. Provider total131,149 comprises input131,062 plus
+output87. Reasoning34 is a subset of output; cache-read and cache-write are
+explicit native zeros, not inferred from missing fields. Root read the actual
+result/native usage and rehashed allseven artifacts against manifest
+`ca3781da53dc717c634a25f39354b6eb84d745975a75e333114c76716e322ccc`.
+The prior25-response receipt remains separate and unchanged. This additional
+diagnostic review spend is not production workload, measured savings or a full
+coverage proof; independent executable provenance is not established by this
+reconciliation alone.
+
 The actual corrective ledger receipt `atc-contract-correction-ledgers-uGqOH4`
 and new valid PASS receipt `atc-pass-05-ledgers-82HMkI` preserve all earlier
 ledger prefixes. This is the first contract-valid170-08 Task4 QUALITY pass,

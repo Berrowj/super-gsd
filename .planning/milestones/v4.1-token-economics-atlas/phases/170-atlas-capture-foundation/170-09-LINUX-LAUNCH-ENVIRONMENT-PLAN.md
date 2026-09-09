@@ -58,6 +58,33 @@ semantic_acceptance_criteria:
 
 # Preserve native Codex selection across Linux launches
 
+## Explicit timeout continuation (2026-09-09 16:20Z)
+
+The final freeze passes SPEC02 and root native integration ELwlRb. Its first
+actual registered QUALITY invocation timed out after180.749s with no verdict;
+the original179-byte stub, exclusive attempt marker and canonical timeout
+evidence remain intact. The structural diagnostic
+`root-17009-timeout-diagnostic-46NWHD` (manifest SHA-256
+`234587ebcbd4dd59dba65b4d62d3a9e1c8ff3a1f9092d7155cc7a8928ae3e368`)
+proves a started, progressing review: all14 tool calls returned, no question was
+pending, and there was no final answer before the deadline. PID2837564 is
+positively absent by ESRCH and the exact thread claim is absent. All1,106 inputs
+and protected evidence are unchanged. This does not establish a code verdict
+or independently prove every detached tool process stopped.
+
+T1 now authorizes exactly one separately recorded180-second same-thread
+continuation of worker `ad8fc494-a92d-42fd-a3b0-2a4e80a3cbb9`, thread
+`01a086f2-69a1-70e3-b7e1-c0c3446b097e`, in the same private ELwlRb project.
+Recheck status, pending requests, model/effort, original report/attempt and
+positive absence/claim proof immediately before launch. Preserve source,
+review criteria, exact secondary validator, original failure evidence, actual
+review profile and normal resume mechanism. A distinct exclusive continuation
+marker limits this to one new invocation; do not delete the original marker.
+Use retained review work rather than repeating completed broad inspection,
+without requesting or assuming PASS. No source import, extra test, model swap,
+automatic retry or timeout-default change is authorized. Another failure remains
+blocked for diagnosis. Publication still requires a genuine valid QUALITY verdict.
+
 Resume2026-09-09 16:02Z: actual170-08 QUALITY05 completed16:00:03.415Z on the
 unchanged four-file freeze, same original thread. Its original157-byte report
 SHA-256 `572509fd8f7cd0896bc20e84323450cff215b0af3df22705cf76ceabc1d88181`
