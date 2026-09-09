@@ -1,7 +1,8 @@
 ---
 phase: 170
 plan: "170-05"
-status: ACTIVE
+status: BLOCKED
+blocker: PAIRED_FRESH_ACCEPTANCE_B1_FAILURE
 authorized_by: operator
 authorized_at: 2026-09-08
 scope: DEVCP_LINUX_SOURCE_REPAIR
@@ -163,11 +164,11 @@ extension. Do not change audit semantics in this task.
 
 - [x] Record changes, RED/GREEN commands, reviews and actual limitations in
   `170-05-EXECUTOR-REPORT.md`. Do not mark formal phase/milestone gates passed.
-- [ ] Pair with the 170-06 accounting work before claiming the requested result
+- [x] Pair with the 170-06 accounting work before claiming the requested result
   is working. Its design must use supported native identities and handle
   receiver loaded-revision transition. No benchmark criterion may be relaxed to
   hide missing request identities or data.
-- [ ] Publish/deploy only the reviewed, verified combined candidate under the
+- [x] Publish/deploy only the reviewed, verified combined candidate under the
   operator's existing DEVCP authorization. Recheck upstream and dirty source,
   use normal fast-forward publication/updater, preserve all old panes/pins and
   project configuration. No force push, broad cleanup or auth/model changes.
@@ -177,3 +178,8 @@ extension. Do not change audit semantics in this task.
   the previous failed benchmark as historical evidence. No extra paid probes,
   automatic retries or provider substitutions. Report bridge, observed capture
   and all-instance rollout separately; Windows remains required.
+  One fresh run attempted at published/installed935962c on 2026-09-09. B1 failed
+  an Atlas receiver timeout bound; B2-B7 not run, zero live worker attempts. This
+  acceptance checkbox remains open. The unused attempt budget does not authorize
+  another run; next repair/acceptance requires operator direction. Diagnostic
+  self-test global registrations are preserved and disclosed in both reports.

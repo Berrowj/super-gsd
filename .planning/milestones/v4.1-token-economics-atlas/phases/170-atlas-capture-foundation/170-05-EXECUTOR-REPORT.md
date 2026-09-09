@@ -1,10 +1,12 @@
 ---
 phase: 170
 plan: "170-05"
-status: IN_PROGRESS
-source_repairs: VERIFIED_LOCAL
+status: BLOCKED
+acceptance: BLOCKED_B1
+source_repairs: DEPLOYED_DEVCP_LINUX
 date: 2026-09-08
-deployed: false
+deployed: true
+deployed_revision: 935962c4413bf109af4a3c64a717f26dd0cc8fbd
 paired_plan: "170-06"
 new_live_worker_attempts: 0
 formal_phase_gates: NOT_CLAIMED
@@ -15,8 +17,11 @@ windows: OPEN_REQUIRED
 
 The operator approved both the narrow Linux repairs and trustworthy Codex
 accounting. Source work is in the existing linked development worktree. The
-published/installed DEVCP revision remains `6b4581b`; the previous blocked
-benchmark under 170-04 is not modified or superseded by fixture tests.
+published/installed DEVCP revision is now `935962c`; the one fresh acceptance run
+stopped at B1 with an Atlas timeout-bound failure and zero live worker attempts.
+The previous blocked 170-04 benchmark remains immutable. Full deployment,
+benchmark, diagnostic-side-effect and evidence-verification details are in the
+paired `170-06-EXECUTOR-REPORT.md`.
 
 Paired-plan checkpoint, 2026-09-09: all 170-06 source tasks now have independent
 SPEC and QUALITY acceptance. Root combined native verification at 02:47-02:48
@@ -162,13 +167,25 @@ findings. Its two focused receiver tests and independent native-key precedence,
 legacy fallback and privacy-flag assertions passed. No provider turn or remote
 write occurred.
 
-## Remaining work
+## Remaining work after the paired deployment and stopped acceptance
 
-- Task 2 source/instruction pressure checks complete; actual Fable latency still
-  requires the fresh bounded benchmark after the combined candidate is deployed.
-- Tasks 1-3 source repairs are verified locally; their combined deployment/live
-  acceptance still depends on the paired accounting and receiver-transition work.
-- Paired 170-06: genuine native per-response accounting and owned same-port
-  receiver transition; combined verification/publication/DEVCP acceptance.
+- Source tasks, reviews and normal Linux publication/update are complete at
+  `935962c`. Actual fresh shell selects native Codex 0.153.4, not legacy 0.144.3;
+  both wrapper dry runs preserve that choice. This is not yet a live-turn proof.
+- The fresh Fable run has positive native Anthropic capture in one saved audit:
+  17 requests and 145 native events, clean accepted Clarity partition. No Codex
+  live worker ran; latency, question/reply, resume, steer/stop and timeout remain
+  unaccepted. B1 worker91/0/2, board8/0/0, routing3/0/0 and native init1/0/0 pass;
+  Atlas88/1/4 fails the receiver-transition return-bound test.
+- Preflight's unisolated offline wrapper self-test produced seven global
+  diagnostic registrations and a Clarity self-test log row; an accidental Atlas
+  prepare produced one more registration. All are retained and identified, never
+  treated as genuine provider usage. Self-test isolation also requires repair.
+- The authorized fresh run stopped without any live paid worker attempt or
+  retry. A new timeout/isolation repair and fresh acceptance need operator
+  direction; unused live attempts do not authorize rerunning this failed run.
+- Old panes, settings and other pins remain unchanged. Fleet freshness and
+  Windows are still open. Root verified all 66 evidence manifest files and the
+  unchanged source/install/protected state after the benchmark.
 
 No phase/milestone gate, all-instance freshness or complete coverage is claimed.

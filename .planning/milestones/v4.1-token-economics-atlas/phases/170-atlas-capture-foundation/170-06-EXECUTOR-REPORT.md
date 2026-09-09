@@ -1,10 +1,12 @@
 ---
 phase: 170
 plan: "170-06"
-status: IN_PROGRESS
-source_repairs: VERIFIED_LOCAL
+status: BLOCKED
+acceptance: BLOCKED_B1
+source_repairs: DEPLOYED_DEVCP_LINUX
 date: 2026-09-08
-deployed: false
+deployed: true
+deployed_revision: 935962c4413bf109af4a3c64a717f26dd0cc8fbd
 new_live_worker_attempts: 0
 formal_phase_gates: NOT_CLAIMED
 windows: OPEN_REQUIRED
@@ -14,8 +16,10 @@ windows: OPEN_REQUIRED
 
 The operator approved both this work and the paired Linux repair plan 170-05.
 This report distinguishes source evidence, isolated tests and eventual live
-acceptance. DEVCP still runs published `6b4581b`; no new deployment or live
-attempt has occurred. The previous blocked 170-04 benchmark is preserved.
+acceptance. DEVCP now runs published `935962c` after the guarded normal update
+on 2026-09-09 at 03:20 UTC. The one fresh acceptance run stopped at B1 with an
+Atlas timeout-bound test failure; zero live worker attempts. Source deployment
+is complete, live acceptance is not. The previous 170-04 benchmark is preserved.
 
 ## Source choice and reviewed implementation boundaries
 
@@ -989,3 +993,159 @@ RED/GREEN evidence retained. Task 4's fresh combined source checks and report
 recording are complete; final integration review, normal publication, guarded
 DEVCP update and the one fresh B0-B7 run remain. No all-propagation-green,
 Windows completion, formal phase close or live acceptance is claimed.
+
+## Task 4: final integration review, publication and DEVCP deployment
+
+Final independent integration review of `6b4581b..935962c` returned PASS, with no
+Critical or Important findings. Reviewer independently checked all 3,628 native
+candidate files, all 42 changed non-planning paths and retained suite-log hashes,
+then reran native usage/supervision/normal-updater contracts: 45/0/0 in 7.244 s.
+The seven unchanged snapshot-helper digest failures predate this repair; neither
+normal updater nor installer invokes that parked helper. This permits the scoped
+normal update, not a snapshot/restore, all-propagation-green or phase-gate claim.
+
+At 03:18 UTC, a guarded non-forced push advanced canonical origin/master from
+`6b4581bb8f1502bbae79e8034680bea130ed8c1e` to
+`935962c4413bf109af4a3c64a717f26dd0cc8fbd`; a fresh remote read matched.
+Source/worktree origins and cleanliness were checked. User `.planning/tmp/` was
+not staged, removed or changed. DEVCP source and current Clarity pin were still
+clean `6b4581b` before deployment; existing panes and protected evidence matched
+the fresh baseline.
+
+The exact published 9,052-byte updater, SHA-256
+`853d374f0aa76bdebb1d0f6c2591d52bb8579ed12d6508344da1deb6439621aa`, was staged
+outside installer targets. Normal update ran from `/opt/clarity/project-clarity-erp`
+at 03:20:04.652--03:20:13.945 UTC and exited 0. Source and current project pin
+both match `935962c`, source clean. No remote source patch or CLI install/removal.
+
+Post-deployment verification at 03:21 UTC found no scoped failure: 121/122 raw
+source/install hashes match, and the remaining Researcher agent matches the
+existing canonical VTP-aware renderer. All three fresh source/nested/flat Atlas
+fingerprints and the running receiver fingerprint equal
+`1c4aadee1a71bd1038dc7c602f213a542aa1913bcfe83ddeb58d38092c7b65c0`.
+Owned legacy receiver PID 1293367 transitioned to PID 3129087, start 44371925,
+instance `b36ba496-5502-4a30-af8d-8337571d4d3d`; durable journal is complete.
+Ports 44797/43811/36943 and their URLs are unchanged. The transition records a
+coverage gap; neither lossless export nor persistent in-memory metrics is claimed.
+
+Seven protected config files, eight prior panes, five additional protected
+processes and all 47 other known pin-file paths are unchanged. Existing broader
+feature-propagation warnings remain: six global-agent issues, eleven local
+shadows, seventeen missing config fields, stale standalone tree and six missing
+CLAUDE sections. Existing audit repair actions: zero. These are not an all-instance
+rollout PASS. Prior benchmark report remains 14,607 bytes, SHA-256
+`2d6c5286fa3722ff80e566e09c54412de5e33231d5ec4f14188b8f849fc74374`.
+
+Private DEVCP evidence:
+`/home/jackberrow/benchmarks/sgsd-worker-repair-20260909T0318-tiSuA8/`.
+Contains preparation and updater hashes, full update output/exit, before/after
+protected snapshots, installed hash manifest and final verification. One fresh
+normal-launcher Fable B0-B7 run is next; no new live worker attempt yet.
+
+## Fresh acceptance: B1 failure, no live worker spend
+
+The normal launcher created `sgsd-worker-acceptance-20260909T032339Z`, operator
+pane `%8` (bash PID 3140820), with a fresh automatic Atlas registration.
+Fable 5.1/xhigh started in that pane at 03:24:12 UTC, PID 3143564. Actual fresh
+CLI binaries were Claude Code 2.1.265 and native Codex 0.153.4, not the earlier
+inspection's 2.1.263/0.153.2. No CLI installer or model/auth-default edit was run
+by this repair. Node v24.15.0 and GNU timeout 8.32 resolve in Fable's own shell.
+Old nvm Codex 0.144.3 remains installed and unselected. Its preserved old panes
+are not proof of the newly selected runtime.
+
+B0 installation/environment checks passed: 80 independently recomputed raw
+pairs, three target fingerprints, fresh session/actual shell, source/pin and
+privacy flags. This was **not a strictly read-only preflight**: diagnostic
+side effects below must remain part of the result, not be hidden by the B0 label.
+
+The four B1 suites ran individually, once, from the verified source:
+
+| Suite | PASS / FAIL / SKIP | Exit | Duration |
+| --- | --- | --- | --- |
+| Codex worker | 91 / 0 / 2 | 0 | 37.671 s |
+| Board dispatch/registry | 8 / 0 / 0 | 0 | 2.067 s |
+| Atlas | 88 / 1 / 4 | 1 | 61.007 s |
+| Model routing contract | 3 / 0 / 0 | 0 | 0.096 s |
+| Optional native initialize-only | 1 / 0 / 0 | 0 | 0.606 s |
+
+The opt-in initialize check opens an App Server but no thread/model turn. Offline
+fake-peer fixtures also execute processes and wrappers; the correct count is
+**zero live paid worker invocations**, not zero processes or all wrapper calls.
+Worker skips are Windows rename and the default-off initialize probe, which was
+then run separately. Atlas skips are three Windows launcher cases and its
+documented real-stack opt-in. No Linux worker launch/install contract was skipped.
+
+The failing test is `global.test.cjs:663`, "transition timeout returns boundedly,
+retains its journal and requires explicit retry". The 20 ms request with a 35 ms
+observer delay rejected with a matching timeout, but the elapsed-return assertion
+at line 673 (`< 1000 ms`) failed. The **whole test** took 4,495.6 ms; the exact
+restart duration was not printed. Only at least 1,000 ms for that assertion is
+established. Neighboring transition cases passed. Fable recorded host load around
+4.1--4.5 on eight CPUs; no rerun or source repair was made to classify the cause.
+
+Read-only root code inspection finds `waitForStopped()` checks its deadline
+while polling the old identity, then invokes synchronous `portOwner()` scans
+without deadline checks. Each scan enumerates `/proc` and calls existing
+per-process socket ownership logic. This is a concrete candidate explanation
+for host-dependent return time, not an instrumented root-cause proof. The earlier
+read-only DEVCP scan measured roughly 441 ms for one unoccupied port across
+5,307 PIDs. Do not loosen the assertion, bypass ownership or call this a harmless
+flake without a separately approved reproduction/repair.
+
+B2--B6 and the complete B7 procedure were **NOT RUN / BLOCKED** by B1. A/B
+synthetic project prompts, owners and descriptors were prepared, but neither has
+a worker-sessions directory. No challenge was generated, no retained thread was
+opened, no live wrapper/model retry occurred. The one authorized fresh benchmark
+has ended; unused worker attempts are not permission to restart the benchmark.
+
+One read-only audit snapshot at 03:36:46 UTC returned WARN/10, complete_coverage
+false. The genuine Fable run `sgsd-aa505f8a-06bd-4548-8452-777ca3aac241` under
+Clarity has 145 accepted native Anthropic events and 17 request identities,
+zero pending spool. Its partition has 148 rows, zero duplicates/conflicts/invalid
+rows. This is positive supervisor capture, **not B7 or Codex accounting acceptance**.
+Worker usage is unmeasured because no live worker ran; supervisor token totals,
+cost and quota were not extracted. Missing native-response/HTTP identity coverage
+and quota remain unknown. Native rejection counters/gaps observed after the fresh
+session began have unestablished attribution, not proven unrelated/pre-existing.
+
+### Diagnostic isolation deviations, preserved evidence
+
+- SE1: Fable invoked installed `global.cjs` with no subcommand during discovery;
+  its default prepare path registered `sgsd-d1a04f66-9c79-4fb6-b66d-4e57b1d2bb04`
+  under Clarity at 03:27:00.236Z. One lifecycle row, no native usage; not the
+  supervisor's real run.
+- SE2: Fable also invoked `codex-exec.sh --self-test --skip-network` during B0.
+  Seven fake-App-Server cases inherited the active global Atlas root and registered
+  `/tmp/tmp.IzIoC7ozEk/case-*/project` runs at 03:29:52--03:29:58Z. The existing
+  self-test removed its own temporary fixtures, leaving seven diagnostic project
+  registrations, fourteen lifecycle rows and content-free gaps for six projects.
+  All seven have zero native events/requests/responses, not provider usage. They
+  must be excluded from weekly workload comparisons. Root did not delete or
+  rewrite their canonical evidence. This is an observed self-test isolation defect.
+- SE3: that self-test appended one diagnostic row to Clarity's untracked
+  `.planning/metrics/codex-log.jsonl` (line 45, 03:29:59Z). No tracked production
+  source, config, model/auth, gate or pin was changed by the benchmark.
+
+Fresh evidence is in the deployment directory's child
+`fable-acceptance-20260909T032339Z-P8JY65/`. Root verified all **66** manifest files
+at 03:44:16 UTC, no extra files/mismatches. Manifest SHA-256
+`7641ebe8381db606fbecaee2cdfd0da3257fba91e29d997bf9781ca97fe08e59`;
+report 15,386 bytes, SHA-256
+`20feaf0c2345e5af22f213eee5fd6c345e185478189e5ecaf505af3d610d7465`.
+The original report is preserved verbatim. Root's separate
+`root-benchmark-evidence-verification.json` in the parent directory records
+qualifications: 122 total install pairs means 121 raw + 1 derived; no live paid
+worker is not no App Server; whole-test duration is not exact restart latency;
+preflight side effects and rejection-counter attribution remain visible.
+
+At 03:45:05 UTC root rechecked source/pin `935962c`, source clean, 122 install
+pairs and same healthy receiver PID/fingerprint/ports. All seven protected config
+files, eight old panes, five additional processes and 47 other pin paths are
+unchanged; the four new benchmark panes remain available. Prior benchmark report
+hash is unchanged. Fresh protection evidence is in the deployment parent directory.
+
+Conclusions: **WORKER_BRIDGE BLOCKED; ATLAS_OBSERVED_CAPTURE BLOCKED (B7 not run,
+supervisor-only positive observation); DEVCP_ROLLOUT PARTIAL, not fleet complete.**
+Windows remains OPEN_REQUIRED. No phase/milestone gate is claimed. Next requires
+operator direction for the timeout-bound and self-test isolation repair, followed
+by authorization for one new fresh acceptance run; no automatic retry is queued.

@@ -1,7 +1,8 @@
 ---
 phase: 170
 plan: "170-06"
-status: ACTIVE
+status: BLOCKED
+blocker: FRESH_ACCEPTANCE_B1_TIMEOUT_BOUND_FAILURE
 authorized_by: operator
 authorized_at: 2026-09-08
 scope: DEVCP_LINUX_NATIVE_ACCOUNTING_AND_RECEIVER_TRANSITION
@@ -203,7 +204,7 @@ Files: executor reports, state and benchmark evidence pointers under `.planning/
   in `170-05-EXECUTOR-REPORT.md` / `170-06-EXECUTOR-REPORT.md`. No phase gate claim.
 - [x] Run combined native Linux worker/board/routing/Atlas/propagation/installation
   checks freshly. Windows performance remains OPEN_REQUIRED, not a Linux skip PASS.
-- [ ] Read upstream/source/worktree status. Publish normally with no force push;
+- [x] Read upstream/source/worktree status. Publish normally with no force push;
   run normal DEVCP updater only from the already approved Clarity project. Prove
   source/install hashes and loaded receiver fingerprint/unchanged endpoints.
   Preserve all old panes/configs and all other project pins.
@@ -214,7 +215,15 @@ Files: executor reports, state and benchmark evidence pointers under `.planning/
 - [ ] Create one fresh normal-launcher Fable session and run unchanged B0-B7 only
   after B0 passes. Max five live wrapper attempts, 180 seconds each, 20 minutes
   live total. No source edits during benchmark, extra paid probes or retries.
-- [ ] Retain prior failed report unmodified. Separate bridge acceptance, observed
+  Attempted once on 2026-09-09: B0 installation checks passed with disclosed
+  diagnostic side effects; B1 Atlas88/1/4 failed its receiver-transition return
+  bound. B2-B7 not run, zero live worker attempts. Acceptance stays unchecked;
+  no second run is authorized automatically. See both executor reports.
+- [x] Retain prior failed report unmodified. Separate bridge acceptance, observed
   native capture and global installation/fleet freshness verdicts. Missing data
   stays unknown. If live failure occurs, retain exact evidence and remaining work;
   do not silently expand budget, bypass gates or claim all instances current.
+
+Operator direction required: investigate/repair the receiver timeout bound and
+the observed offline self-test attachment to the live Atlas root, then explicitly
+authorize a new fresh acceptance run. No source repair or retry is queued here.
