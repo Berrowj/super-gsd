@@ -19,6 +19,8 @@
 #   sgsd-update.sh --source PATH    (override canonical source location)
 # ============================================================================
 
+{
+sgsd_update_main() {
 set -u
 
 ACTION="update"
@@ -115,6 +117,10 @@ if [[ ! -d "$SOURCE_DIR/.git" ]]; then
 fi
 
 require_trusted_origin
+SOURCE_DIR="$(cd "$SOURCE_DIR" && pwd -P)" || {
+    log "Could not normalize the trusted canonical source path."
+    exit 6
+}
 
 # --check mode: compare local master to remote master without fetching objects
 if [[ "$ACTION" == "check" ]]; then
@@ -202,6 +208,24 @@ bash "$SOURCE_DIR/super-gsd/install.sh" --update --install-global 2>&1 || {
 }
 assert_captured_head "after install"
 
+# The only process transition performed by this updater is the owned Linux
+# Atlas receiver. Its command re-proves the old source entry, identity, health,
+# fingerprint and all three same-port listeners before the project pin moves.
+case "$(uname -s 2>/dev/null || echo unknown)" in
+    Linux*)
+        atlas_runtime="$HOME/.claude/tools/telemetry-atlas/global.cjs"
+        atlas_source="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/global.cjs"
+        if [[ ! -f "$atlas_runtime" || ! -f "$atlas_source" ]]; then
+            log "Installed Atlas transition runtime is missing; project pin unchanged."
+            exit 5
+        fi
+        node "$HOME/.claude/tools/telemetry-atlas/global.cjs" restart --if-running --trusted-source-entry "$atlas_source" || {
+            log "Owned Atlas receiver transition failed; retry the update explicitly. Project pin unchanged."
+            exit 5
+        }
+        ;;
+esac
+
 # Write .super-gsd-version atomically only after install success.
 if [[ -d "./.planning" ]]; then
     pin_path="./.super-gsd-version"
@@ -220,3 +244,8 @@ else
 fi
 
 log "sgsd-update complete."
+}
+
+sgsd_update_main "$@"
+exit $?
+}

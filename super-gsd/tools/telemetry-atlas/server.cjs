@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { createStore, digest, safePath, validate } = require('./contract.cjs');
 const { NATIVE_SOURCE, classifyAccounting } = require('./accounting.cjs');
 const { normalizeLogs, normalizeMetrics, canonicalClaudeLogs, canonicalClaudeMetrics, modelFamily } = require('./otlp.cjs');
+const { normalizeLogs: normalizeCodexLogs } = require('./codex-otlp.cjs');
 
 function json(response, status, value) {
   if (response.destroyed || response.writableEnded) return;
@@ -59,8 +60,14 @@ function listen(server, port, host) {
     server.listen(port, host, () => { server.removeListener('error', reject); resolve(server.address()); });
   });
 }
-function closeServer(server) {
-  return new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); });
+function closeServer(server, graceMs = 1000) {
+  return new Promise(resolve => {
+    let settled = false;
+    const done = () => { if (!settled) { settled = true; clearTimeout(force); clearTimeout(bound); resolve(); } };
+    const force = setTimeout(() => server.closeAllConnections(), graceMs);
+    const bound = setTimeout(done, graceMs + 250);
+    server.close(done); server.closeIdleConnections?.();
+  });
 }
 function metricLine(name, labels, value) {
   // All label values originate in fixed vocabularies; identities never enter this map.
@@ -142,7 +149,7 @@ async function startServer(options = {}) {
       try { value = JSON.parse(raw); } catch { json(response, 400, { status: 'rejected', reason: 'invalid_json' }); counters.rejected++; return; }
       if (pathname === '/v1/logs') {
         let normalized;
-        try { normalized = route?.provider === 'openai' ? require('./codex-otlp.cjs').normalizeLogs(value) : normalizeLogs(value); } catch { counters.rejected++; json(response, 400, { reason: 'invalid_otlp' }); return; }
+        try { normalized = route?.provider === 'openai' ? normalizeCodexLogs(value) : normalizeLogs(value); } catch { counters.rejected++; json(response, 400, { reason: 'invalid_otlp' }); return; }
         let rejected = normalized.rejected;
         let retry = false;
         counters.rejected += rejected;
@@ -185,6 +192,7 @@ async function startServer(options = {}) {
     const state = store.status();
     json(response, ready && state.healthy ? 200 : 503, { status: ready ? state.healthy ? 'healthy' : 'degraded' : 'starting',
       schema_version: 1, pid: process.pid, instance_id: instanceId, project_id: projectId,
+      root_id: projectId, runtime_fingerprint: options.runtimeFingerprint || null,
       started_at: startedAt, coverage: { ...coverage, storage: state.coverage },
       storage: { healthy: state.healthy, reason: state.reason, partition_id: state.partition_id } });
   });
@@ -217,7 +225,7 @@ async function startServer(options = {}) {
     addresses.health = await listen(healthServer, options.healthPort ?? 13134, host);
     addresses.metrics = await listen(metricsServer, options.metricsPort ?? 9465, host);
     ready = true;
-  } catch (error) { await Promise.all(servers.map(closeServer)); throw error; }
+  } catch (error) { await Promise.all(servers.map(server => closeServer(server, options.closeGraceMs))); throw error; }
 
   const ignoredSpool = new Set();
   const spoolDir = options.stateDir ? path.join(path.resolve(options.stateDir), 'quota-spool') : null;
@@ -291,9 +299,15 @@ async function startServer(options = {}) {
   }, bounded(options.spoolPollMs, 1000, 20, 1000)) : null;
   sampler?.unref();
   const url = (address) => `http://${address.address.includes(':') ? `[${address.address}]` : address.address}:${address.port}`;
+  let closePromise;
   return Object.freeze({ addresses, store, instanceId, projectId,
     urls: { ingest: url(addresses.ingest), health: url(addresses.health), metrics: url(addresses.metrics) },
-    close: async () => { if (closed) return; closed = true; ready = false; if (sampler) clearInterval(sampler); await Promise.all(servers.map(closeServer)); },
+    close: () => {
+      if (closePromise) return closePromise;
+      closed = true; ready = false; if (sampler) clearInterval(sampler);
+      closePromise = Promise.all(servers.map(server => closeServer(server, options.closeGraceMs)));
+      return closePromise;
+    },
   });
 }
 

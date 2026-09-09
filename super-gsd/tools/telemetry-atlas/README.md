@@ -25,6 +25,23 @@ run registrations and spools. Raw prompts, responses, tool bodies, credentials
 and provider metadata outside the allowlist are not retained. On Windows these
 files inherit the user's directory ACLs; POSIX private modes are also applied.
 
+On Linux, a normal full `sgsd-update` transitions an already-running receiver
+only after proving its exact process identity, trusted source entry, health,
+root and ownership of all three loopback ports. The replacement keeps those
+ports and existing registrations, and health reports an immutable fingerprint
+of the code closure loaded at startup (including native normalizers). A private,
+durably synced transition journal makes failure an explicit retry instead of a
+fresh launch; it does not delete spools or ledgers. Disabled and absent services
+are no-ops. `--check`, `--no-install`, and ordinary launcher startup never
+upgrade a receiver. Windows revision transition remains open.
+
+The fingerprint hashes the compiled named receiver entry plus dependency bytes
+that remain identical in uncached snapshots before and after eager loading. A
+cached or changing dependency context has an unknown fingerprint: status and
+audit remain read-only, while registration, start and revision transition are
+refused. This proves loaded-version coherence for the normal Node entry; it is
+not a security attestation against an arbitrary external loader transform.
+
 From PowerShell, after the global update:
 
 ```powershell

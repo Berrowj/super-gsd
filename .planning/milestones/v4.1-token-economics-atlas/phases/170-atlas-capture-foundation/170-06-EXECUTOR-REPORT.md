@@ -2,6 +2,7 @@
 phase: 170
 plan: "170-06"
 status: IN_PROGRESS
+source_repairs: VERIFIED_LOCAL
 date: 2026-09-08
 deployed: false
 new_live_worker_attempts: 0
@@ -511,3 +512,480 @@ Independent SPEC and QUALITY both PASS, prior Important opt-out finding closed.
 Task 2 is accepted for local commit; Task 3 begins next. Phase gates/deployment
 and live acceptance remain unclaimed. Read-only DEVCP and upstream checks at
 00:27/00:31 still showed `6b4581b`, unchanged protected panes and config hashes.
+
+Task 2 committed locally as `c98ac6f9cc3b17dd7dc54f63ddcd35e2e9f39e68`.
+
+## Task 3 in progress: owned receiver revision transition
+
+Before production edits, the implementer captured two intended Linux REDs:
+loaded-fingerprint test 0 PASS / 1 FAIL (undefined runtime fingerprint, 0.738 s),
+and updater-order contract 0 PASS / 1 FAIL (no restart between post-install
+source verification and pin publication, 0.249 s). The fingerprint fixture also
+contains the required later installed-file replacement/fresh-runtime comparison;
+its first missing-feature assertion is the current failure. Runtime, journal,
+drain, updater and fault/retry implementation is now active; no GREEN claimed.
+
+Main found a directly contradictory update reference: the installed update
+skill promises no process/session restart and documents pinning after installer
+success alone. The active Task 3 plan now includes only the corresponding skill
+correction. Main used writing-skills and create-skill's content-verification
+workflow, with a read-only retrieval baseline before editing; existing process
+boundaries remain except the explicitly owned Linux Atlas receiver transition.
+This is not a general skill rewrite or permission to restart user panes.
+
+Read-only acceptance preparation also confirmed two scoring distinctions for
+unchanged B7: native Codex observations are completed responses (`responses`,
+not verified HTTP `requests`), with truthful missing HTTP identity WARNs; and
+benchmark-attributable integrity conflicts FAIL B7 even though the global audit
+classifies conflicts as WARN. Keep response/model provenance, every successful
+wrapper's native evidence, and Fable's separate native Anthropic session proof.
+No benchmark wording, gate, global evidence or live-budget change was made.
+
+Independent pre-edit reference retrieval confirms the skill gap: it answers
+"No running process is restarted", specifies no receiver identity/fingerprint/
+same-port prerequisite for the pin, and directs the operator to restart clients,
+MCP/cockpit or reset tmux. Those are the baseline failures for the narrow Atlas
+exception; repeat the same retrieval with the corrected skill before acceptance.
+
+The immutable Task 2 test baseline was separately copied into native persistent
+cache at `/home/jackberrow/.cache/sgsd-native-verification/candidate-Hnicr8`.
+All 3,554 files match the same accepted manifest hash above. This is not a new
+test result or a deployment. Task 3 may use private native copies with explicit
+hash-verified overlays; the baseline is not modified. It avoids repeated
+Windows-bridge reads and `/tmp` loss between WSL invocations.
+
+Task 3 intermediate tests reported by implementer: loaded-fingerprint GREEN
+1 PASS / 0 FAIL after its RED; idempotent-drain RED failed the exact close-promise
+assertion, then GREEN 1 PASS / 0 FAIL. Native normalizer eager loading and partial
+bind cleanup are in progress with the global lifecycle wiring. Journal/strict
+ownership, updater, reference and crash/retry fixtures remain; this is not a
+Task 3 acceptance or deployment claim. No new live attempts.
+
+Read-only full propagation preparation found additional test-copy prerequisites:
+root `.gitattributes`, `.codex/hooks.json`, and all 72 tracked Phase 150 runbook
+files plus their faithful test-local Git index. Missing these would be a test
+copy error, not a source regression. They are not production configuration edits.
+
+It also established a pre-existing fail-closed snapshot guard, not a Task 3
+regression. Unchanged `sgsd-global-snapshot.sh` pins normalized installer SHA
+`7f9fe48d71e8eb209b02603582f5d647f30bc9c2303d784605d5eab1554dbc49`;
+published pre-repair `6b4581b` installer SHA is
+`c9dd4a4160a8fa7db45d584100edcfaa24cdfa2af70ac809576c60f467d94f17`;
+`c98ac6f` installer SHA is
+`536cf8e46d738febac48a420c10580ca825b73effb60ea6084a9387b75a14ee2`.
+The helper/tests are unchanged between those commits; Task 2 adds only the
+nested Atlas closure copy. The helper's older nine-target inventory already
+omitted worker/Atlas roots written by the published installer. Static evidence
+therefore predicts refusal in the broader snapshot contracts before these
+repairs. Actual complete propagation execution remains pending. Do not bypass
+that guard, relabel it green, or broaden this task into the parked installer/
+snapshot transaction. Preserve its failure separately from receiver/updater
+regressions and the explicitly required worker/Atlas acceptance suites.
+
+Main executed the complete seven-file propagation baseline at
+2026-09-09T01:11:04Z against accepted pre-Task-3 `c98ac6f` bytes, not the changing
+Task 3 worktree. Native Node 22.23.1: **54 PASS / 7 FAIL / 2 SKIP**, TAP
+11.205 s, process exit 1. All seven failures are the unchanged snapshot helper's
+installer-digest refusal (round-trip, absent target, absent bootstrap and four
+restore safety fixtures). All updater, provenance, restart-evidence, routing,
+runbook and hook checks passed. The two skips require unavailable native Linux
+PowerShell. This is an explicitly failing baseline, not full propagation PASS.
+
+The private candidate contains 3,628 hash-verified files: the immutable 3,554-file
+Task 2 baseline plus the 74 required propagation inputs, with exactly 72 P150
+paths in its own Git index. HOME/USERPROFILE/TMPDIR and Atlas root are disposable;
+provider/telemetry/Git overrides are scrubbed. No source file in its input
+manifest changed during this execution. Candidate:
+`/home/jackberrow/.cache/sgsd-native-verification/reviewed-UPxxKP/source`;
+evidence is its sibling `evidence/`, including full log, manifest and results.
+Input file-manifest SHA:
+`13e54282f5f2f684d1a1b3384d0cecb717e55d56369c04da9219a9a3bea91e6d`;
+propagation log SHA:
+`622ef1a3805557237b3f41d0fd58e01442c2b62a54de09bfed30afd69d20d81a`.
+The external one-use verification harness was syntax-checked and its setup-only
+copy/index verification succeeded before this baseline run. No model call,
+production restart, publication or deployment occurred. Task 3 still awaits
+implementation freeze, independent SPEC/QUALITY reviews and fresh verification.
+
+Pre-freeze root inspection raised three lifecycle cases for explicit regression
+coverage: a launcher awaiting the shared lock must recheck a newly pending
+journal before its second healthy fast path; competing restart requesters must
+not publish/overwrite the initial journal before taking that shared lock; and a
+completed transition must permit the next different receiver revision, while a
+different target during a pending transition still refuses. Replacement recovery
+must compare recorded process identity/token as well as instance/fingerprint.
+These are implementation feedback, not a passed independent task review.
+
+The shared startup helpers also newly applied directory `fsync` on Windows.
+A read-only native Windows Node 22.23.1 probe opened the workspace directory,
+called `fs.fsyncSync`, received `EPERM` from syscall `fsync`, and closed the
+descriptor without changing files. Mandatory Linux journal durability must not
+introduce that failure into ordinary Windows bootstrap. This is a preservation
+constraint; Windows performance/deployment remains OPEN_REQUIRED.
+
+The independent update-reference retest now retrieves the correct Atlas-only
+same-port transition, unchanged sessions/other pins, Windows open status and
+check/no-install no-op. It found two remaining wording gaps: distinguish old
+legacy revision unknown from the required verified replacement fingerprint,
+and explicitly include receiver-transition failure in nonzero/unchanged-pin
+handling. The sole implementer is addressing these before freezing Task 3.
+
+The external prepared fresh-Fable prompt was independently checked against the
+unchanged benchmark specification: reference consistency PASS, with no weakened
+B0-B7 assertion, extra paid action or changed budget. It preserves priority-first
+supervision and the approved native-response/unknown-HTTP-identity distinction.
+This is preparation only: no prompt was sent to DEVCP and no live attempt began.
+
+## Task 3 frozen implementation, independent review pending
+
+At approximately 01:35 UTC the implementer froze the exact eight Task 3 source/
+test/reference paths. No commit or deployment. Independent SPEC review is now
+running; QUALITY has not started. Root is separately running the combined worker,
+Atlas, board/routing and full propagation verification against a private native
+copy of the frozen source. Source acceptance remains pending both reviews.
+
+Implementer final native checks: global+receiver **46 PASS / 0 FAIL / 0 SKIP**,
+exit 0, 6.48 s; updater contracts **18/0/0**, exit 0, 5.67 s. Full Atlas
+**82 PASS / 0 FAIL / 4 SKIP**, nested runtime **15/0/1**; full propagation
+**59 PASS / 7 FAIL / 2 SKIP**. Root independently read the full-run summaries:
+Atlas TAP 17.910 s; propagation TAP 5.580 s. The seven propagation failures are
+exactly the same snapshot guard cases as the pre-Task-3 baseline, with no new
+failure. Skips remain platform/explicit-real-stack opt-ins; no live model proof.
+Shell/Node syntax checks and scoped diff whitespace check also exit 0.
+
+The unchanged candidate is
+`/home/jackberrow/.cache/sgsd-native-verification/task3-candidate-M7wKKz`;
+evidence is
+`/home/jackberrow/.cache/sgsd-native-verification/task3-evidence-VfiKlU`.
+Candidate/workspace eight-file manifest SHA is
+`0028f76fb2d2766e485d19e90cffd3a0c1b87fdcc687ff6780c5990d5648b715`.
+Root independently hashed all eight working files and matched that recorded
+inventory. Atlas log SHA:
+`1deb34942e328a81f19fb3f8dc70e3bdbefbfca7d5e829e3e305072ce6c248d2`;
+propagation log SHA:
+`76df6332916af7469b60314b5eb6f2c84f2e55b6845e630987ba49cc9c234928`.
+
+Pre-freeze lifecycle feedback now has focused regression coverage: shared-lock
+initial journal publication, launch pending recheck, concurrent restart convergence,
+before/after handoff crash retry, exact replacement identity, unchanged-revision
+trusted-source no-op and later-revision transition. Linux directory durability
+remains mandatory; shared Windows startup skips unsupported directory fsync while
+retaining file fsync. This prevents the newly identified Windows regression but
+does not establish Windows performance, deployment or acceptance. The narrow
+update-reference wording was corrected before the frozen hash inventory.
+
+### Root combined verification of first frozen candidate
+
+Fresh independent native run, 2026-09-09T01:36:42Z through 01:37:51Z, Node 22.23.1:
+
+| Suite | PASS / FAIL / SKIP | Exit | TAP duration |
+|---|---|---|---|
+| Worker (all six package-selected files, including real empty-tree install) | 91 / 0 / 2 | 0 | 33.855 s |
+| Atlas complete | 82 / 0 / 4 | 0 | 18.325 s |
+| Board/registry/routing (four files) | 15 / 0 / 0 | 0 | 2.038 s |
+| Full propagation (seven files, including routing propagation) | 59 / 7 / 2 | 1 | 14.353 s |
+
+The propagation failures remain exactly the seven pre-existing snapshot-digest
+refusals, not new Task 3 failures. The full harness therefore exits 1 honestly;
+there is no blanket all-tests-pass claim. Worker skips are Windows rename and
+explicit opt-in installed App Server initialize. Atlas skips are three Windows
+launcher cases and explicit real-stack install; nested runtime is 15 PASS / 0
+FAIL / 1 opt-in real-stack runtime SKIP. Native quota recorder p95 is 1.200 ms,
+not a Windows result. Propagation skips require unavailable Linux PowerShell.
+
+Candidate `/home/jackberrow/.cache/sgsd-native-verification/reviewed-JHM6pJ/source`
+and sibling `evidence/` retain full logs/results and the 3,628-file manifest.
+All input file bytes were checked before and after execution, with no changes;
+82 overlays are eight Task 3 files plus 74 propagation inputs. Exactly 72 P150
+files are in the disposable candidate's own index. HOME/TMPDIR/Atlas root and
+Git/provider environment are isolated; no real provider or production process
+was invoked. Input file-manifest SHA:
+`08e77f904cc22cf4e10c99226b3792745b37e8ed277e9543c82764c719fe960c`.
+
+Log SHA-256 values:
+
+- Worker: `b9a30662be271e107ecf14763c82ad9aa227a592369c1764f461c1c5e33fc084`.
+- Atlas: `914eedffb7e23037d690c9c9766e59424f92f79499871d7e3f7da9f208e798d8`.
+- Board/routing: `710f92a0065af2c580c8cdb49e40aa4df41996324604d4d3dacb3c9ba0e6d3e4`.
+- Propagation: `8a37f4b5a74a88c883e4d011ff43acf2c2782ef728ab7304c6cef5a4359e4636`.
+
+Existing `node super-gsd/scripts/lib/hook-install-contract.cjs --check-manifest`
+reports dependency graph current, exit 0; `git diff --check` is clean. Independent
+SPEC review is still checking absent-after-complete and awaited-health transition
+edge cases; no SPEC/QUALITY acceptance, commit, deployment or live run is claimed.
+
+### Independent Task 3 SPEC review: FAIL, repair authorized within active plan
+
+The first frozen candidate failed specification review on four concretely
+reproduced lifecycle boundaries in `global.cjs`:
+
+1. The pre-lock absence check returned `absent` while an exact owned ordinary
+   legacy startup child held `startup.lock` but had not bound its ports. After
+   resuming, that same child published a healthy old receiver. Updater pinning
+   could therefore precede the completion of stale startup.
+2. A real delayed health response could be accepted after a pending transition
+   journal appeared. Pending checks must follow awaited readiness and precede
+   all healthy returns, including the post-spawn loop.
+3. A modern service record with `process_identity` replaced by the valid identity
+   of another live process was accepted as `already_current`. Recorded identity
+   must exactly bind the service PID/start/executable/argv and actual ownership.
+   Genuinely legacy records lacking fingerprint and identity remain distinct
+   from modern missing or mismatched identity.
+4. After a real successful legacy transition and graceful stop of its exact
+   replacement, with all recorded identities dead and `service.json` absent,
+   the completed journal caused `service_health_unverified` instead of the
+   required absent no-op. Reconciliation must occur under the shared lock and
+   must not call an unverifiable still-live replacement genuinely absent.
+
+Reviewer probes ran against root's immutable first candidate and the native
+`c98ac6f` legacy baseline. Three bounded probe commands exited 0 in 0.35 / 0.82 /
+0.68 seconds while demonstrating these counterexamples. Outputs are in the review
+tool transcript; no separate probe evidence files were written. The reviewer
+closed created servers, verified exact fixture identities stopped and removed
+only its temporary fixture roots. This is not a claim about unrelated processes.
+
+Root returned the four findings to the sole implementer for explicit RED/GREEN
+regressions and a new frozen candidate under the existing Task 3 plan. No QUALITY
+review has started. Prior passing offline tests and their hashes remain valid
+historical evidence but do not override SPEC FAIL. No publication, deployment,
+live worker attempt, source gate change or expanded Windows repair occurred.
+
+Read-only DEVCP preflight at 2026-09-09T01:51:14Z confirms canonical source clean
+and source/current Clarity pin still
+`6b4581bb8f1502bbae79e8034680bea130ed8c1e`. Both local fetch/push origins remain
+canonical, and remote master was independently checked at the same SHA. The same
+eight tmux pane identities are present. Protected Codex/Claude config hashes
+remain `b0bb46e453b442205a196dca0eeda1affec4a3301e4c2002aef6c600da9cb415` and
+`daa74405690be6daf7919c6e3fe427e296b30cf2cfa4152ea58110dab5ac7991`.
+
+The global receiver remains PID 1293367/start 41355996/instance
+`9b0f9173-fff2-4ecd-963b-65c4a0b31879`, with the exact previously recorded native
+Node/source-entry argv and unchanged ports 44797/43811/36943. Health is HTTP 200
+with matching PID/instance/root; loaded fingerprint remains unknown for this
+legacy receiver. No transition journal exists. This inspection performed no
+remote write, process signal, model call, update or session restart.
+
+SPEC repair first RED is recorded before production edits: four native Linux
+regressions selected by `ordinary launch rechecks|explicit restart waits|modern
+service identity|completed transition history` produced **0 PASS / 4 FAIL / 0
+SKIP**, exit 1, 2.476 s. They fail respectively on accepting delayed health after
+pending transition, false absence instead of startup-lock refusal, accepting a
+different live process identity, and refusing genuinely absent completed history.
+The first frozen production source remained unchanged for this RED. The sole
+implementer is now applying the minimal shared-lifecycle repair and will return
+fresh focused/full evidence and a new source freeze for independent re-review.
+
+SPEC repair focused GREEN: the same four-name native command now reports **4
+PASS / 0 FAIL / 0 SKIP**, exit 0, 3.645 s. Full affected global+receiver tests:
+**50/0/0**, exit 0, 16.986 s. Repairs remain confined to `global.cjs` and its
+test: post-await pending checks on every readiness return, exact modern identity
+equality, shared lock before absence, and completed-history absence requiring
+well-formed recorded identities no longer owned plus all recorded ports free.
+An unverifiable still-live replacement still refuses. Full fresh native Atlas/
+propagation and independent SPEC re-review remain pending; no acceptance claimed.
+
+### Repaired Task 3 frozen candidate and root combined verification
+
+At 02:17 UTC the implementer froze the same eight Task 3 paths, changing only
+`global.cjs` and its test from the first candidate. The eight-file manifest SHA
+is `a3c4be4ef40379d3bad9f836f847a42d99fa8d57556deed877d43759e5c10b85`.
+Current runtime SHA is
+`cd04d70552d55f23be43cac10c4a12a6306398488a17aaf5db29530a03815acf`;
+global test SHA is
+`a6607fc4b4a30d24f03e7e896773e678e36db53c19293e50d3d92b0acccfe202`.
+The other six file hashes match the first frozen candidate above. A final
+order-independent recorded-port comparison was followed by all four regression
+tests again: 4/0/0, exit 0, 3.584 s. Implementer full Atlas: 86/0/4 plus nested
+15/0/1, exit 0, 20.799 s; full propagation: 59/7/2, exit 1, 5.925 s, exactly
+the previously recorded snapshot digest failures. Native candidate:
+`/home/jackberrow/.cache/sgsd-native-verification/task3-specfix-kh8EgW`;
+evidence: `task3-specfix-evidence-dfwogB` under the same cache directory.
+
+Root independently verified the current eight workspace file hashes and ran a
+fresh combined native Linux candidate from 02:18:06 to 02:19:16 UTC:
+
+| Suite | PASS / FAIL / SKIP | Exit | Elapsed |
+| --- | --- | --- | --- |
+| Worker, including actual empty-install fixtures | 91 / 0 / 2 | 0 | 34.005 s |
+| Atlas | 86 / 0 / 4 | 0 | 20.642 s |
+| Board / registry / routing | 15 / 0 / 0 | 0 | 1.437 s |
+| Complete propagation contracts | 59 / 7 / 2 | 1 | 14.067 s |
+
+Atlas includes the separate nested runtime 15/0/1. Skip reasons remain the same
+platform/opt-in limits documented above. The seven failures remain exactly the
+pre-existing snapshot-contract cases; no failure was skipped, filtered or
+relabeled green. The combined harness therefore correctly returned exit 1.
+No formal phase gate or all-repository passing claim is made.
+
+Candidate `/home/jackberrow/.cache/sgsd-native-verification/reviewed-I4QF5n/source`
+and sibling `evidence/` retain full logs/results. All 3,628 manifest files were
+verified before and after tests with no changed input bytes; the disposable
+candidate has the exact 72-file P150 index and isolated HOME/TMPDIR/Atlas/Git/
+provider environment. Input manifest SHA:
+`b8f735c2043f539fafcb34b39a01ad4fee3787b2035b020c4094a9a5d009b0f6`.
+
+Log SHA-256 values:
+
+- Worker: `2b420c6de26f9ad86c02938873b6e360b2e903d24aff60c839f7db89217548f6`.
+- Atlas: `8ac60d0afb5c61e2e69af3f234c5e612f149eb27c2d215ea67d2c5d2fb332c4c`.
+- Board/routing: `c898a66e2f6ee37e352e48132e978d38fa3bd36ceb8c6d792b8a0bca330b3459`.
+- Propagation: `08d5dc6ddc5acbb3797e1071bc05d297f776663e0ff52d10de0a144f41865a51`.
+
+Existing hook dependency manifest check and `git diff --check` also exit 0.
+The independent specification reviewer is rechecking all four fixes against
+actual code and bounded native fixtures. QUALITY review, acceptance, Task 3
+commit, publication, DEVCP update and new live attempts have not yet occurred.
+
+### Specification re-review accepted; quality review running
+
+Independent SPEC re-review passed on the frozen `a3c4be4e` candidate. The
+reviewer ran global+receiver tests independently (50/0/0, 9.354 s), replayed the
+original held-health/startup-lock/modern-identity/completed-history probes, and
+verified actual legacy adoption plus unchanged replacement URLs. All eight
+source hashes still matched after verification. Exact owned probe processes
+were verified stopped and only their temporary roots removed; the immutable
+legacy baseline was unchanged. This is local SPEC acceptance only.
+
+The independent QUALITY reviewer then ran global+receiver+updater contracts:
+68/0/0, 8.230 s. A further fresh-process probe confirmed a load-before-hash
+problem: the first normalizer module read returned revision A while that private
+file was replaced with B; the receiver retained A but its subsequent disk hash
+matched a fresh B runtime. This is not populated-require-cache reuse. Root
+confirmed the corresponding import-before-hash ordering in the actual source.
+The reviewer is checking the same case through actual serve/restart before
+returning the final finding. Deployment remains paused; no source fix or new
+source freeze has yet been accepted for this quality finding.
+
+At 02:28 UTC a read-only DEVCP snapshot retained seven protected file hashes,
+48 pin-bearing paths, eight pane identities, five additional protected process
+identities, source/pin/health and the legacy receiver record. Source is clean
+and both source/current project pin remain `6b4581b`; receiver PID 1293367 and
+ports 44797/43811/36943 remain unchanged, with no transition journal. Local
+generated evidence file `pre-deployment-protection-1788920893234.json` lives in
+the existing external diagnostic directory; SHA-256:
+`26cbd9e7d59da15eab3cac8aa59046088b0c5210dcbdac49b2a406976bb197fa`.
+Only hashes, metadata and identities were retained, not credential contents or
+native transcripts. The external read-only collector was adapted to DEVCP's
+older Git after `worktree list --porcelain -z` was rejected; the successful run
+uses supported porcelain output and refuses quoted ambiguous paths.
+
+A separate read-only host feasibility check at 02:23:04 enumerated 5,307 PIDs
+through the existing `ownsPort` helper for one unoccupied port: no owner,
+441.141 ms. It bound no port, signalled no process and is not a live transition
+or hard real-time guarantee. New paid/live worker attempts remain zero.
+
+QUALITY returned **not ready for integration**, one HIGH finding. Its final
+actual fresh `serve` process had the expected exact argv, loaded parser A, but
+advertised the same fingerprint as fresh parser B; `restartService` returned
+`already_current` and left that PID unchanged. The private fixture child was
+gracefully stopped. Root preserved its 23 fixture files mechanically under
+`/home/jackberrow/.cache/sgsd-native-verification/quality-fingerprint-YzK0YN`
+without removing the original. Manifest-array SHA:
+`03d7a04c2ef909613fbd7094d7c8cf45cb7e77f797014d08458f25f68a225c46`;
+the actual child-loaded marker remains A.
+
+The sole implementer is authorized to repair this existing Task 3 fingerprint
+requirement with RED-first tests. Dependency snapshots must enclose actual
+loading; previously cached exports cannot inherit current file hashes, and the
+already-compiled entry must not be identified solely by a later disk read.
+Read-only audit/status clients intentionally preload shared dependencies and
+must remain usable without being allowed to mutate an unverified receiver.
+Task 3 plan now records these boundaries. No new topology, P169 transaction,
+source gate, CLI/default change, publication, deployment or live spend occurred.
+
+### Fingerprint coherence repair and final frozen verification
+
+Valid deterministic RED before production edits: three new tests produced
+0 PASS / 3 FAIL / 0 SKIP, exit 1, 0.824 s. They demonstrate compiled entry A
+being identified by later disk B, dependency A loading while disk changes to B,
+and actual audit-style cached dependencies incorrectly allowing a claimed
+fingerprint and mutation. GREEN: new three 3/0/0; new three plus prior four
+SPEC regressions 7/0/0, 4.142 s; global+receiver 53/0/0; actual audit suite 8/0/0.
+
+All runtime behavior now lives in named `loadedGlobalRuntime`; its actual
+compiled function source is the entry hash component. Eight eager dependencies
+must be initially uncached and byte-identical in enclosing pre/post snapshots.
+An incoherent/cached client has null fingerprint and refuses direct registration,
+prepare/start/ensure/restart before filesystem or signal mutation. Read-only
+audit/status still work. This is normal-entry version coherence, not security
+attestation against arbitrary external loader transforms. README states the
+boundary; there is no new helper, loader topology or P169 change.
+
+Final frozen eight-file manifest:
+`e0c6b3979bcb880f70a1bdaa628a92e2dc9aed796b1461ab3eff26221afb0806`.
+Changed hashes from the prior freeze:
+
+- `global.cjs`: `1a09a47ee70bb763110ac20c81767137e4061c748b0e0de17695de538544d53d`.
+- `global.test.cjs`: `49eda9e7f4ece60dd61752d32779e8f245f4bf002ecf3fe97a314e6bdd74504b`.
+- `README.md`: `9c30ec7535c7c20c80cd8d4fa68d6e6da46445d7da488e28e241969a8beeeb95`.
+
+Root independently verified all eight current file hashes and observed fresh
+target runtime fingerprint
+`1c4aadee1a71bd1038dc7c602f213a542aa1913bcfe83ddeb58d38092c7b65c0`.
+Implementer candidate `task3-final-ZocYTh`, evidence
+`task3-final-evidence-XnCnEF`, are below the native verification cache. Full
+Atlas: 89/0/4 plus nested 15/0/1, exit 0, 26.019 s, quota p95 0.917 ms.
+Full propagation: 59/7/2, exit 1, 5.906 s, same known snapshot failures.
+
+Root fresh combined execution at 02:47:05-02:48:15 UTC:
+
+| Suite | PASS / FAIL / SKIP | Exit | Elapsed |
+| --- | --- | --- | --- |
+| Worker and real empty-install fixtures | 91 / 0 / 2 | 0 | 32.889 s |
+| Atlas | 89 / 0 / 4 | 0 | 21.258 s |
+| Board / registry / routing | 15 / 0 / 0 | 0 | 1.413 s |
+| Complete propagation contracts | 59 / 7 / 2 | 1 | 14.195 s |
+
+Nested Atlas runtime is 15/0/1; quota p95 0.584 ms. Skip reasons are unchanged.
+Root read the complete propagation log and verified all seven failed case names
+13,14,17-21 and the same installer digest. No failures were hidden or relabeled;
+the combined harness correctly exits 1. Existing dependency-manifest check and
+`git diff --check` exit 0. No formal phase gate is claimed.
+
+Candidate `/home/jackberrow/.cache/sgsd-native-verification/reviewed-YDDdda/source`
+and sibling `evidence/` retain full logs/results. All 3,628 input file bytes were
+unchanged before/after, with isolated HOME/TMPDIR/Atlas/Git/provider environment
+and the exact 72-file P150 index. File-manifest SHA:
+`72286cd98a032d4af568cb8d8e31d540e71107c92f1ed2bda72b078664c46242`.
+
+- Worker log: `c392c100a75e6720b7710f176982b5ce5ec13e980cfcf1bebb4365218e30229d`.
+- Atlas log: `2b0b0bf5f47c701201e7600213bfd89f31ec9bdb95e165b468f506e67be3bc01`.
+- Board/routing log: `1a415c570a7216f4dcad475ff69744b1976b67c12db7ebb9cf2dede1600012c5`.
+- Propagation log: `5519da920e14f2aa0d17f36b55d8bc46acc552352c86d8bb28ed42245e6c9957`.
+
+Independent SPEC re-review is running on these frozen bytes; QUALITY re-review
+follows only after SPEC passes. The external prepared Fable handoff now explains
+that B0 queries target fingerprints in fresh Node processes with `global.cjs`
+required first, rather than using an intentionally unattested cached audit
+client. The benchmark specification and live limits are unchanged; no prompt
+has been sent, no publication/deployment has occurred and new live attempts are 0.
+
+Final SPEC re-review returned PASS on `e0c6b397`. Independent native global+
+receiver+audit verification: 61/0/0, 10.226 s. An additional private live probe
+confirmed null fingerprint in an already-cached audit client, correct fingerprint
+from the actual receiver, all five mutation refusals, and continued read-only
+status/audit access. Its child exited naturally, receiver closed, and exact
+temporary root was removed. All eight hashes and target fingerprint were
+independently rechecked. The amended B0 handoff sentence is consistent with the
+unchanged benchmark. Separate QUALITY re-review is now running; no deployment,
+provider action or acceptance claim follows solely from this SPEC result.
+
+### Task 3 QUALITY accepted; entering combined publication task
+
+Independent QUALITY re-review returned PASS, no remaining findings, on the same
+frozen eight files. Global+receiver+audit+updater contracts: 79/0/0, 8.986 s.
+The original actual fresh `serve` cutover was replayed: normal argv, parser A
+actually loaded, fingerprint null, exit 1, no healthy service discovery. A
+subsequent coherent startup produced a valid fingerprint and succeeded. Its
+fixture processes were stopped; fixture path:
+`/tmp/atlas-final-serve-cutover-bwKB7h` (temporary, not a durable evidence root).
+Root retains the review's structured result in this report; no provider or
+production process was used. All eight hashes and target fingerprint match,
+and scoped diff verification is clean.
+
+The Task 3 source and test work is accepted locally after SPEC then QUALITY.
+The earlier four SPEC failures and one QUALITY failure are resolved with their
+RED/GREEN evidence retained. Task 4's fresh combined source checks and report
+recording are complete; final integration review, normal publication, guarded
+DEVCP update and the one fresh B0-B7 run remain. No all-propagation-green,
+Windows completion, formal phase close or live acceptance is claimed.

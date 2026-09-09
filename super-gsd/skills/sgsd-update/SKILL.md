@@ -9,7 +9,7 @@ allowed-tools:
 <objective>
 Run `sgsd-update.sh` (or `.ps1` on native Windows PowerShell) to fast-forward the canonical super-gsd source to a captured `origin/master` SHA and run `install.sh --update --install-global`. This refreshes both the current project integration and the operator's global SGSD assets while preserving `.planning/config.json`.
 
-Optional second mode: `--check` reports upstream drift without modifying anything. Useful when the session-start hook has already prompted but operator wants to inspect before accepting.
+Optional second mode: `--check` reports upstream drift without modifying anything. Useful when the session-start hook has already prompted but operator wants to inspect before accepting. On Linux, a full update also performs a same-port transition only for an already-running, owned Atlas receiver before publishing the project pin.
 </objective>
 
 <script_location>
@@ -31,7 +31,7 @@ Steps executed:
 2. Refuse tracked or untracked dirt, fetch only `refs/heads/master` into `refs/remotes/origin/master`, capture `FETCH_HEAD`, and require both fetched refs to name the same commit.
 3. Refuse a locally-ahead or diverged HEAD. Recheck cleanliness immediately before `git merge --ff-only <captured-sha>`.
 4. Assert HEAD equals the captured SHA, recheck cleanliness, and run `super-gsd/install.sh --update --install-global`.
-5. Assert HEAD again. Only after installer success, atomically write the captured SHA to `.super-gsd-version` when the current project has `.planning/`.
+5. Assert HEAD again. On Linux, prove any running Atlas receiver's exact identity, loaded fingerprint, root, instance, health, and three port owners; transition that receiver on the same ports. Only after that succeeds, atomically write the captured SHA to `.super-gsd-version` when the current project has `.planning/`.
 
 Success prints stable `source_sha=<captured-sha>` and `project_pin=<captured-sha>` evidence lines. Outside an SGSD project, `project_pin=not-written` is reported.
 
@@ -52,6 +52,8 @@ bash ~/.claude/super-gsd/scripts/sgsd-update.sh --no-install
 ```
 
 Runs the same guards, fetch, captured-SHA ancestry check, fast-forward, and final HEAD assertion, but skips the installer and project pin write. It reports `project_pin=unchanged`.
+
+`--check` and `--no-install` never perform an Atlas receiver transition.
 </modes>
 
 <when_to_use>
@@ -67,7 +69,7 @@ Runs the same guards, fetch, captured-SHA ancestry check, fast-forward, and fina
 
 - **Offline-safe**: `--check` uses 3s `ls-remote` timeout + fail-open. Session start never blocks on network.
 - **No mid-session mutation**: the session-start hook only PROMPTS; this skill executes when operator accepts.
-- **Installer is called from canonical source**, not current repo. Avoids self-modification-while-running class of issues.
+- **Installer is called from canonical source**, not current repo. The Bash updater parses its complete main invocation before mutations, so replacement of the installed updater cannot execute a new tail mid-run.
 - **.super-gsd-version is opt-in**: file is only written if project has `.planning/`. Per DLB-06 Q3, SHA pinning is deferred — `.super-gsd-version` records what was installed for auditability but doesn't gate future updates. Revisit pinning at next DLB after more deployment data.
 </constraints>
 
@@ -92,16 +94,18 @@ After a successful update, the operator may remove obsolete rows in this order:
 
 <exit_and_restart_boundaries>
 
-The updater exits non-zero on dirty, locally-ahead, or diverged source history; fetch failure; fetched-SHA or final-HEAD mismatch; installer failure; or project-pin write failure. These failures never write `.super-gsd-version`, and installer failure preserves an existing project pin.
+The updater exits non-zero on dirty, locally-ahead, or diverged source history; fetch failure; fetched-SHA or final-HEAD mismatch; installer failure; receiver-transition failure; or project-pin write failure. These failures never write `.super-gsd-version`; installer or receiver-transition failure preserves an existing project pin.
 
-A successful install updates files on disk; it does not hot-reload already-running processes or a client session:
+A successful Linux full update has one narrow process exception: an already-running, exactly owned Atlas receiver is gracefully replaced on the same three ports after install verification and before pin publication. A legacy receiver's old loaded revision is recorded as unknown; success requires the new receiver's loaded fingerprint to match the installed target. For explicit retry, failure preserves the private transition journal; it never deletes run registrations, spools, or ledgers. A disabled or absent receiver is a no-op. The Windows receiver transition remains open and is not implemented.
+
+All other running processes and sessions remain unchanged; their restart boundaries are manual:
 
 - Reload the PowerShell profile (`. $PROFILE`) or start a new shell before relying on updated profile functions.
 - Exit and start a new client session before relying on newly installed skills, agents, or hooks.
 - Restart MCP and cockpit processes so their command lines resolve through the refreshed global installation.
 - On a remote SGSD host, reset the relevant tmux session so its panes start new MCP and cockpit processes.
 
-Use the phase propagation runbook for process-identity evidence and exact restart commands; `sgsd-update` itself deliberately performs no process or session restart.
+Use the phase propagation runbook for process-identity evidence and exact manual restart commands. The receiver exception does not restart clients, MCP, cockpit, tmux panes, Fable/Codex workers, or change configuration and other project pins.
 </exit_and_restart_boundaries>
 
 <related>

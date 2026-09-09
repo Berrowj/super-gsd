@@ -145,48 +145,63 @@ test script only if the existing test glob does not include the new tests.
 Files: `super-gsd/tools/telemetry-atlas/global.cjs`, `server.cjs`, new minimal
 runtime fingerprint/transition helper(s) if needed; `global.test.cjs`,
 `receiver.test.cjs`; `super-gsd/scripts/sgsd-update.sh`,
-`super-gsd/tests/propagation/sgsd-update-contract.test.cjs`, Atlas README.
+`super-gsd/tests/propagation/sgsd-update-contract.test.cjs`, Atlas README,
+and the narrow receiver-transition/unchanged-session instructions in
+`super-gsd/skills/sgsd-update/SKILL.md`. The existing skill explicitly promises
+no process restart; update that claim with the implemented Linux-only Atlas
+exception, using a failing-first reference retrieval/contract check. Preserve
+other update guards and do not expand this into an unrelated skill rewrite.
 
-- [ ] RED: show installed-file replacement leaves old loaded runtime healthy;
+- [x] RED: show installed-file replacement leaves old loaded runtime healthy;
   current update lacks a same-port transition before project pin publication.
-- [ ] Implement immutable loaded closure fingerprint and eagerly loaded native
+- [x] Implement immutable loaded closure fingerprint and eagerly loaded native
   normalizers. Reuse existing Linux process identity/port ownership functions.
   Match exact argv/executable/root, service/health instance, and three ports.
-- [ ] Implement explicit `restart --if-running`, disabled/absent no-op, shared
+  Close the independently reproduced import-before-hash cutover: enclose eager
+  dependency loading in stable snapshots and never label cached, unattested
+  exports with current disk hashes. Bind the entry component to its actual
+  compiled runtime behavior, not an already-replaced entry file. Preserve
+  read-only audit/status clients while refusing unverified receiver mutations.
+  Add failing-first dependency/entry cutover and cached-client regressions;
+  no custom loader topology or installer transaction expansion is intended.
+- [x] Implement explicit `restart --if-running`, disabled/absent no-op, shared
   startup lock, durable private journal before signal, unchanged endpoint binding,
   bounded drain and replacement verification. Ordinary launch must respect a
   pending transition and may not silently replace a healthy stale process.
-- [ ] Legacy-record adoption requires live identity/health/all-port proof and
+- [x] Legacy-record adoption requires live identity/health/all-port proof and
   labels old revision unknown. Recheck process identity immediately before signal.
   The verified DEVCP legacy entry is in the canonical source checkout. Normalize
   the updater's already trusted source root and pass its exact derived runtime
   entry explicitly; no basename-only adoption or arbitrary source-path discovery.
   Never use PID-only kill, random-port fallback, foreign listener termination,
   run re-registration, spool/ledger cleanup or Fable/Codex pane restart.
-- [ ] Preserve journal/ownership across requester crash, delayed child and failed
+- [x] Preserve journal/ownership across requester crash, delayed child and failed
   replacement; explicit retry reconciles recorded identities. Log content-free
   downtime gap. Do not promise exporter losslessness or persistent metric memory.
-- [ ] Wire installed Linux update after successful install/revision checks and
+- [x] Wire installed Linux update after successful install/revision checks and
   before project pin/complete output. Failure leaves project pin unchanged;
   `--check` and `--no-install` never invoke transition. Do not edit Windows updater.
   Preserve the running updater's parsed body across its own source/install
   replacement (for example, parse its main function and final invocation/exit
   unit before invoking it, so a replaced tail cannot execute afterward). Test
   self-replacement; do not broaden this into the parked installer transaction.
-- [ ] Tests: stable URLs/run IDs/old endpoint after replacement; queued event
+  Document the same verified ordering and narrow restart boundary in the
+  existing update skill. Keep old sessions/panes, model/auth defaults and other
+  project pins untouched; Windows remains explicitly unsupported for transition.
+- [x] Tests: stable URLs/run IDs/old endpoint after replacement; queued event
   survival/dedup; competing launch/restart; requester crash/timeout and recovery;
   PID reuse/impostor/port takeover; disabled/absent; fingerprint immutability;
   drain/partial bind cleanup; updater ordering/failure and unchanged pin.
-- [ ] Run relevant native Linux tests plus complete Atlas and propagation
+- [x] Run relevant native Linux tests plus complete Atlas and propagation
   contracts. Review specification then quality, fix findings and commit.
 
 ## Task 4: Combined verification, publication and bounded live acceptance
 
 Files: executor reports, state and benchmark evidence pointers under `.planning/`.
 
-- [ ] Record source tests, skip reasons, both review stages and known limitations
+- [x] Record source tests, skip reasons, both review stages and known limitations
   in `170-05-EXECUTOR-REPORT.md` / `170-06-EXECUTOR-REPORT.md`. No phase gate claim.
-- [ ] Run combined native Linux worker/board/routing/Atlas/propagation/installation
+- [x] Run combined native Linux worker/board/routing/Atlas/propagation/installation
   checks freshly. Windows performance remains OPEN_REQUIRED, not a Linux skip PASS.
 - [ ] Read upstream/source/worktree status. Publish normally with no force push;
   run normal DEVCP updater only from the already approved Clarity project. Prove

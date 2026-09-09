@@ -156,9 +156,13 @@ function createFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-update-contract-'));
   const origin = path.join(root, 'origin.git');
   const author = path.join(root, 'author');
-  const source = path.join(root, 'source');
+  const source = path.join(root, "source with 'quote");
   const project = path.join(root, 'project');
+  const home = path.join(root, "home with 'quote");
+  const atlasRoot = path.join(root, 'atlas-root');
   const installLog = path.join(root, 'install.log');
+  const transitionLog = path.join(root, 'transition.log');
+  const orderLog = path.join(root, 'order.log');
   const gitNetworkLog = path.join(root, 'git-network.log');
   const { shimDirectory: gitShimDirectory, realGit } = createGitShim(root);
 
@@ -176,10 +180,31 @@ function createFixture() {
       '#!/usr/bin/env bash',
       'set -u',
       'printf \'%s\\n\' "$*" >> "${SGSD_TEST_INSTALL_LOG:?}"',
+      'printf \'install\\n\' >> "${SGSD_TEST_ORDER_LOG:?}"',
+      'script_dir="$(cd "$(dirname "$0")" && pwd)"',
+      'mkdir -p "$HOME/.claude/tools/telemetry-atlas"',
+      'cp "$script_dir/tools/telemetry-atlas/global.cjs" "$HOME/.claude/tools/telemetry-atlas/global.cjs"',
+      'if [[ -n "${SGSD_TEST_RUNNING_UPDATER:-}" ]]; then cp "$script_dir/replacement-updater.sh" "$SGSD_TEST_RUNNING_UPDATER"; fi',
       'exit ${SGSD_TEST_INSTALL_EXIT:-0}',
       '',
     ].join('\n'),
   );
+  write(path.join(author, 'super-gsd', 'tools', 'telemetry-atlas', 'global.cjs'), [
+    '#!/usr/bin/env node',
+    "'use strict';",
+    "const fs = require('node:fs');",
+    "fs.appendFileSync(process.env.SGSD_TEST_TRANSITION_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');",
+    "fs.appendFileSync(process.env.SGSD_TEST_ORDER_LOG, 'restart\\n');",
+    "process.stdout.write('receiver_transition=verified\\n');",
+    'process.exit(Number(process.env.SGSD_TEST_TRANSITION_EXIT || 0));',
+    '',
+  ].join('\n'));
+  write(path.join(author, 'super-gsd', 'replacement-updater.sh'), [
+    '#!/usr/bin/env bash',
+    'printf \'replacement_tail_executed\\n\' >> "${SGSD_TEST_ORDER_LOG:?}"',
+    'exit 97',
+    '',
+  ].join('\n'));
   git(author, 'add', '.');
   git(author, 'commit', '-m', 'initial fixture');
   git(author, 'branch', '-M', 'master');
@@ -196,7 +221,11 @@ function createFixture() {
     author,
     source,
     project,
+    home,
+    atlasRoot,
     installLog,
+    transitionLog,
+    orderLog,
     gitNetworkLog,
     gitShimDirectory,
     realGit,
@@ -225,13 +254,18 @@ function localCommit(fixture, label) {
   return git(fixture.source, 'rev-parse', 'HEAD');
 }
 
-function invoke(runtime, fixture, mode = 'update', extraEnv = {}) {
+function invoke(runtime, fixture, mode = 'update', extraEnv = {}, wrapperOverride) {
   const commonEnv = {
     PATH: `${fixture.gitShimDirectory}${path.delimiter}${process.env.PATH || ''}`,
     SGSD_TEST_INSTALL_LOG: shellPath(fixture.installLog),
+    SGSD_TEST_TRANSITION_LOG: shellPath(fixture.transitionLog),
+    SGSD_TEST_ORDER_LOG: shellPath(fixture.orderLog),
     SGSD_TEST_GIT_NETWORK_LOG: shellPath(fixture.gitNetworkLog),
     SGSD_TEST_LOCAL_ORIGIN: fixture.origin,
     SGSD_TEST_REAL_GIT: shellPath(fixture.realGit),
+    HOME: shellPath(fixture.home),
+    USERPROFILE: fixture.home,
+    SGSD_ATLAS_GLOBAL_ROOT: shellPath(fixture.atlasRoot),
     ...extraEnv,
   };
 
@@ -243,7 +277,7 @@ function invoke(runtime, fixture, mode = 'update', extraEnv = {}) {
         : [];
     return run(
       runtime.command,
-      [BASH_WRAPPER, '--source', shellPath(fixture.source), ...modeArgs],
+      [wrapperOverride || BASH_WRAPPER, '--source', shellPath(fixture.source), ...modeArgs],
       { cwd: fixture.project, env: commonEnv },
     );
   }
@@ -278,6 +312,10 @@ function output(result) {
 function installCalls(fixture) {
   if (!fs.existsSync(fixture.installLog)) return [];
   return fs.readFileSync(fixture.installLog, 'utf8').trim().split(/\r?\n/).filter(Boolean);
+}
+function transitionCalls(fixture) {
+  if (!fs.existsSync(fixture.transitionLog)) return [];
+  return fs.readFileSync(fixture.transitionLog, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(JSON.parse);
 }
 
 for (const runtime of runtimes) {
@@ -463,6 +501,7 @@ for (const runtime of runtimes) {
       assert.deepEqual(installCalls(fixture), []);
       assert.equal(fs.existsSync(path.join(fixture.project, '.super-gsd-version')), false);
       assert.match(output(result), new RegExp(`source_sha=${fetchedSha}`));
+      assert.deepEqual(transitionCalls(fixture), []);
     } finally {
       destroyFixture(fixture);
     }
@@ -482,6 +521,7 @@ for (const runtime of runtimes) {
       assert.match(output(cleanResult), /Up to date with origin\/master/);
       assert.equal(git(fixture.source, 'rev-parse', 'HEAD'), masterSha);
       assert.deepEqual(installCalls(fixture), []);
+      assert.deepEqual(transitionCalls(fixture), []);
 
       git(fixture.author, 'switch', 'master');
       const upstreamSha = commit(fixture, 'master drift');
@@ -495,6 +535,46 @@ for (const runtime of runtimes) {
     } finally {
       destroyFixture(fixture);
     }
+  });
+}
+
+for (const runtime of runtimes.filter(candidate => candidate.kind === 'bash' && process.platform === 'linux')) {
+  test(`${runtime.name}: verified install invokes the isolated receiver transition before publishing the pin`, () => {
+    const fixture = createFixture();
+    try {
+      const fetchedSha = commit(fixture, 'receiver transition update');
+      const result = invoke(runtime, fixture);
+      assert.equal(result.status, 0, output(result));
+      const [args] = transitionCalls(fixture);
+      assert.deepEqual(args, ['restart', '--if-running', '--trusted-source-entry',
+        fs.realpathSync(path.join(fixture.source, 'super-gsd', 'tools', 'telemetry-atlas', 'global.cjs'))]);
+      assert.deepEqual(fs.readFileSync(fixture.orderLog, 'utf8').trim().split(/\r?\n/), ['install', 'restart']);
+      assert.equal(fs.readFileSync(path.join(fixture.project, '.super-gsd-version'), 'utf8').trim(), fetchedSha);
+    } finally { destroyFixture(fixture); }
+  });
+
+  test(`${runtime.name}: receiver transition failure preserves the previous pin for explicit retry`, () => {
+    const fixture = createFixture();
+    try {
+      commit(fixture, 'receiver transition failure');
+      const pin = path.join(fixture.project, '.super-gsd-version'); write(pin, 'known-good-pin\n');
+      const result = invoke(runtime, fixture, 'update', { SGSD_TEST_TRANSITION_EXIT: '29' });
+      assert.notEqual(result.status, 0, output(result)); assert.equal(fs.readFileSync(pin, 'utf8'), 'known-good-pin\n');
+      assert.equal(transitionCalls(fixture).length, 1); assert.match(output(result), /retry.*pin unchanged/i);
+    } finally { destroyFixture(fixture); }
+  });
+
+  test(`${runtime.name}: an updater overwritten by its installer finishes only the already-parsed invocation`, () => {
+    const fixture = createFixture();
+    try {
+      const fetchedSha = commit(fixture, 'self replacement update');
+      const running = path.join(fixture.root, 'running updater.sh'); fs.copyFileSync(BASH_WRAPPER, running); fs.chmodSync(running, 0o755);
+      const result = invoke(runtime, fixture, 'update', { SGSD_TEST_RUNNING_UPDATER: shellPath(running) }, running);
+      assert.equal(result.status, 0, output(result));
+      assert.match(fs.readFileSync(running, 'utf8'), /replacement_tail_executed/);
+      assert.doesNotMatch(fs.readFileSync(fixture.orderLog, 'utf8'), /replacement_tail_executed/);
+      assert.equal(fs.readFileSync(path.join(fixture.project, '.super-gsd-version'), 'utf8').trim(), fetchedSha);
+    } finally { destroyFixture(fixture); }
   });
 }
 
@@ -530,4 +610,25 @@ test('updaters validate the resolved origin before any remote check or fetch', (
     assert.ok(resolutionIndex < checkIndex, `${path.basename(wrapper)} must validate origin before ls-remote`);
     assert.ok(resolutionIndex < fetchIndex, `${path.basename(wrapper)} must validate origin before fetch`);
   }
+});
+
+test('Bash updater transitions the installed global receiver after install verification and before publishing the project pin', () => {
+  const source = fs.readFileSync(BASH_WRAPPER, 'utf8');
+  const installed = source.indexOf('assert_captured_head "after install"');
+  const restart = source.search(/global\.cjs[^\n]*restart[^\n]*--if-running/);
+  const pin = source.indexOf('# Write .super-gsd-version atomically only after install success.');
+  assert.ok(installed >= 0 && restart > installed && pin > restart,
+    'verified install must transition the same-port receiver before pin publication');
+});
+
+test('update skill documents the narrow owned Linux receiver exception and its fail-closed boundaries', () => {
+  const source = fs.readFileSync(path.join(REPO_ROOT, 'super-gsd', 'skills', 'sgsd-update', 'SKILL.md'), 'utf8');
+  assert.match(source, /Linux[\s\S]{0,240}same-port/i);
+  assert.match(source, /identity[\s\S]{0,160}fingerprint/i);
+  assert.match(source, /explicit retry[\s\S]{0,160}journal/i);
+  assert.match(source, /--check[\s\S]{0,160}--no-install[\s\S]{0,160}(?:no|never)[\s\S]{0,80}transition/i);
+  assert.match(source, /Windows[\s\S]{0,120}(?:open|not implemented)/i);
+  assert.match(source, /(?:client|MCP|cockpit|tmux)[\s\S]{0,240}(?:unchanged|untouched|manual)/i);
+  assert.match(source, /receiver-transition failure[\s\S]{0,180}preserves an existing project pin/i);
+  assert.match(source, /legacy receiver[\s\S]{0,120}unknown[\s\S]{0,180}loaded fingerprint[\s\S]{0,100}installed target/i);
 });

@@ -344,4 +344,58 @@ test('bind collisions close previously bound listeners and nonloopback binds are
   }
 });
 
+test('a third-listener bind collision also releases the first two listeners', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-third-bind-check-'));
+  const occupied = net.createServer(); await new Promise(resolve => occupied.listen(0, '127.0.0.1', resolve));
+  const free = async () => {
+    const server = net.createServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port; await new Promise(resolve => server.close(resolve)); return port;
+  };
+  const ingest = await free(), health = await free(), probes = [];
+  try {
+    await assert.rejects(startServer({ projectDir: root, ingestPort: ingest,
+      healthPort: health, metricsPort: occupied.address().port }), { code: 'EADDRINUSE' });
+    for (const port of [ingest, health]) {
+      const probe = net.createServer(); probes.push(probe);
+      await new Promise((resolve, reject) => { probe.once('error', reject); probe.listen(port, '127.0.0.1', resolve); });
+    }
+  } finally {
+    await Promise.all([occupied, ...probes].map(server => new Promise(resolve => server.close(resolve))));
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('receiver close is one idempotent bounded drain and does not close its caller-owned store early', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-drain-check-'));
+  const store = createStore({ projectDir: root });
+  const instance = await startServer({ projectDir: root, store, ingestPort: 0, healthPort: 0, metricsPort: 0, closeGraceMs: 300 });
+  let requestError;
+  const response = new Promise(resolve => {
+    const request = http.request(instance.urls.ingest + '/v1/logs', { method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(JSON.stringify(logs())) } }, value => {
+      value.resume(); value.on('end', () => resolve(value.statusCode));
+    });
+    request.on('error', error => { requestError = error; resolve(null); });
+    request.write(JSON.stringify(logs()).slice(0, 20));
+    setTimeout(() => request.end(JSON.stringify(logs()).slice(20)), 80);
+  });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const first = instance.close(), second = instance.close();
+  assert.equal(first, second, 'all signal paths must await the same drain promise');
+  assert.equal(store.status().healthy, true, 'caller-owned store remains usable throughout server drain');
+  assert.equal(await response, 200, requestError?.message);
+  await first; fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('receiver close forcibly bounds a client that never finishes its request', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-forced-drain-'));
+  const instance = await startServer({ projectDir: root, ingestPort: 0, healthPort: 0, metricsPort: 0, closeGraceMs: 40 });
+  const request = http.request(instance.urls.ingest + '/v1/logs', { method: 'POST', headers: {
+    'content-type': 'application/json', 'content-length': '1000' } });
+  request.on('error', () => {}); request.write('{'); await new Promise(resolve => setTimeout(resolve, 20));
+  const started = Date.now(); await instance.close();
+  assert.ok(Date.now() - started < 500, 'forced drain stays bounded'); request.destroy();
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 module.exports = { logs, metrics, fixture };

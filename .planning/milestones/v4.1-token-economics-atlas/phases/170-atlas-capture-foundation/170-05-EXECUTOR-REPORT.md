@@ -18,6 +18,16 @@ accounting. Source work is in the existing linked development worktree. The
 published/installed DEVCP revision remains `6b4581b`; the previous blocked
 benchmark under 170-04 is not modified or superseded by fixture tests.
 
+Paired-plan checkpoint, 2026-09-09: all 170-06 source tasks now have independent
+SPEC and QUALITY acceptance. Root combined native verification at 02:47-02:48
+UTC passed worker 91/0/2, Atlas 89/0/4 plus nested 15/0/1, and board/routing
+15/0/0. Complete propagation remains 59/7/2 with exactly the pre-existing
+snapshot digest failures, not new worker/update failures. The 3,628-file input
+manifest is `72286cd98a032d4af568cb8d8e31d540e71107c92f1ed2bda72b078664c46242`,
+unchanged before/after. Full logs and review evidence are in the 170-06 report.
+Combined publication/deployment/live acceptance remain pending; Windows and
+formal phase gates remain open. New live attempts remain zero.
+
 ## Task 1: caller-selected native executable
 
 Current state: implementation and both independent reviews passed. Combined
