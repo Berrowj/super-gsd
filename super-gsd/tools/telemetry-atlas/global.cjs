@@ -111,16 +111,38 @@ function exactIdentity(record, root, trustedSourceEntry) {
     throw new Error('service_identity_changed');
   return identity;
 }
-function portOwner(port, deadline) {
-  if (process.platform !== 'linux') return null;
-  for (const name of fs.readdirSync('/proc')) {
-    requireDeadline(deadline);
-    if (/^[1-9]\d*$/.test(name) && ownsPort(Number(name), port)) return Number(name);
-  }
-  return null;
-}
 function requireDeadline(deadline, reason = 'receiver_transition_timeout') {
   if (deadline !== undefined && Date.now() >= deadline) throw new Error(reason);
+}
+function namespaceListeners(pid, ports, deadline) {
+  const listeners = new Map(ports.map(port => [port, new Set()])); let complete = true;
+  for (const kind of ['tcp', 'tcp6']) {
+    let lines;
+    try { lines = fs.readFileSync(`/proc/${pid}/net/${kind}`, 'utf8').split('\n').slice(1); }
+    catch { complete = false; continue; }
+    for (const line of lines) {
+      requireDeadline(deadline);
+      const fields = line.trim().split(/\s+/);
+      const port = parseInt(fields[1]?.split(':').pop(), 16);
+      if (fields[3] === '0A' && listeners.has(port)) listeners.get(port).add(fields[9]);
+    }
+  }
+  return { complete, listeners };
+}
+function portStates(ports, deadline) {
+  const uniquePorts = [...new Set(ports)], states = new Map(uniquePorts.map(port => [port, 'vacant']));
+  if (process.platform !== 'linux') return states;
+  const observed = namespaceListeners('self', uniquePorts, deadline);
+  for (const port of uniquePorts) {
+    states.set(port, observed.listeners.get(port).size ? 'occupied' : observed.complete ? 'vacant' : 'unknown');
+  }
+  return states;
+}
+function requireVacantPorts(ports, deadline) {
+  const states = portStates(ports, deadline);
+  requireDeadline(deadline);
+  if ([...states.values()].some(state => state === 'occupied')) throw new Error('receiver_port_taken');
+  if ([...states.values()].some(state => state === 'unknown')) throw new Error('receiver_port_ownership_unverified');
 }
 function remainingTimeout(deadline, maximum = 250, reason = 'receiver_transition_timeout') {
   if (deadline === undefined) return maximum;
@@ -306,12 +328,7 @@ async function waitForStopped(identity, ports, deadline) {
     if (!owned(identity)) break;
     await pause(Math.min(40, Math.max(1, deadline - Date.now())));
   }
-  for (const port of Object.values(ports)) {
-    requireDeadline(deadline);
-    const owner = portOwner(port, deadline);
-    requireDeadline(deadline);
-    if (owner !== null) throw new Error('receiver_port_taken');
-  }
+  requireVacantPorts(Object.values(ports), deadline);
 }
 async function completeTransition(root, journal, deadline) {
   while (Date.now() < deadline) {
@@ -369,12 +386,7 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
         const ports = urlPorts({ urls: journal.urls });
         if (['ingest', 'health', 'metrics'].some(name => journal.ports?.[name] !== ports[name]))
           throw new Error('transition_journal_unverified');
-        for (const port of Object.values(ports)) {
-          requireDeadline(deadline);
-          const owner = portOwner(port, deadline);
-          requireDeadline(deadline);
-          if (owner !== null) throw new Error('receiver_port_taken');
-        }
+        requireVacantPorts(Object.values(ports), deadline);
       }
       return { status: 'absent' };
     }

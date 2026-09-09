@@ -1,0 +1,5 @@
+FINDINGS:
+CRITICAL: 1
+WARNINGS: 0
+PASS_RATE: 90
+ONE_LINER: Batched scans are faster, but incomplete /proc visibility can be misreported as a vacant port.

@@ -15,12 +15,12 @@ const { record } = require('./quota-sampler.cjs');
 const { normalizeLogs } = require('./otlp.cjs');
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-global-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-global-')), receiverRoot = path.join(root, 'global');
+  t.after(() => removeFixtureRoot(root, receiverRoot));
   const projects = ['alpha', 'beta'].map(name => {
     const dir = path.join(root, name); fs.mkdirSync(path.join(dir, '.planning'), { recursive: true }); return dir;
   });
-  return { root: path.join(root, 'global'), projects };
+  return { root: receiverRoot, projects };
 }
 function payload(session, request, tokens = 5) {
   const attrs = { 'event.name': 'api_request', 'session.id': session, request_id: request,
@@ -44,21 +44,371 @@ async function untilValue(read, timeout = 4000) {
   while (Date.now() < deadline) { const value = await read(); if (value) return value; await new Promise(resolve => setTimeout(resolve, 30)); }
   assert.fail('fixture observation timed out');
 }
-async function launchRuntime(entry, root) {
+async function launchRuntime(entry, root, { statusReader = status, readinessTimeout = 4000 } = {}) {
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
   const token = crypto.randomUUID();
-  const child = spawn(process.execPath, ['--max-old-space-size=256', entry, 'serve', '--root', root, '--startup-token', token],
-    { stdio: 'ignore', env: { ...process.env } });
-  fs.writeFileSync(path.join(root, 'startup.lock'), JSON.stringify({ pid: child.pid, token }), { mode: 0o600 });
-  const service = await untilValue(() => status(root));
-  return { child, service };
+  const args = ['--max-old-space-size=256', entry, 'serve', '--root', root, '--startup-token', token];
+  const child = spawn(process.execPath, args, { stdio: 'ignore', env: { ...process.env } });
+  let identity;
+  try {
+    identity = await untilValue(() => {
+      const current = processIdentity(child.pid);
+      return current && current.executable === fs.realpathSync(process.execPath)
+        && JSON.stringify(current.argv.slice(1)) === JSON.stringify(args) ? current : null;
+    }, 1000);
+    fs.writeFileSync(path.join(root, 'startup.lock'), JSON.stringify({ pid: child.pid, token, identity }), { mode: 0o600 });
+    const service = await untilValue(() => statusReader(root), readinessTimeout);
+    return { child, service };
+  } catch (error) {
+    if (identity) await stopFixtureIdentity(identity);
+    throw error;
+  }
+}
+function validFixtureIdentity(identity) {
+  return identity && typeof identity === 'object' && !Array.isArray(identity)
+    && Number.isSafeInteger(identity.pid) && identity.pid > 0
+    && typeof identity.start_time === 'string' && /^\d+$/.test(identity.start_time)
+    && typeof identity.executable === 'string' && path.posix.isAbsolute(identity.executable) && !identity.executable.includes('\0')
+    && Array.isArray(identity.argv) && identity.argv.length > 0 && typeof identity.argv[0] === 'string'
+    && identity.argv[0].trim().length > 0 && identity.argv.every(value => typeof value === 'string' && !value.includes('\0'));
+}
+const stoppedFixtureIdentity = () => ({ pid: 2147483647, start_time: '1', executable: '/stopped-fixture', argv: ['/stopped-fixture'] });
+const differentStartTime = startTime => startTime === '1' ? '2' : '1';
+function sameFixtureIdentity(left, right) {
+  return left.pid === right.pid && left.start_time === right.start_time && left.executable === right.executable
+    && JSON.stringify(left.argv) === JSON.stringify(right.argv);
+}
+function fixtureIdentityState(identity) {
+  const actual = processIdentity(identity.pid);
+  if (actual) {
+    if (!sameFixtureIdentity(identity, actual)) return 'replaced';
+    return identity.pid === process.pid ? 'self' : 'owned';
+  }
+  try {
+    const stat = fs.readFileSync(`/proc/${identity.pid}/stat`, 'utf8');
+    if (stat.slice(stat.lastIndexOf(')') + 2).split(/\s+/, 1)[0] === 'Z') return 'zombie';
+  } catch {}
+  try { process.kill(identity.pid, 0); }
+  catch (error) { return error.code === 'ESRCH' ? 'absent' : 'unknown'; }
+  return 'unknown';
+}
+function requireFixtureIdentityState(identity, state) {
+  if (state === 'unknown') throw new Error(`fixture_identity_unverified:${identity.pid}`);
+  return state;
+}
+async function stopFixtureIdentity(identity) {
+  let state = requireFixtureIdentityState(identity, fixtureIdentityState(identity));
+  if (state !== 'owned') return;
+  state = requireFixtureIdentityState(identity, fixtureIdentityState(identity));
+  if (state !== 'owned') return;
+  try { process.kill(identity.pid, 'SIGTERM'); }
+  catch (error) { if (error.code === 'ESRCH') return; throw error; }
+  await untilValue(() => {
+    const current = fixtureIdentityState(identity);
+    if (current === 'self') requireFixtureIdentityState(identity, current);
+    return current === 'absent' || current === 'replaced' || current === 'zombie';
+  }, 3000);
+}
+function fixtureIdentities(root) {
+  const identities = [];
+  for (const [file, keys] of [['service.json', ['process_identity']],
+    ['receiver-transition.json', ['old_identity', 'candidate_identity', 'replacement_identity']], ['startup.lock', ['identity']]]) {
+    const filename = path.join(root, file);
+    let contents;
+    try { contents = fs.readFileSync(filename, 'utf8'); }
+    catch (error) {
+      if (error.code === 'ENOENT') continue;
+      throw new Error(`fixture_identity_evidence_unreadable:${file}:${error.code || 'UNKNOWN'}`);
+    }
+    let record;
+    try { record = JSON.parse(contents); }
+    catch { throw new Error(`fixture_identity_evidence_corrupt:${file}`); }
+    if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error(`fixture_identity_evidence_corrupt:${file}`);
+    let found = false;
+    for (const key of keys) {
+      const identity = record[key];
+      if (identity === undefined || identity === null) continue;
+      found = true;
+      if (!validFixtureIdentity(identity)) throw new Error(`fixture_identity_evidence_corrupt:${file}:${key}`);
+      if (!identities.some(previous => sameFixtureIdentity(previous, identity))) identities.push(identity);
+    }
+    if (!found) throw new Error(`fixture_identity_evidence_corrupt:${file}:identity_missing`);
+  }
+  return identities;
 }
 async function stopOwned(root) {
-  let record;
-  try { record = JSON.parse(fs.readFileSync(path.join(root, 'service.json'), 'utf8')); } catch { return; }
-  if (record.process_identity && owned(record.process_identity)) process.kill(record.pid, 'SIGTERM');
-  await untilValue(() => !record.process_identity || !owned(record.process_identity), 3000);
+  const identities = fixtureIdentities(root);
+  const states = identities.map(identity => requireFixtureIdentityState(identity, fixtureIdentityState(identity)));
+  for (let index = 0; index < identities.length; index++) if (states[index] === 'owned') await stopFixtureIdentity(identities[index]);
 }
+async function removeFixtureRoot(base, root) {
+  await stopOwned(root);
+  fs.rmSync(base, { recursive: true, force: true });
+}
+function completedTransition(root, ports) {
+  fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(root, 'receiver-transition.json'), JSON.stringify({
+    schema_version: 1, token: crypto.randomUUID(), phase: 'complete', root_id: digest(root),
+    replacement_identity: stoppedFixtureIdentity(),
+    urls: Object.fromEntries(Object.entries(ports).map(([name, port]) => [name, `http://127.0.0.1:${port}`])), ports,
+  }));
+}
+function procTcp(port, inode) {
+  const header = 'sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode';
+  if (!port) return header + '\n';
+  return `${header}\n0: 0100007F:${port.toString(16).toUpperCase().padStart(4, '0')} 00000000:0000 0A 0 0 0 0 0 ${inode}\n`;
+}
+
+test('launchRuntime stops its exact receiver when readiness observation times out', async t => {
+  if (process.platform !== 'linux') return t.skip('owned process identity is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-launch-readiness-failure-'));
+  const root = path.join(base, 'global'), entry = __filename.replace(/\.test\.cjs$/, '.cjs');
+  let observed;
+  try {
+    await assert.rejects(() => launchRuntime(entry, root, { readinessTimeout: 500, statusReader(target) {
+        try { observed = JSON.parse(fs.readFileSync(path.join(target, 'service.json'), 'utf8')).process_identity; } catch {}
+        return null;
+      } }), /fixture observation timed out/);
+    assert.ok(observed, 'the receiver published while the injected readiness observer kept failing');
+    assert.equal(owned(observed), false, 'the exact spawned receiver is stopped before the helper rejects');
+    assert.equal(fs.existsSync(root), true, 'failure evidence remains available to the caller');
+  } finally {
+    await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+for (const fault of ['corrupt', 'unreadable']) test(`fixture cleanup preserves ${fault} identity evidence`, async () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), `atlas-cleanup-${fault}-`));
+  const root = path.join(base, 'global'), serviceFile = path.join(root, 'service.json');
+  const stopped = stoppedFixtureIdentity();
+  fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(serviceFile, fault === 'corrupt' ? '{' : JSON.stringify({ process_identity: stopped }));
+  const realReadFile = fs.readFileSync;
+  if (fault === 'unreadable') fs.readFileSync = (target, ...args) => {
+    if (String(target) === serviceFile) { const error = new Error('fixture denied'); error.code = 'EACCES'; throw error; }
+    return realReadFile(target, ...args);
+  };
+  try {
+    await assert.rejects(removeFixtureRoot(base, root), new RegExp(`fixture_identity_evidence_${fault}`));
+    assert.equal(fs.existsSync(base), true, 'unresolved fixture evidence is retained');
+  } finally {
+    fs.readFileSync = realReadFile;
+    fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(serviceFile, JSON.stringify({ process_identity: stopped }));
+    await removeFixtureRoot(base, root);
+  }
+});
+
+const malformedFixtureIdentityCases = [
+  ['empty start time', identity => ({ ...identity, start_time: '' })],
+  ['nonnumeric start time', identity => ({ ...identity, start_time: 'not-a-kernel-start-time' })],
+  ['empty executable', identity => ({ ...identity, executable: '' })],
+  ['relative executable', identity => ({ ...identity, executable: 'node' })],
+  ['empty argv', identity => ({ ...identity, argv: [] })],
+  ['empty argv executable', identity => ({ ...identity, argv: ['', ...identity.argv.slice(1)] })],
+  ['blank argv executable', identity => ({ ...identity, argv: ['   ', ...identity.argv.slice(1)] })],
+  ['array identity', identity => [identity]],
+  ['missing pid', identity => { delete identity.pid; return identity; }],
+  ['nonnumeric pid', identity => ({ ...identity, pid: String(identity.pid) })],
+  ['missing start time', identity => { delete identity.start_time; return identity; }],
+  ['missing executable', identity => { delete identity.executable; return identity; }],
+  ['missing argv', identity => { delete identity.argv; return identity; }],
+  ['non-string argv member', identity => ({ ...identity, argv: [...identity.argv, 7] })],
+];
+for (const [label, malformed] of malformedFixtureIdentityCases) test(`fixture cleanup preserves a live child with ${label}`, async t => {
+  if (process.platform !== 'linux') return t.skip('exact process identity is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-cleanup-malformed-'));
+  const root = path.join(base, 'global'), serviceFile = path.join(root, 'service.json');
+  fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+  const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  const identity = await untilValue(() => processIdentity(child.pid), 1000);
+  fs.writeFileSync(serviceFile, JSON.stringify({ process_identity: malformed({ ...identity, argv: [...identity.argv] }) }));
+  const realKill = process.kill;
+  let cleanupError, retained, liveAfterAttempt, signals = 0;
+  process.kill = (pid, signal) => {
+    if (pid === identity.pid && signal && signal !== 0) signals++;
+    return realKill(pid, signal);
+  };
+  try {
+    try { await removeFixtureRoot(base, root); } catch (error) { cleanupError = error; }
+    retained = fs.existsSync(base);
+    try { realKill(identity.pid, 0); liveAfterAttempt = true; } catch { liveAfterAttempt = false; }
+    const signalsBeforeCheckedCleanup = signals;
+    if (!retained) fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(serviceFile, JSON.stringify({ process_identity: identity }));
+    await removeFixtureRoot(base, root);
+    assert.match(cleanupError?.message || '', /fixture_identity_evidence_corrupt:service\.json:process_identity/);
+    assert.equal(signalsBeforeCheckedCleanup, 0, 'malformed identity is never signal authority');
+    assert.equal(liveAfterAttempt, true, 'the test-owned child remains live after malformed cleanup refusal');
+    assert.equal(retained, true, 'malformed identity evidence is retained');
+  } finally {
+    process.kill = realKill;
+    if (owned(identity)) { realKill(identity.pid, 'SIGTERM'); await untilValue(() => !owned(identity), 3000); }
+    if (fs.existsSync(base)) {
+      fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(serviceFile, JSON.stringify({ process_identity: identity }));
+      await removeFixtureRoot(base, root);
+    }
+  }
+});
+
+test('fixture cleanup never signals an exact self identity', async t => {
+  if (process.platform !== 'linux') return t.skip('exact process identity is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-cleanup-self-'));
+  const root = path.join(base, 'global'), serviceFile = path.join(root, 'service.json');
+  const identity = processIdentity(process.pid);
+  fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(serviceFile, JSON.stringify({ process_identity: identity }));
+  const realKill = process.kill;
+  let signalled = false;
+  process.kill = (pid, signal) => {
+    if (pid === process.pid && signal && signal !== 0) { signalled = true; throw new Error('test process signal refused'); }
+    return realKill(pid, signal);
+  };
+  try {
+    await removeFixtureRoot(base, root);
+    assert.equal(signalled, false);
+    assert.equal(fs.existsSync(base), false, 'the in-process fixture does not block root cleanup');
+  } finally {
+    process.kill = realKill;
+    if (fs.existsSync(base)) await removeFixtureRoot(base, root);
+  }
+});
+
+test('fixture cleanup accepts missing records and identities that are demonstrably stopped or reused', async t => {
+  if (process.platform !== 'linux') return t.skip('exact process identity is Linux-only');
+  const current = processIdentity(process.pid);
+  assert.equal(validFixtureIdentity({ ...current, argv: [current.argv[0], ''] }), true,
+    'an empty argument after the executable remains a valid Linux argv member');
+  const cases = [
+    ['missing', null],
+    ['stopped', stoppedFixtureIdentity()],
+    ['reused', { ...current, start_time: differentStartTime(current.start_time) }],
+  ];
+  const realKill = process.kill;
+  let signals = 0;
+  process.kill = (pid, signal) => {
+    if (signal && signal !== 0) signals++;
+    return realKill(pid, signal);
+  };
+  try {
+    for (const [label, identity] of cases) {
+      const base = fs.mkdtempSync(path.join(os.tmpdir(), `atlas-cleanup-${label}-`)), root = path.join(base, 'global');
+      fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+      if (identity) fs.writeFileSync(path.join(root, 'service.json'), JSON.stringify({ process_identity: identity }));
+      await removeFixtureRoot(base, root);
+      assert.equal(fs.existsSync(base), false, `${label} evidence permits cleanup`);
+    }
+  } finally { process.kill = realKill; }
+  assert.equal(signals, 0, 'stopped and reused identities are never signalled');
+});
+
+test('fixture cleanup treats an observed zombie as stopped without signalling its PID', async t => {
+  if (process.platform !== 'linux') return t.skip('exact process identity is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-cleanup-zombie-'));
+  const root = path.join(base, 'global'), identity = processIdentity(process.pid), statFile = `/proc/${process.pid}/stat`;
+  fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(root, 'service.json'), JSON.stringify({ process_identity: identity }));
+  const realReadFile = fs.readFileSync, realKill = process.kill;
+  let signals = 0;
+  fs.readFileSync = (target, ...args) => {
+    const value = realReadFile(target, ...args);
+    if (String(target) !== statFile) return value;
+    const end = value.lastIndexOf(')');
+    return `${value.slice(0, end + 2)}Z${value.slice(end + 3)}`;
+  };
+  process.kill = (pid, signal) => {
+    if (signal && signal !== 0) signals++;
+    return realKill(pid, signal);
+  };
+  try {
+    await removeFixtureRoot(base, root);
+    assert.equal(signals, 0);
+    assert.equal(fs.existsSync(base), false);
+  } finally {
+    fs.readFileSync = realReadFile; process.kill = realKill;
+    if (fs.existsSync(base)) fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('fixture cleanup retains a live exact receiver while identity inspection is unavailable', async t => {
+  if (process.platform !== 'linux') return t.skip('exact process identity is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-cleanup-unverified-'));
+  const root = path.join(base, 'global'), serviceFile = path.join(root, 'service.json');
+  fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+  const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  const identity = await untilValue(() => processIdentity(child.pid), 1000);
+  fs.writeFileSync(serviceFile, JSON.stringify({ process_identity: identity }));
+  const realReadFile = fs.readFileSync, statFile = `/proc/${identity.pid}/stat`;
+  fs.readFileSync = (target, ...args) => {
+    if (String(target) === statFile) { const error = new Error('fixture denied'); error.code = 'EACCES'; throw error; }
+    return realReadFile(target, ...args);
+  };
+  try {
+    await assert.rejects(removeFixtureRoot(base, root), /fixture_identity_unverified/);
+    assert.doesNotThrow(() => process.kill(identity.pid, 0), 'unproved receiver identity is not signalled');
+    assert.equal(fs.existsSync(base), true, 'unresolved identity evidence is retained');
+  } finally {
+    let cleanupError;
+    try { if (fs.existsSync(base)) await removeFixtureRoot(base, root); }
+    catch (error) { cleanupError = error; }
+    const retained = fs.existsSync(base);
+    fs.readFileSync = realReadFile;
+    if (fs.existsSync(base)) await removeFixtureRoot(base, root);
+    assert.match(cleanupError?.message || '', /fixture_identity_unverified/);
+    assert.equal(retained, true, 'caller finalization preserves evidence when checked cleanup remains unverified');
+  }
+});
+
+test('fixture cleanup does not treat a hidden live proc stat as a stopped receiver', async t => {
+  if (process.platform !== 'linux') return t.skip('exact process identity is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-cleanup-hidden-stat-'));
+  const root = path.join(base, 'global'), serviceFile = path.join(root, 'service.json');
+  fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+  const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  const identity = await untilValue(() => processIdentity(child.pid), 1000);
+  fs.writeFileSync(serviceFile, JSON.stringify({ process_identity: identity }));
+  const realReadFile = fs.readFileSync, statFile = `/proc/${identity.pid}/stat`;
+  fs.readFileSync = (target, ...args) => {
+    if (String(target) === statFile) { const error = new Error('fixture hidden'); error.code = 'ENOENT'; throw error; }
+    return realReadFile(target, ...args);
+  };
+  try {
+    await assert.rejects(removeFixtureRoot(base, root), /fixture_identity_unverified/);
+    assert.doesNotThrow(() => process.kill(identity.pid, 0), 'a live PID is not inferred absent from proc visibility alone');
+    assert.equal(fs.existsSync(base), true, 'hidden identity evidence is retained');
+  } finally {
+    fs.readFileSync = realReadFile;
+    if (fs.existsSync(base)) await removeFixtureRoot(base, root);
+  }
+});
+
+test('launchRuntime retains evidence when readiness cleanup cannot reverify its known child identity', async t => {
+  if (process.platform !== 'linux') return t.skip('exact process identity is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-launch-readiness-unverified-'));
+  const root = path.join(base, 'global'), entry = __filename.replace(/\.test\.cjs$/, '.cjs');
+  const realReadFile = fs.readFileSync;
+  let identity, denyIdentity = false;
+  fs.readFileSync = (target, ...args) => {
+    if (denyIdentity && identity && String(target) === `/proc/${identity.pid}/stat`) {
+      const error = new Error('fixture denied'); error.code = 'EACCES'; throw error;
+    }
+    return realReadFile(target, ...args);
+  };
+  try {
+    await assert.rejects(launchRuntime(entry, root, { readinessTimeout: 500, statusReader(target) {
+      try { identity = JSON.parse(realReadFile(path.join(target, 'service.json'), 'utf8')).process_identity; } catch {}
+      if (identity) denyIdentity = true;
+      return null;
+    } }), /fixture_identity_unverified/);
+    assert.ok(identity, 'the launched child published exact identity evidence');
+    assert.doesNotThrow(() => process.kill(identity.pid, 0), 'unproved child identity is not signalled');
+    assert.equal(fs.existsSync(root), true, 'readiness failure evidence remains available');
+  } finally {
+    denyIdentity = false; fs.readFileSync = realReadFile;
+    if (fs.existsSync(base)) await removeFixtureRoot(base, root);
+  }
+});
 
 test('two projects and three sessions share a receiver without mixing or leaking data', async t => {
   const f = fixture(t);
@@ -235,8 +585,13 @@ test('ordinary launch cannot accept a healthy service that appears behind a stil
     }), { mode: 0o600 });
     fs.unlinkSync(path.join(f.root, 'startup.lock'));
   }, 60);
-  t.after(async () => { clearTimeout(publish); if (instance) await instance.close(); });
-  await assert.rejects(ensureService(f.root, 1000), /transition_pending/);
+  try { await assert.rejects(ensureService(f.root, 1000), /transition_pending/); }
+  finally {
+    clearTimeout(publish); if (instance) await instance.close();
+    for (const name of ['startup.lock', 'receiver-transition.json']) {
+      try { fs.unlinkSync(path.join(f.root, name)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
 });
 
 test('ordinary launch rechecks a transition journal created while an awaited health response is pending', async t => {
@@ -253,18 +608,24 @@ test('ordinary launch rechecks a transition journal created while an awaited hea
     response.end(JSON.stringify({ pid: process.pid, instance_id: instanceId, project_id: digest(f.root), root_id: digest(f.root) }));
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  t.after(async () => { releaseHealth?.(); await new Promise(resolve => server.close(resolve)); });
   const url = `http://127.0.0.1:${server.address().port}`;
   fs.writeFileSync(path.join(f.root, 'service.json'), JSON.stringify({ schema_version: 1, root_id: digest(f.root), pid: process.pid,
     instance_id: instanceId, urls: { ingest: url, health: url, metrics: url } }));
-  const pending = ensureService(f.root, 1000);
-  await held;
-  const lock = JSON.parse(fs.readFileSync(path.join(f.root, 'startup.lock'), 'utf8'));
-  fs.writeFileSync(path.join(f.root, 'receiver-transition.json'), JSON.stringify({
-    schema_version: 1, root_id: digest(f.root), token: lock.token, phase: 'prepared',
-  }), { mode: 0o600 });
-  releaseHealth();
-  await assert.rejects(pending, /transition_pending/);
+  try {
+    const pending = ensureService(f.root, 1000);
+    await held;
+    const lock = JSON.parse(fs.readFileSync(path.join(f.root, 'startup.lock'), 'utf8'));
+    fs.writeFileSync(path.join(f.root, 'receiver-transition.json'), JSON.stringify({
+      schema_version: 1, root_id: digest(f.root), token: lock.token, phase: 'prepared',
+    }), { mode: 0o600 });
+    releaseHealth();
+    await assert.rejects(pending, /transition_pending/);
+  } finally {
+    releaseHealth?.(); await new Promise(resolve => server.close(resolve));
+    for (const name of ['service.json', 'startup.lock', 'receiver-transition.json']) {
+      try { fs.unlinkSync(path.join(f.root, name)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
 });
 
 module.exports = { payload, rows, fixture };
@@ -539,7 +900,7 @@ test('explicit restart replaces one verified stale receiver on the same ports an
   assert.equal(journal.phase, 'complete'); assert.equal(journal.replacement_identity.pid, result.service.pid);
   assert.match(fs.readFileSync(path.join(f.root, 'sgsd-atlas-gaps.jsonl'), 'utf8'), /receiver_revision_transition/);
   fs.writeFileSync(path.join(f.root, 'receiver-transition.json'), JSON.stringify({ ...journal, phase: 'service_ready',
-    replacement_identity: { ...journal.replacement_identity, start_time: 'forged-reuse' } }));
+    replacement_identity: { ...journal.replacement_identity, start_time: differentStartTime(journal.replacement_identity.start_time) } }));
   await assert.rejects(restartService({ root: f.root, trustedSourceEntry: oldEntry }), /replacement_identity_mismatch/);
   assert.ok(processIdentity(result.service.pid), 'failed recovery proof cannot terminate the healthy replacement');
 });
@@ -660,6 +1021,27 @@ test('transition retry reconciles requester failure before and after child lock 
   }
 });
 
+test('test cleanup terminates an exact transitional candidate when no service record exists', async t => {
+  if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-cleanup-'));
+  const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
+  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// cleanup old fixture\n');
+  const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root); let candidate;
+  try {
+    await assert.rejects(restartService({ root, trustedSourceEntry: entry,
+      transitionObserver(phase) { if (phase === 'child_launched') throw new Error('fixture_cleanup'); } }), /fixture_cleanup/);
+    const journal = JSON.parse(fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8'));
+    candidate = journal.candidate_identity;
+    assert.ok(candidate && owned(candidate), 'fault leaves an exact test-owned transitional candidate');
+    assert.equal(fs.existsSync(path.join(root, 'service.json')), false, 'candidate has not published service identity');
+    await stopOwned(root);
+    assert.equal(owned(candidate), false, 'cleanup uses the transition journal to stop the exact candidate');
+  } finally {
+    if (candidate && owned(candidate)) { process.kill(candidate.pid, 'SIGTERM'); await untilValue(() => !owned(candidate), 3000); }
+    try { launched.child.kill('SIGTERM'); } catch {} await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test('transition timeout returns boundedly, retains its journal and requires explicit retry', async t => {
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-timeout-'));
@@ -731,34 +1113,166 @@ test('deadline expiry immediately after lock acquisition releases the requester 
   }
 });
 
-test('a deadline expiring during an all-process port scan stops the scan boundedly and retains completed history', async t => {
+test('a deadline expiring during the current listener-table scan stops boundedly and retains completed history', async t => {
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-scan-deadline-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
   fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// scan deadline fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
-  const realReaddir = fs.readdirSync;
+  const realReadFile = fs.readFileSync;
   try {
     const restarted = await restartService({ root, trustedSourceEntry: entry });
     process.kill(restarted.service.pid, 'SIGTERM');
     await untilValue(() => !owned(restarted.service.process_identity));
     await untilValue(() => !fs.existsSync(path.join(root, 'service.json')));
     const completed = fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8');
-    fs.readdirSync = (target, ...args) => {
-      if (target === '/proc') return Array(100).fill(String(process.pid));
-      if (target === `/proc/${process.pid}/fd`) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 4);
-      return realReaddir(target, ...args);
+    const scanPort = Number(new URL(restarted.service.urls.ingest).port);
+    fs.readFileSync = (target, ...args) => {
+      if (target === '/proc/self/net/tcp') {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60);
+        return procTcp(scanPort, 'deadline-fixture');
+      }
+      return target === '/proc/self/net/tcp6' ? procTcp() : realReadFile(target, ...args);
     };
     const started = Date.now();
     await assert.rejects(restartService({ root, trustedSourceEntry: entry, timeoutMs: 50 }), /receiver_transition_timeout/);
     const elapsed = Date.now() - started;
-    fs.readdirSync = realReaddir;
+    fs.readFileSync = realReadFile;
     assert.ok(elapsed < 200, `deadline is checked within the scan, elapsed=${elapsed}ms`);
     assert.equal(fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8'), completed, 'completed history is not rewritten');
     assert.equal((await restartService({ root, trustedSourceEntry: entry })).status, 'absent', 'explicit retry observes genuine absence');
   } finally {
-    fs.readdirSync = realReaddir;
+    fs.readFileSync = realReadFile;
     try { launched.child.kill('SIGTERM'); } catch {} await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('completed history reads the current network namespace once for all port ownership checks', async t => {
+  if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-batched-scan-'));
+  const root = path.join(base, 'global'), ports = { ingest: 64991, health: 64992, metrics: 64993 };
+  fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(root, 'receiver-transition.json'), JSON.stringify({
+    schema_version: 1, token: crypto.randomUUID(), phase: 'complete', root_id: digest(root),
+    replacement_identity: stoppedFixtureIdentity(),
+    urls: Object.fromEntries(Object.entries(ports).map(([name, port]) => [name, `http://127.0.0.1:${port}`])), ports,
+  }));
+  const realReaddir = fs.readdirSync, realReadFile = fs.readFileSync; let networkTableReads = 0;
+  try {
+    fs.readdirSync = (target, ...args) => target === '/proc' ? Array(100).fill(String(process.pid)) : realReaddir(target, ...args);
+    fs.readFileSync = (target, ...args) => {
+      if (/^\/proc\/self\/net\/tcp6?$/.test(String(target))) networkTableReads++;
+      return realReadFile(target, ...args);
+    };
+    assert.equal((await restartService({ root })).status, 'absent');
+  } finally {
+    fs.readdirSync = realReaddir; fs.readFileSync = realReadFile;
+    await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+  assert.equal(networkTableReads, 2, 'one authoritative namespace table pair serves every requested port');
+});
+
+test('an observable current-namespace listener with an unreadable owner fails closed', async t => {
+  if (process.platform !== 'linux') return t.skip('network namespace evidence is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-owner-unknown-'));
+  const root = path.join(base, 'global'), ports = { ingest: 64981, health: 64982, metrics: 64983 };
+  completedTransition(root, ports);
+  const realReaddir = fs.readdirSync, realReadlink = fs.readlinkSync, realReadFile = fs.readFileSync; let descriptorReads = 0;
+  try {
+    fs.readdirSync = (target, ...args) => {
+      if (target === '/proc') return ['101'];
+      if (target === '/proc/101/fd') { descriptorReads++; const error = new Error('fixture denied'); error.code = 'EACCES'; throw error; }
+      return realReaddir(target, ...args);
+    };
+    fs.readlinkSync = (target, ...args) => {
+      if (target === '/proc/self/ns/net' || target === '/proc/101/ns/net') return 'net:[fixture-current]';
+      return realReadlink(target, ...args);
+    };
+    fs.readFileSync = (target, ...args) => {
+      if (target === '/proc/self/net/tcp') return procTcp(ports.ingest, '9001');
+      if (target === '/proc/self/net/tcp6') return procTcp();
+      return realReadFile(target, ...args);
+    };
+    await assert.rejects(restartService({ root }), /receiver_port_taken/);
+    assert.equal(descriptorReads, 0, 'authoritative listener evidence does not require an owner PID traversal');
+  } finally {
+    fs.readdirSync = realReaddir; fs.readlinkSync = realReadlink; fs.readFileSync = realReadFile;
+    await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('an unreadable current-namespace listener table is not reported as proven vacant', async t => {
+  if (process.platform !== 'linux') return t.skip('network namespace evidence is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-table-unknown-'));
+  const root = path.join(base, 'global'), ports = { ingest: 64971, health: 64972, metrics: 64973 };
+  completedTransition(root, ports);
+  const realReaddir = fs.readdirSync, realReadlink = fs.readlinkSync, realReadFile = fs.readFileSync;
+  try {
+    fs.readdirSync = (target, ...args) => target === '/proc' ? ['101'] : realReaddir(target, ...args);
+    fs.readlinkSync = (target, ...args) => target === '/proc/self/ns/net' ? 'net:[fixture-current]' : realReadlink(target, ...args);
+    fs.readFileSync = (target, ...args) => {
+      if (target === '/proc/self/net/tcp') { const error = new Error('fixture denied'); error.code = 'EACCES'; throw error; }
+      if (target === '/proc/self/net/tcp6') return procTcp();
+      return realReadFile(target, ...args);
+    };
+    await assert.rejects(restartService({ root }), /receiver_port_ownership_unverified/);
+  } finally {
+    fs.readdirSync = realReaddir; fs.readlinkSync = realReadlink; fs.readFileSync = realReadFile;
+    await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('a listener in a different network namespace does not occupy a current-namespace receiver port', async t => {
+  if (process.platform !== 'linux') return t.skip('network namespace evidence is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-other-namespace-'));
+  const root = path.join(base, 'global'), ports = { ingest: 64961, health: 64962, metrics: 64963 };
+  completedTransition(root, ports);
+  const realReaddir = fs.readdirSync, realReadlink = fs.readlinkSync, realReadFile = fs.readFileSync;
+  try {
+    fs.readdirSync = (target, ...args) => {
+      if (target === '/proc') return ['202'];
+      if (target === '/proc/202/fd') return ['5'];
+      return realReaddir(target, ...args);
+    };
+    fs.readlinkSync = (target, ...args) => {
+      if (target === '/proc/self/ns/net') return 'net:[fixture-current]';
+      if (target === '/proc/202/ns/net') return 'net:[fixture-other]';
+      if (target === '/proc/202/fd/5') return 'socket:[9002]';
+      return realReadlink(target, ...args);
+    };
+    fs.readFileSync = (target, ...args) => {
+      if (target === '/proc/self/net/tcp' || target === '/proc/self/net/tcp6') return procTcp();
+      if (target === '/proc/202/net/tcp') return procTcp(ports.ingest, '9002');
+      if (target === '/proc/202/net/tcp6') return procTcp();
+      return realReadFile(target, ...args);
+    };
+    assert.equal((await restartService({ root })).status, 'absent');
+  } finally {
+    fs.readdirSync = realReaddir; fs.readlinkSync = realReadlink; fs.readFileSync = realReadFile;
+    await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('proven-vacant current namespace ignores an unrelated process with unreadable descriptors', async t => {
+  if (process.platform !== 'linux') return t.skip('network namespace evidence is Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-unrelated-denied-'));
+  const root = path.join(base, 'global'), ports = { ingest: 64951, health: 64952, metrics: 64953 };
+  completedTransition(root, ports);
+  const realReaddir = fs.readdirSync, realReadlink = fs.readlinkSync, realReadFile = fs.readFileSync; let descriptorReads = 0;
+  try {
+    fs.readdirSync = (target, ...args) => {
+      if (target === '/proc') return ['303'];
+      if (target === '/proc/303/fd') { descriptorReads++; const error = new Error('fixture denied'); error.code = 'EACCES'; throw error; }
+      return realReaddir(target, ...args);
+    };
+    fs.readlinkSync = (target, ...args) => target === '/proc/self/ns/net' ? 'net:[fixture-current]' : realReadlink(target, ...args);
+    fs.readFileSync = (target, ...args) => target === '/proc/self/net/tcp' || target === '/proc/self/net/tcp6'
+      ? procTcp() : realReadFile(target, ...args);
+    assert.equal((await restartService({ root })).status, 'absent');
+    assert.equal(descriptorReads, 0, 'unrelated PID visibility is unnecessary after authoritative vacancy proof');
+  } finally {
+    fs.readdirSync = realReaddir; fs.readlinkSync = realReadlink; fs.readFileSync = realReadFile;
+    await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
   }
 });
 
@@ -822,7 +1336,8 @@ test('identity change and foreign same-port takeover fail closed with the transi
       await assert.rejects(restartService({ root, trustedSourceEntry: entry, transitionObserver: async (phase, journal) => {
         if (fault === 'identity' && phase === 'prepared') {
           const service = JSON.parse(fs.readFileSync(path.join(root, 'service.json'), 'utf8'));
-          service.process_identity = { ...service.process_identity, start_time: 'reused-fixture' };
+          service.process_identity = { ...service.process_identity,
+            start_time: differentStartTime(service.process_identity.start_time) };
           fs.writeFileSync(path.join(root, 'service.json'), JSON.stringify(service));
         }
         if (fault === 'foreign-port' && phase === 'old_stopped') {
@@ -874,9 +1389,10 @@ test('concurrent explicit restarts serialize before journal creation and converg
 test('an exact trusted source receiver can already match, and completed history permits the next software revision', async t => {
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-revisions-'));
+  let sameRoot, root;
   try {
     const sameRuntime = path.join(base, 'same-runtime'); fs.cpSync(__dirname, sameRuntime, { recursive: true });
-    const sameRoot = path.join(base, 'same-root'), same = await launchRuntime(path.join(sameRuntime, 'global.cjs'), sameRoot);
+    sameRoot = path.join(base, 'same-root'); const same = await launchRuntime(path.join(sameRuntime, 'global.cjs'), sameRoot);
     assert.equal(same.service.runtime_fingerprint, RUNTIME_FINGERPRINT);
     const unchanged = await restartService({ root: sameRoot, trustedSourceEntry: path.join(sameRuntime, 'global.cjs') });
     assert.equal(unchanged.status, 'already_current'); assert.equal(unchanged.service.pid, same.service.pid);
@@ -884,7 +1400,7 @@ test('an exact trusted source receiver can already match, and completed history 
 
     const oldRuntime = path.join(base, 'old-runtime'); fs.cpSync(__dirname, oldRuntime, { recursive: true });
     fs.appendFileSync(path.join(oldRuntime, 'codex-otlp.cjs'), '\n// revision A\n');
-    const root = path.join(base, 'revision-root'), old = await launchRuntime(path.join(oldRuntime, 'global.cjs'), root);
+    root = path.join(base, 'revision-root'); const old = await launchRuntime(path.join(oldRuntime, 'global.cjs'), root);
     const first = await restartService({ root, trustedSourceEntry: path.join(oldRuntime, 'global.cjs') });
     assert.equal(first.status, 'restarted');
     const nextRuntime = path.join(base, 'next-runtime'); fs.cpSync(__dirname, nextRuntime, { recursive: true });
@@ -894,5 +1410,9 @@ test('an exact trusted source receiver can already match, and completed history 
     assert.equal(second.status, 'restarted'); assert.notEqual(second.service.runtime_fingerprint, first.service.runtime_fingerprint);
     assert.equal(second.service.runtime_fingerprint, next.RUNTIME_FINGERPRINT);
     await stopOwned(root); try { old.child.kill('SIGTERM'); } catch {}
-  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+  } finally {
+    if (sameRoot) await stopOwned(sameRoot);
+    if (root) await stopOwned(root);
+    fs.rmSync(base, { recursive: true, force: true });
+  }
 });

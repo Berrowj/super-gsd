@@ -1,0 +1,6 @@
+FINDINGS: CRITICAL — super-gsd/tools/telemetry-atlas/global.test.cjs:75: `stopOwned` treats unreadable/corrupt identity records as absent; callers such as line 19 then delete the root. Lines 78-80 likewise treat an uninspectable identity as stopped. Cleanup can therefore erase unresolved evidence while leaving a fixture receiver alive.
+CRITICAL: 1
+WARNINGS: 0
+PASS_RATE: 90%
+ONE_LINER: Port vacancy is repaired, but cleanup can erase unresolved identity evidence and leak a fixture receiver.
+FINDINGS_DETAIL: Scoped worker/Atlas/board receipts report zero failures. The seven retained propagation failures are unchanged snapshot-helper digest failures reproduced on 2770952 and are not counted here.

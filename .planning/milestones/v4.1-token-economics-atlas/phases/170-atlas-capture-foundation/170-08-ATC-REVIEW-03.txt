@@ -1,0 +1,5 @@
+FINDINGS: CRITICAL — super-gsd/tools/telemetry-atlas/global.test.cjs:67: `validFixtureIdentity` accepts empty `start_time`, `executable`, and `argv`. Such parseable-but-corrupt evidence is classified as `replaced`, allowing root deletion while the referenced live fixture remains running.
+CRITICAL: 1
+WARNINGS: 0
+PASS_RATE: 90%
+ONE_LINER: Parseable corrupt identity evidence can still erase a root while leaving its live fixture receiver running.

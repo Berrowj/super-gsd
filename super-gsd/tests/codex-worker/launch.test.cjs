@@ -36,7 +36,7 @@ function isolatedNativeTools(root) {
   }
   return directory;
 }
-function fixture(t, { defaultDiscovery = false } = {}) {
+function fixture(t, { defaultDiscovery = false, parentEnv = process.env } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "worker launch 'quoted'-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, '.planning'));
@@ -48,15 +48,17 @@ function fixture(t, { defaultDiscovery = false } = {}) {
   const localBin = path.join(fixtureHome, '.local/bin');
   const nvmBin = path.join(fixtureHome, '.nvm/versions/node/v99.0.0/bin');
   const selectedExecutableLog = path.join(root, 'selected executable');
+  const profileLog = path.join(root, 'profile-resolution.jsonl');
   writePeerCommand(path.join(callerBin, 'codex'), 'caller');
   writePeerCommand(path.join(localBin, 'codex'), 'user-local');
   writePeerCommand(path.join(nvmBin, 'codex'), 'nvm');
   fs.symlinkSync(fs.realpathSync(process.execPath), path.join(nvmBin, 'node'));
-  const env = { ...process.env, HOME: fixtureHome, USERPROFILE: fixtureHome,
+  const env = { ...parentEnv, HOME: fixtureHome, USERPROFILE: fixtureHome,
     PATH: `${callerBin}:${path.dirname(fs.realpathSync(process.execPath))}:/usr/bin:/bin`,
     OPENAI_API_KEY: '', SGSD_ATLAS_DISABLED: '1', SGSD_CODEX_APP_SERVER_COMMAND: process.execPath,
     SGSD_CODEX_APP_SERVER_ARGS: JSON.stringify([peer]), WORKER_FIXTURE_CAPTURE: capture, WORKER_FIXTURE_MODE: 'complete',
     SGSD_CODEX_COMMAND: path.join(root, 'must-not-use-one-shot'), SGSD_WORKER_OWNER: 'fable.fixture',
+    SGSD_CODEX_PROFILE_LOG: profileLog,
     CODEX_HOME: path.join(root, 'isolated codex home'),
     WORKER_FIXTURE_PEER: peer, WORKER_FIXTURE_SELECTED_EXECUTABLE: selectedExecutableLog };
   if (defaultDiscovery) {
@@ -65,7 +67,7 @@ function fixture(t, { defaultDiscovery = false } = {}) {
     env.SGSD_CODEX_APP_SERVER_ARGS = '[]';
   }
   delete env.SGSD_CODEX_FORCE_LAUNCHER; delete env.SGSD_WORKER_RESUME_ID;
-  return { root, prompt, report, capture, env, callerBin, localBin, nvmBin, selectedExecutableLog };
+  return { root, prompt, report, capture, env, callerBin, localBin, nvmBin, selectedExecutableLog, profileLog };
 }
 function launch(t, argv, f, env = {}) {
   const child = spawn('bash', argv, { cwd: f.root, env: { ...f.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -111,7 +113,11 @@ async function stopDetachedAtlas(root) {
 }
 
 test('board wrapper pauses for its exact worker reply before validating the completed board report', { skip: bashOnly, timeout: 25000 }, async t => {
-  const f = fixture(t);
+  const parentRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'worker-profile-parent-'));
+  const parentLog = path.join(parentRoot, 'profile-resolution.jsonl'), sentinel = '{"fixture":"parent-before"}\n';
+  fs.writeFileSync(parentLog, sentinel); t.after(() => fs.rmSync(parentRoot, { recursive: true, force: true }));
+  const f = fixture(t, { parentEnv: { ...process.env, SGSD_CODEX_PROFILE_LOG: parentLog,
+    SGSD_CODEX_PROFILES_REGISTRY: path.join(parentRoot, 'missing-profiles.yaml') } });
   const spec = dispatch.prepare({ memberName: 'sgsd-board-pragmatist', projectDir: f.root, promptFile: f.prompt,
     timeoutSeconds: 20, owner: f.env.SGSD_WORKER_OWNER });
   const running = launch(t, spec.argv, f, { WORKER_FIXTURE_MODE: 'question', WORKER_FIXTURE_REPORT: boardReport });
@@ -128,6 +134,10 @@ test('board wrapper pauses for its exact worker reply before validating the comp
   assert.equal(start.params.model, 'gpt-5.6-luna'); assert.equal(start.params.sandbox, 'danger-full-access');
   assert.equal(start.params.approvalPolicy, 'never'); assert.equal(start.params.ephemeral, false);
   assert.equal(frames(f).find(frame => frame.method === 'turn/start').params.effort, 'max');
+  assert.equal(fs.readFileSync(parentLog, 'utf8'), sentinel, 'ordinary fixture leaves the inherited parent profile log byte-unchanged');
+  const profileRows = fs.readFileSync(f.profileLog, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.ok(profileRows.some(row => row.action === 'resolve-cli' && row.status === 'fallback'),
+    'real wrapper fallback evidence is written to the fixture-owned profile log');
 });
 
 test('review wrapper preserves the additive report contract and full-access worker metadata', { skip: bashOnly }, async t => {
