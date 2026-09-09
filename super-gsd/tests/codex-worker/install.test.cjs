@@ -43,9 +43,17 @@ require(process.env.WORKER_FIXTURE_PEER);
 `, { mode: 0o700 });
 }
 
-test('isolated global install delivers the full worker closure and its installed wrapper runs it', { skip: process.platform !== 'linux', timeout: 180000 }, t => {
+test('isolated global install delivers the full worker closure and its installed wrapper runs it', { skip: process.platform !== 'linux', timeout: 180000 }, async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'worker-install-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const atlasRoot = path.join(root, 'automatic');
+  t.after(async () => {
+    if (fs.existsSync(atlasRoot)) {
+      fs.writeFileSync(path.join(atlasRoot, 'disabled'), 'fixture cleanup\n');
+      await new Promise(resolve => setTimeout(resolve, 6000));
+      assert.equal(fs.existsSync(path.join(atlasRoot, 'service.json')), false, 'owned installed fixture receiver stopped');
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  });
   const fixtureHome = path.join(root, 'home'), project = path.join(root, 'project'); fs.mkdirSync(project);
   fs.mkdirSync(path.join(fixtureHome, '.claude/get-shit-done'), { recursive: true });
   const nodeExecutable = fs.realpathSync(process.execPath);
@@ -58,6 +66,7 @@ test('isolated global install delivers the full worker closure and its installed
   writeInstalledPeerCommand(path.join(nvmBin, 'codex'), 'nvm');
   fs.symlinkSync(nodeExecutable, path.join(nvmBin, 'node'));
   const env = { ...process.env, HOME: fixtureHome, USERPROFILE: fixtureHome, OPENAI_API_KEY: '', SGSD_ATLAS_DISABLED: '1',
+    CODEX_HOME: path.join(root, 'codex-home'), SGSD_ATLAS_GLOBAL_ROOT: atlasRoot, SGSD_ATLAS_STATE_DIR: '', SGSD_RUN_ID: '',
     PATH: `${callerBin}:${path.dirname(nodeExecutable)}:${process.env.PATH}`,
     WORKER_FIXTURE_PEER: fixturePeer, WORKER_FIXTURE_SELECTED_EXECUTABLE: selectedExecutableLog };
   delete env.SGSD_CODEX_APP_SERVER_COMMAND;
@@ -67,10 +76,17 @@ test('isolated global install delivers the full worker closure and its installed
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   const installed = path.join(fixtureHome, '.claude/super-gsd');
   const isolatedEnv = { ...env, NODE_PATH: '', NODE_OPTIONS: '--no-global-search-paths' };
-  for (const file of ['run.cjs', 'rpc.cjs', 'mailbox.cjs', 'control.cjs', 'fixtures/app-server.cjs']) {
+  for (const file of ['run.cjs', 'rpc.cjs', 'mailbox.cjs', 'control.cjs', 'usage.cjs', 'fixtures/app-server.cjs']) {
     const target = path.join(installed, 'tools/codex-worker', file);
     assert.ok(fs.existsSync(target), `installed runtime closure includes ${file}`);
     assert.deepEqual(fs.readFileSync(target), fs.readFileSync(path.join(source, 'tools/codex-worker', file)));
+  }
+  for (const layout of [installed, path.join(fixtureHome, '.claude')]) {
+    const usage = path.join(layout, 'tools/codex-worker/usage.cjs');
+    const load = spawnSync(nodeExecutable, ['--no-global-search-paths', '-e',
+      'if (typeof require(process.argv[1]).createCapture !== "function") process.exit(2)', usage],
+    { cwd: project, env: isolatedEnv, encoding: 'utf8', timeout: 5000 });
+    assert.equal(load.status, 0, `installed native closure loads without source/global fallback: ${load.stderr}`);
   }
   assert.deepEqual(fs.readFileSync(path.join(installed, 'scripts/lib/sgsd-state.cjs')), fs.readFileSync(path.join(source, 'scripts/lib/sgsd-state.cjs')));
   for (const file of ['tools/codex-pro/profile-resolver.cjs', 'registry/codex-profiles.yaml', 'registry/board-members.yaml',
@@ -105,11 +121,28 @@ test('isolated global install delivers the full worker closure and its installed
   const report = path.join(project, 'report'), capture = path.join(project, 'app-server-capture.jsonl');
   const run = spawnSync('bash', [path.join(installed, 'scripts/codex-executor.sh'), '--workspace', project,
     '--prompt-file', path.join(project, 'prompt'), '--report-out', report, '--timeout', '10'],
-  { cwd: project, env: { ...isolatedEnv, SGSD_CODEX_APP_SERVER_ARGS: '[]',
-    WORKER_FIXTURE_MODE: 'complete', WORKER_FIXTURE_REPORT: 'installed worker completed', WORKER_FIXTURE_CAPTURE: capture,
+  { cwd: project, env: { ...isolatedEnv, SGSD_CODEX_APP_SERVER_ARGS: '[]', SGSD_ATLAS_DISABLED: '0',
+    WORKER_FIXTURE_MODE: 'usage-complete', WORKER_FIXTURE_REPORT: 'installed worker completed', WORKER_FIXTURE_CAPTURE: capture,
+    WORKER_FIXTURE_ROLLOUT: path.join(root, 'native', 'sessions', '2026', '09', '09', 'installed-rollout.jsonl'),
   }, encoding: 'utf8', timeout: 20000 });
   assert.equal(run.status, 0, run.stderr); assert.match(fs.readFileSync(report, 'utf8'), /installed worker completed/);
   assert.equal(fs.readFileSync(selectedExecutableLog, 'utf8').trim(), 'caller');
+  const { readRun } = require(path.join(installed, 'tools/telemetry-atlas/global-store.cjs'));
+  const registrations = fs.readdirSync(path.join(atlasRoot, 'runs')).map(id => readRun(atlasRoot, id));
+  const nativeRun = registrations.find(run => run?.accountingSource === 'codex_rollout');
+  assert.ok(nativeRun, 'installed Linux wrapper explicitly selects its implemented accounting source');
+  let nativeRows = [];
+  const until = Date.now() + 2500;
+  while (Date.now() < until && nativeRows.length !== 2) {
+    if (fs.existsSync(nativeRun.metrics_dir)) nativeRows = fs.readdirSync(nativeRun.metrics_dir)
+      .filter(name => /^sgsd-atlas-events-.*\.jsonl$/.test(name))
+      .flatMap(name => fs.readFileSync(path.join(nativeRun.metrics_dir, name), 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse))
+      .filter(row => row.source?.kind === 'codex_rollout');
+    if (nativeRows.length !== 2) await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.equal(nativeRows.length, 2, 'installed wrapper reaches the real private spool and registered global ledger');
+  assert.deepEqual(nativeRows.map(row => row.usage.input_tokens).sort((a,b) => a-b), [80, 100]);
+  assert.doesNotMatch(JSON.stringify(nativeRows), /PRIVATE_ROLLOUT_CANARY|77777|9000|70000/);
   const messages = fs.readFileSync(capture, 'utf8').trim().split('\n').map(JSON.parse);
   const thread = messages.find(message => message.method === 'thread/start');
   const turn = messages.find(message => message.method === 'turn/start');
@@ -172,6 +205,7 @@ test('fresh source bootstraps only the pinned installed YAML closure before glob
     fs.mkdirSync(project);
     const capture = path.join(root, `${name}-npm.jsonl`);
     const env = { ...process.env, HOME: fixtureHome, USERPROFILE: fixtureHome, OPENAI_API_KEY: '',
+      CODEX_HOME: path.join(fixtureHome, '.codex'), SGSD_ATLAS_GLOBAL_ROOT: path.join(fixtureHome, 'atlas-disabled'), SGSD_RUN_ID: '', SGSD_ATLAS_STATE_DIR: '',
       SGSD_ATLAS_DISABLED: '1', FIXTURE_DEP_SOURCE: dependencySource, FIXTURE_NPM_CAPTURE: capture,
       FIXTURE_NPM_MODE: npmMode, PATH: `${binDir}:${path.dirname(nodeExecutable)}:${process.env.PATH}` };
     const result = spawnSync('bash', [path.join(freshSource, 'install.sh'), '--install-global', '--project-dir', project],

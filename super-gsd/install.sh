@@ -694,6 +694,7 @@ install_global_assets() {
   fi
   copy_files_to_root "$GLOBAL_SCRIPTS_DIR/lib" "${script_lib_sources[@]}"
   copy_tree_files "$SCRIPT_DIR/tools/codex-worker" "$CLAUDE_DIR/super-gsd/tools/codex-worker"
+  copy_tree_files "$SCRIPT_DIR/tools/telemetry-atlas" "$CLAUDE_DIR/super-gsd/tools/telemetry-atlas"
   copy_file "$SCRIPT_DIR/tools/codex-pro/profile-resolver.cjs" "$CLAUDE_DIR/super-gsd/tools/codex-pro/profile-resolver.cjs"
   copy_file "$SCRIPT_DIR/registry/codex-profiles.yaml" "$CLAUDE_DIR/super-gsd/registry/codex-profiles.yaml"
   copy_file "$SCRIPT_DIR/registry/board-members.yaml" "$CLAUDE_DIR/super-gsd/registry/board-members.yaml"

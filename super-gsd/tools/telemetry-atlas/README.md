@@ -43,10 +43,52 @@ Exit codes: **0** = checked evidence passed; **10** = missing/degraded coverage;
 schema, checksums, duplicates/conflicts, closed-file manifests, project/provider
 attribution, spool backlog, stale observations and missing native requests.
 It never repairs or deletes evidence. A launcher registration alone is not proof
-of provider capture. Requests without stable provider request IDs remain coverage
-observations without token totals. Account quota snapshots are unallocated and
+of provider capture. Legacy requests without stable provider request IDs remain
+coverage observations without token totals. Linux workers can instead provide
+native completed-response observations as described below. Account quota snapshots are unallocated and
 must not be summed across projects. `complete_coverage` remains false: this is
 not yet a reconciliation against provider billing or every request issued.
+
+### Native Linux Codex response observations
+
+Normal Linux SGSD worker wrappers register immutable `codex_rollout` accounting
+authority. Their adapter reads only the exact returned native rollout file,
+selecting the acknowledged worker thread/turn. Existing files start at pre-turn
+EOF. Fresh native threads can return a path before its file/date-directories
+exist: the explicit fresh-opening branch snapshots absence and pins existing
+ancestors, then opens only that exact safely created file after ACK at offset
+zero. Missing resume/null paths, changed ancestors and post-open disappearance
+remain degraded; the reader never creates native files or scans for alternatives.
+Standalone Codex `token_usage_record` per-response usage (release 0.153.2 source
+contract) is projected into the existing private spool. Prompts, response text,
+tool bodies, cumulative thread/turn snapshots, and resumed/forked old history
+are not copied. Internal child threads and standalone/manual CLI runs are outside
+this reader's scope; legacy registrations remain unchanged.
+
+True native `response_id`, session/thread/turn/root-turn identities are retained;
+HTTP `request_id` remains null. Same-response/same-payload replay is a duplicate;
+changed usage, timestamp or attribution is a conflict, not another spend.
+Cross-project response reuse makes audit evidence unsafe to sum. Canonical HTTP
+bodies cannot authorize this private source. For authoritative runs, Codex OTEL
+remains non-additive metadata regardless of arrival order or future IDs.
+
+Only observed nonnegative safe-integer usage fields count. The provider's total
+is preserved, never reconstructed. Cache-read tokens are a subset of input and
+reasoning tokens a subset of output: do not add those subsets again, including
+by summing all `sgsd_atlas_request_tokens_total` token-type series. Missing
+optional cache-write stays null. `runtime.model` is explicitly the returned
+thread configuration, not the actual served per-response model; response model
+and unverified current CLI version remain unknown. A resumed thread's creation
+CLI version is not the current runtime version.
+
+Health exposes `native_responses` separately from HTTP `native_requests`; audit
+likewise separates response and request counts. Completed responses before a
+later worker failure/interruption remain eligible, without declaring that worker
+successful. Bounded polling/finalization, file checks, queue/index limits and
+spool failures can leave partial capture. Content-free gaps remain in registered
+global project/root evidence. No observation means unknown, not zero;
+`complete_coverage` stays false. Windows rollout capture is OPEN_REQUIRED and
+does not select this Linux-only authority. `SGSD_ATLAS_DISABLED=1` skips capture.
 
 An operator prompt for the weekly check:
 
@@ -92,7 +134,8 @@ download binaries.
 The project hook dependency closure delivers only modules needed by registered
 hooks; it does not deliver every Atlas CLI. The explicit global SGSD installer
 copies the complete self-contained Atlas directory to
-`~/.claude/tools/telemetry-atlas`, beside the global statusline hook. Use that
+`~/.claude/tools/telemetry-atlas`, beside the global statusline hook, and beside
+the nested worker at `~/.claude/super-gsd/tools/telemetry-atlas`. Use that
 installed directory, or the authoritative canonical source directory's
 `super-gsd/tools/telemetry-atlas`, for CLI operations. The lifecycle default state
 path includes the first 16 characters of the project directory digest, so

@@ -13,7 +13,7 @@
     "test:atlas": "node super-gsd/tools/telemetry-atlas/run-self-test.cjs",
     "atlas:audit": "node super-gsd/tools/telemetry-atlas/audit.cjs --json",
     "test:board-dispatch": "node --test super-gsd/scripts/lib/board-dispatch.test.cjs super-gsd/scripts/lib/board-registry.test.cjs",
-    "test:codex-worker": "node --test super-gsd/tools/codex-worker/worker.test.cjs super-gsd/tests/codex-worker/permissions.test.cjs super-gsd/tests/codex-worker/launch.test.cjs super-gsd/tests/codex-worker/install.test.cjs super-gsd/tests/codex-worker/orchestration.test.cjs",
+    "test:codex-worker": "node --test super-gsd/tools/codex-worker/worker.test.cjs super-gsd/tests/codex-worker/usage.test.cjs super-gsd/tests/codex-worker/permissions.test.cjs super-gsd/tests/codex-worker/launch.test.cjs super-gsd/tests/codex-worker/install.test.cjs super-gsd/tests/codex-worker/orchestration.test.cjs",
     "cockpit:setup": "npx --yes playwright install chromium",
     "cockpit:setup-linux": "npx --yes playwright install --with-deps chromium",
     "cockpit:serve": "node super-gsd/tools/cockpit-sidecar/serve.cjs --port 7777",

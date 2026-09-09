@@ -91,24 +91,43 @@ in the three Codex wrappers, installer closure only if required,
 `super-gsd/tools/codex-worker/README.md`, Atlas README and root `package.json`
 test script only if the existing test glob does not include the new tests.
 
-- [ ] First RED: native-shaped fake peer writes durable usage before completion;
+- [x] First RED: native-shaped fake peer writes durable usage before completion;
   actual adapter currently emits no canonical observation. Exercise real mailbox,
   RPC, final report validation and spool boundary, mocking only provider exchange.
   Include the existing timeout callback's early `rpc.close()`, and a fault that
   already killed the transport; a final-only success-path projector is insufficient.
   Assert timeout classification while initialization/thread-open is still
   awaiting its RPC response, not only after the current turn was acknowledged.
-- [ ] Establish source baseline after verified thread open and before turn/start;
+- [x] Establish source baseline after verified thread open and before turn/start;
   bind acknowledged thread/turn, collect periodically and before `rpc.close()` on
   normal/failed/interrupted/timeout paths. Keep the existing bounded deadline and
   process-tree termination; no extra model call or delayed timeout allowance.
-- [ ] Missing capability or capture error is visible content-free degradation,
+  Source-confirmed Task 2 API prerequisite: fresh native paths/date-parents are
+  lazy. Pass actual fresh/resume opening context to the reader. Snapshot absent
+  fresh paths with pinned existing ancestors; after ACK, open only that exact
+  safely created file at offset zero within the existing polling bounds.
+  Existing files keep EOF baseline. Missing resume/null/unsafe paths still
+  degrade; no native writes, HOME scan or reset after replacement/disappearance.
+  Synchronously reject expired startup dispatch after setup, before sending
+  turn/start. Preserve early logical failed/interrupted outcomes while binding
+  a genuine matching ACK to existing capture, without post-fault timers.
+- [x] Missing capability or capture error is visible content-free degradation,
   never fabricated usage or a replacement for worker outcome. Reroute must not
   falsely claim configured model as provider-reported per-response model.
-- [ ] Verify multiple responses, one missing usage, response before subsequent
+  Automatic capture requires an active launcher run ID as well as a root:
+  disabled-marker/prepare-off paths clear that ID and must not write false native
+  capture gaps through an inherited root. Preserve the root's custom-bootstrap
+  configuration role; pair an actual-wrapper disabled regression with the
+  installed enabled-custom-root capture check. Pure reader authority validation
+  remains strict and unchanged.
+- [x] Verify multiple responses, one missing usage, response before subsequent
   failure, cold resume excluding old history, early notifications, final flush,
   timeout and full-access/never/retained-thread invariants. No raw-event opt-in.
-- [ ] Ensure normal installed wrappers pass the immutable accounting authority
+  Add actual lazy-file/absent-parent, late creation/final flush, missing-resume,
+  pinned-ancestor replacement/symlink and original-deadline exhaustion tests.
+  Keep the one-second pre-ACK deadline tests; other fixture setup budgets must
+  reach their intended protocol stage with independent bounded-exit checks.
+- [x] Ensure normal installed wrappers pass the immutable accounting authority
   at registration and install the complete new dependency closure. Existing
   non-worker/manual Codex paths remain honestly legacy/partial, not silently
   advertised as using a reader they do not run.
@@ -116,7 +135,7 @@ test script only if the existing test glob does not include the new tests.
   to the flat root. A new relative worker-to-Atlas import requires delivering
   the Atlas closure beside the nested worker too; do not rely on a source-tree
   fallback or a host-global module to make the installed test pass.
-- [ ] Run full worker, board, model-routing and Atlas suites on native Linux;
+- [x] Run full worker, board, model-routing and Atlas suites on native Linux;
   installed empty-tree smoke must exercise the new module. Document source,
   response-versus-request identity, subsets, provenance and incomplete coverage.
   Review and commit task-owned paths.
@@ -139,6 +158,9 @@ runtime fingerprint/transition helper(s) if needed; `global.test.cjs`,
   pending transition and may not silently replace a healthy stale process.
 - [ ] Legacy-record adoption requires live identity/health/all-port proof and
   labels old revision unknown. Recheck process identity immediately before signal.
+  The verified DEVCP legacy entry is in the canonical source checkout. Normalize
+  the updater's already trusted source root and pass its exact derived runtime
+  entry explicitly; no basename-only adoption or arbitrary source-path discovery.
   Never use PID-only kill, random-port fallback, foreign listener termination,
   run re-registration, spool/ledger cleanup or Fable/Codex pane restart.
 - [ ] Preserve journal/ownership across requester crash, delayed child and failed
@@ -148,7 +170,8 @@ runtime fingerprint/transition helper(s) if needed; `global.test.cjs`,
   before project pin/complete output. Failure leaves project pin unchanged;
   `--check` and `--no-install` never invoke transition. Do not edit Windows updater.
   Preserve the running updater's parsed body across its own source/install
-  replacement (for example, parse its main function before invoking it). Test
+  replacement (for example, parse its main function and final invocation/exit
+  unit before invoking it, so a replaced tail cannot execute afterward). Test
   self-replacement; do not broaden this into the parked installer transaction.
 - [ ] Tests: stable URLs/run IDs/old endpoint after replacement; queued event
   survival/dedup; competing launch/restart; requester crash/timeout and recovery;

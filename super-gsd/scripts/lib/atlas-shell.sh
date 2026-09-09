@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Scoped attachment at an SGSD-owned process launch. Provider output is never evaluated.
 sgsd_atlas_attach() {
-    local role="${1:-orchestrator}" provider="${2:-anthropic}" project="${3:-$PWD}"
+    local role="${1:-orchestrator}" provider="${2:-anthropic}" project="${3:-$PWD}" accounting_source="${4:-}"
     local base runtime output
     SGSD_ATLAS_CODEX_ARGS=()
     # Clear the previous project's endpoints even when node/bootstrap is unavailable.
@@ -11,6 +11,7 @@ sgsd_atlas_attach() {
     export CLAUDE_CODE_ENABLE_TELEMETRY=0 OTEL_LOGS_EXPORTER=none OTEL_METRICS_EXPORTER=none OTEL_TRACES_EXPORTER=none
     export SGSD_RUN_ID='' SGSD_ATLAS_STATE_DIR='' SGSD_ATLAS_ENDPOINT='' SGSD_ATLAS_RUN_ENDPOINT='' SGSD_ATLAS_PROJECT_ID=''
     export SGSD_ATLAS_CODEX_EXPORTER=""
+    [[ "${SGSD_ATLAS_DISABLED:-}" == 1 ]] && return 0
     base="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
     runtime="$base/tools/telemetry-atlas/global.cjs"
     [[ -f "$runtime" ]] || runtime="$HOME/.claude/tools/telemetry-atlas/global.cjs"
@@ -19,7 +20,13 @@ sgsd_atlas_attach() {
         echo '[Atlas] capture unavailable: runtime missing' >&2
         return 0
     fi
-    output="$(node "$runtime" prepare --project-dir "$project" --role "$role" --provider "$provider" --format shell)" || return 0
+    local -a accounting_args=()
+    # Only the native Linux worker adapter implements the exact-rollout reader.
+    # Other callers/platforms retain the legacy source contract.
+    if [[ "$accounting_source" == codex_rollout && "$(uname -s)" == Linux ]] && [[ "$(node -p 'process.platform')" == linux ]]; then
+        accounting_args=(--accounting-source codex_rollout)
+    fi
+    output="$(node "$runtime" prepare --project-dir "$project" --role "$role" --provider "$provider" "${accounting_args[@]}" --format shell)" || return 0
     # Output is generated from allowlisted keys and shell-quoted local registrations.
     if [[ "$output" == *'export CLAUDE_CODE_ENABLE_TELEMETRY='* ]]; then eval "$output"; fi
     export -f sgsd_atlas_codex_args

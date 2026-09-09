@@ -772,7 +772,7 @@ if [[ -f "$ATLAS_HELPER" ]]; then
     source "$ATLAS_HELPER"
     ATLAS_ROLE=reviewer
     [[ "$CONTRACT" == "board-position-v1" || "$CONTRACT" == "rd-memo-v1" ]] && ATLAS_ROLE=board
-    sgsd_atlas_attach "$ATLAS_ROLE" openai "$PROJECT"
+    sgsd_atlas_attach "$ATLAS_ROLE" openai "$PROJECT" codex_rollout
 fi
 set +e
 sgsd_codex_worker_run "$PROMPT_FILE" \

@@ -36,17 +36,23 @@ function projectUsageRecord(record, context = {}) {
 }
 
 const bounded = (value, fallback, max) => Number.isSafeInteger(value) && value > 0 && value <= max ? value : fallback;
-function checkedPath(file) {
+function pathSnapshot(file, allowMissing = false) {
   if (typeof file !== 'string' || !path.isAbsolute(file)) throw new Error('native_usage_path_unavailable');
-  let current = file;
+  let current = file, leaf;
+  const ancestors = new Map();
   for (let depth = 0; ; depth++) {
     if (depth > 128) throw new Error('native_usage_path_unavailable');
-    const stat = fs.lstatSync(current);
-    if (stat.isSymbolicLink() || (current !== file && !stat.isDirectory())) throw new Error('native_usage_unsafe_file');
+    let stat;
+    try { stat = fs.lstatSync(current); } catch (error) { if (!allowMissing || error.code !== 'ENOENT') throw error; }
+    if (stat) {
+      if (stat.isSymbolicLink() || (current !== file && !stat.isDirectory())) throw new Error('native_usage_unsafe_file');
+      if (current === file) leaf = stat; else ancestors.set(current, stat);
+    }
     const parent = path.dirname(current); if (parent === current) break; current = parent;
   }
-  return fs.lstatSync(file);
+  return { stat: leaf, ancestors };
 }
+const checkedPath = file => pathSnapshot(file).stat;
 function validFile(stat) {
   return stat.isFile() && stat.nlink === 1 && stat.uid === process.getuid()
     && Number.isSafeInteger(stat.size) && stat.size >= 0;
@@ -55,7 +61,7 @@ const sameFile = (a, b) => a.dev === b.dev && a.ino === b.ino;
 
 // Snapshot is synchronous and MUST happen after thread/open and BEFORE turn/start.
 // No filesystem discovery, timers, provider transport, native writes or chmod.
-function createCapture({ root, projectDir, runId, opened, runtimeVersion, limits = {} } = {}) {
+function createCapture({ root, projectDir, runId, opened, opening, runtimeVersion, limits = {} } = {}) {
   const bound = { readBytes: bounded(limits.readBytes, 65536, 1048576), lineBytes: bounded(limits.lineBytes, 65536, 1048576),
     responses: bounded(limits.responses, 4096, 16384), pending: bounded(limits.pending, 64, 256),
     retries: bounded(limits.retries, 16, 64), finalPolls: bounded(limits.finalPolls, 2, 4) };
@@ -79,28 +85,42 @@ function createCapture({ root, projectDir, runId, opened, runtimeVersion, limits
     try { if (verifiedRoot && sameFile(verifiedRoot, checkedPath(root))) appendGap(path.join(root, 'sgsd-atlas-gaps.jsonl'), reason); } catch {}
   };
   let fd, original, offset = 0, size = 0, readBytes = 0, pendingLine = Buffer.alloc(0), discard = false;
+  let ancestors = new Map(), awaitingFile = false;
   let fatal = false, finalized = false, turnId = null, observed = 0, delivered = 0;
   const pending = new Map(), seen = new Set();
   const file = opened?.thread?.path, threadId = opened?.thread?.id;
   const context = Object.freeze({ run, threadId, model: opened?.model, modelProvider: opened?.modelProvider, runtimeVersion });
   const fail = reason => { fatal = true; gap(reason); };
+  function verifyAncestors(snapshot) {
+    for (const [name, pinned] of ancestors) {
+      const current = snapshot.ancestors.get(name);
+      if (!current || !sameFile(pinned, current)) throw new Error('native_usage_file_changed');
+    }
+  }
+  function openFile(snapshot, atEOF) {
+    if (!validFile(snapshot.stat)) throw new Error('native_usage_unsafe_file');
+    // NONBLOCK also prevents a racing FIFO substitution from blocking cleanup.
+    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    original = fs.fstatSync(fd); const after = pathSnapshot(file); verifyAncestors(after);
+    if (!validFile(original) || !validFile(after.stat) || !sameFile(snapshot.stat, original) || !sameFile(after.stat, original)) throw new Error('native_usage_file_changed');
+    ancestors = after.ancestors; awaitingFile = false;
+    size = original.size; offset = atEOF ? size : 0;
+    if (offset) { const last = Buffer.alloc(1); if (fs.readSync(fd, last, 0, 1, offset - 1) !== 1) throw new Error('native_usage_file_changed'); discard = last[0] !== 10; }
+  }
   try {
     if (process.platform !== 'linux') throw new Error('native_usage_linux_required');
     if (!run || run.provider !== 'openai' || run.accountingSource !== NATIVE_SOURCE) throw new Error('native_usage_authority_unavailable');
     if (!atom(threadId)) throw new Error('native_usage_identity_missing');
-    const before = checkedPath(file);
-    if (!validFile(before)) throw new Error('native_usage_unsafe_file');
-    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-    original = fs.fstatSync(fd); const after = checkedPath(file);
-    if (!validFile(original) || !validFile(after) || !sameFile(before, original) || !sameFile(after, original)) throw new Error('native_usage_file_changed');
-    offset = size = original.size;
-    if (offset) { const last = Buffer.alloc(1); if (fs.readSync(fd, last, 0, 1, offset - 1) !== 1) throw new Error('native_usage_file_changed'); discard = last[0] !== 10; }
+    const before = pathSnapshot(file, opening === 'fresh'); ancestors = before.ancestors;
+    if (before.stat) openFile(before, true);
+    else awaitingFile = true; // Explicit fresh branch only; native creation may also defer date directories.
   } catch (error) {
     fail(/^native_usage_[a-z_]+$/.test(error.message) ? error.message : 'native_usage_path_unavailable');
     if (fd !== undefined) { fs.closeSync(fd); fd = undefined; }
   }
   function recheck() {
-    const current = checkedPath(file), descriptor = fs.fstatSync(fd);
+    const snapshot = pathSnapshot(file); verifyAncestors(snapshot);
+    const current = snapshot.stat, descriptor = fs.fstatSync(fd);
     if (!validFile(current) || !validFile(descriptor) || !sameFile(original, current) || !sameFile(original, descriptor)
         || current.size < size || descriptor.size < size || current.size < offset || descriptor.size < offset) throw new Error('native_usage_file_changed');
     size = Math.max(current.size, descriptor.size);
@@ -123,8 +143,15 @@ function createCapture({ root, projectDir, runId, opened, runtimeVersion, limits
     if (!enqueue(event)) pending.set(key, event);
   }
   function poll() {
-    if (finalized || fd === undefined || !turnId || fatal) return status();
+    if (finalized || !turnId || fatal) return status();
     try {
+      if (fd === undefined) {
+        if (!awaitingFile) return status();
+        const snapshot = pathSnapshot(file, true); verifyAncestors(snapshot);
+        ancestors = snapshot.ancestors;
+        if (!snapshot.stat) return status();
+        openFile(snapshot, false); // Verified pre-turn absence, never resumed-history discovery.
+      }
       recheck();
       let tried = 0;
       for (const [key, event] of pending) { if (tried++ >= bound.retries) break; if (enqueue(event)) pending.delete(key); else break; }
@@ -152,6 +179,7 @@ function createCapture({ root, projectDir, runId, opened, runtimeVersion, limits
   }
   function status() {
     return { healthy: !fatal && reasons.size === 0, available: fd !== undefined && !fatal, bound: Boolean(turnId),
+      awaiting_file: awaitingFile && !fatal && !finalized,
       observed_responses: observed, queued_observations: delivered, pending: pending.size, buffered_bytes: pendingLine.length,
       read_bytes: readBytes, complete_coverage: false, scope: 'acknowledged_worker_thread_turn', reasons: [...reasons] };
   }
@@ -163,13 +191,14 @@ function createCapture({ root, projectDir, runId, opened, runtimeVersion, limits
   function finalizeSync() {
     if (finalized) return status();
     for (let i = 0; i < bound.finalPolls; i++) poll();
+    if (awaitingFile) gap('native_usage_path_unavailable');
     if (!turnId) gap('native_usage_turn_unacknowledged');
     if (pending.size) gap('native_usage_delivery_incomplete');
     if (offset < size || pendingLine.length || discard) gap('native_usage_final_read_incomplete');
     if (!observed) gap('native_request_usage_unobserved');
     finalized = true; return status();
   }
-  function close() { if (fd !== undefined) { fs.closeSync(fd); fd = undefined; } pendingLine = Buffer.alloc(0); }
+  function close() { finalized = true; awaitingFile = false; if (fd !== undefined) { fs.closeSync(fd); fd = undefined; } pendingLine = Buffer.alloc(0); }
   return Object.freeze({ bindTurn, poll, finalizeSync, close, status });
 }
 module.exports = Object.freeze({ projectUsageRecord, createCapture });

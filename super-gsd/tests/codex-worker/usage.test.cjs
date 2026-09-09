@@ -30,7 +30,7 @@ function fixture(t, initial = '') {
   const projectDir = path.join(temp, 'project'); fs.mkdirSync(path.join(projectDir, '.planning'), { recursive: true });
   const root = path.join(temp, 'atlas');
   const run = registerRun({ root, projectDir, provider: 'openai', role: 'executor', accountingSource: 'codex_rollout' });
-  const file = path.join(temp, 'native.jsonl'); fs.writeFileSync(file, initial, { mode: 0o600 });
+  const file = path.join(temp, 'native.jsonl'); if (initial !== null) fs.writeFileSync(file, initial, { mode: 0o600 });
   const opened = { thread: { id: 'thread-native', path: file, cliVersion: '0.1.0' }, model: 'gpt-6-astra', modelProvider: 'openai' };
   const capture = options => {
     assert.equal(typeof api().createCapture, 'function', 'bounded native capture must exist');
@@ -226,4 +226,65 @@ test('turn mismatches, malformed native rows and response-index limits remain ex
   append(f, missing); append(f, record('one')); append(f, record('two')); capture.finalizeSync();
   assert.equal(queued(f).length, 1); assert.equal(capture.status().healthy, false);
   for (const reason of ['native_usage_turn_mismatch', 'native_usage_identity_missing', 'native_usage_response_limit']) assert.match(gaps(f), new RegExp(reason));
+});
+
+for (const nested of [false, true]) test(`fresh absent ${nested ? 'date-parent' : 'leaf'} waits for ACK and captures all first-created rows from zero`, linux, t => {
+  const f = fixture(t, null);
+  if (nested) f.opened.thread.path = f.file = path.join(f.temp, 'sessions', '2026', '09', '09', 'native.jsonl');
+  const capture = f.capture({ opening: 'fresh' });
+  assert.equal(capture.status().healthy, true, 'expected fresh absence is pending, not fatal');
+  assert.equal(capture.status().available, false); assert.equal(fs.existsSync(f.file), false);
+  capture.poll(); assert.equal(fs.existsSync(path.dirname(f.file)), !nested, 'reader must not create native parents');
+  fs.mkdirSync(path.dirname(f.file), { recursive: true });
+  const bytes = [{ type: 'response_item', payload: { text: 'PRIVATE-CANARY' } }, record('first'), record('second')].map(JSON.stringify).join('\n') + '\n';
+  fs.writeFileSync(f.file, bytes, { mode: 0o600 });
+  capture.poll(); assert.equal(capture.status().available, false, 'do not open or read a late file before ACK');
+  assert.equal(capture.bindTurn({ threadId: 'thread-native', turnId: 'turn-current' }), true);
+  capture.finalizeSync();
+  assert.deepEqual(queued(f).map(e => e.identity.response_id).sort(), ['first', 'second']);
+  assert.equal(fs.readFileSync(f.file, 'utf8'), bytes); assert.doesNotMatch(JSON.stringify(queued(f)), /PRIVATE-CANARY/);
+});
+
+test('only explicit fresh absence is retryable; existing fresh files still keep preturn EOF', linux, t => {
+  for (const opening of [undefined, 'resume', 'invalid']) {
+    const f = fixture(t, null), capture = f.capture({ opening });
+    assert.equal(capture.status().healthy, false, String(opening));
+    append(f, record()); capture.bindTurn({ threadId: 'thread-native', turnId: 'turn-current' }); capture.finalizeSync();
+    assert.equal(queued(f).length, 0, 'missing history never opts itself into a zero baseline');
+  }
+  const f = fixture(t, JSON.stringify(record('old')) + '\n'), capture = f.capture({ opening: 'fresh' });
+  capture.bindTurn({ threadId: 'thread-native', turnId: 'turn-current' }); append(f, record('new')); capture.finalizeSync();
+  assert.deepEqual(queued(f).map(e => e.identity.response_id), ['new']);
+});
+
+test('fresh waiting capture rejects replaced pinned ancestors and newly introduced symlinks or unsafe leaves', linux, t => {
+  for (const kind of ['replaced-anchor', 'symlink-anchor', 'symlink-new-parent', 'directory-leaf', 'hardlink-leaf']) {
+    const f = fixture(t, null), anchor = path.join(f.temp, 'anchor'); fs.mkdirSync(anchor);
+    f.opened.thread.path = f.file = path.join(anchor, 'new-parent', 'native.jsonl');
+    const capture = f.capture({ opening: 'fresh' });
+    assert.equal(capture.bindTurn({ threadId: 'thread-native', turnId: 'turn-current' }), true);
+    if (kind === 'replaced-anchor' || kind === 'symlink-anchor') {
+      fs.renameSync(anchor, anchor + '.old');
+      if (kind === 'symlink-anchor') fs.symlinkSync(anchor + '.old', anchor); else fs.mkdirSync(anchor);
+    }
+    if (kind === 'symlink-new-parent') fs.symlinkSync(f.temp, path.dirname(f.file));
+    else fs.mkdirSync(path.dirname(f.file), { recursive: true });
+    if (kind === 'directory-leaf') fs.mkdirSync(f.file);
+    else { append(f, record()); if (kind === 'hardlink-leaf') fs.linkSync(f.file, f.file + '.link'); }
+    capture.poll(); assert.equal(capture.status().healthy, false, kind); assert.equal(queued(f).length, 0, kind);
+  }
+});
+
+test('fresh file disappearance is terminal and a never-created file stays explicitly unobserved', linux, t => {
+  const f = fixture(t, null), capture = f.capture({ opening: 'fresh' });
+  assert.equal(capture.bindTurn({ threadId: 'thread-native', turnId: 'turn-current' }), true);
+  capture.poll(); assert.equal(capture.status().healthy, true);
+  append(f, record('one')); capture.poll(); assert.equal(queued(f).length, 1);
+  fs.unlinkSync(f.file); capture.poll(); append(f, record('two')); capture.finalizeSync();
+  assert.equal(queued(f).length, 1); assert.match(gaps(f), /native_usage_file_changed/);
+  const absent = fixture(t, null), waiting = absent.capture({ opening: 'fresh' });
+  waiting.bindTurn({ threadId: 'thread-native', turnId: 'turn-current' }); waiting.finalizeSync();
+  assert.equal(waiting.status().healthy, false); assert.equal(fs.existsSync(absent.file), false);
+  assert.match(gaps(absent), /native_usage_path_unavailable/); assert.match(gaps(absent), /native_request_usage_unobserved/);
+  append(absent, record()); waiting.poll(); assert.equal(queued(absent).length, 0, 'finalized capture cannot open a later file');
 });

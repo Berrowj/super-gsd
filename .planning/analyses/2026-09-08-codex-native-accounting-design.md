@@ -47,6 +47,16 @@ historical/recomputed values. Neither is the new accounting authority.
    teardown on every exit path. This excludes pre-existing resumed history.
    Missing files, unsupported paths, changed files and exceeded bounds produce
    explicit capture degradation, never a worker success/failure substitution.
+   Task 2 source verification clarifies fresh-file timing: pinned 0.153.2
+   [thread creation](https://raw.githubusercontent.com/openai/codex/rust-v0.153.2/codex-rs/thread-store/src/local/create_thread.rs)
+   delegates to the [deferred recorder](https://raw.githubusercontent.com/openai/codex/rust-v0.153.2/codex-rs/rollout/src/recorder.rs).
+   A fresh path/date-parent can legitimately be absent until the first turn.
+   For the adapter's actual fresh-opening branch only, snapshot that absence and
+   pin existing ancestor identities. After ACK, boundedly retry only that exact
+   path; its first verified creation starts at offset zero. Existing files still
+   start at pre-turn EOF; missing resume files never acquire fresh semantics.
+   Null/malformed paths, replaced ancestors or a never-created terminal file
+   remain explicit degradation. No native file/directory creation or chmod.
 3. Check absolute path, no symlink ancestors/leaf, regular single-linked file,
    current-user ownership on Linux, and descriptor identity against the path.
    Recheck replacement/truncation during capture. No chmod or edits to native
@@ -83,6 +93,14 @@ historical/recomputed values. Neither is the new accounting authority.
     provider reconciliation. Keep `complete_coverage: false`, unknown quota,
     and warnings for missing HTTP request identity or dropped capture.
 
+Before sending each startup request, synchronously check the original deadline;
+setup can block timer delivery. An expired budget must not initiate a new turn.
+An early logical failed/interrupted-turn notification is not a dead transport:
+validate and bind its subsequent genuine matching ACK to the existing capture
+before preserving that failed outcome. Do not reopen finalized capture or start
+post-fault polling. Keep one-second deadline tests separate from fixtures whose
+purpose requires reaching a later protocol stage; live deadlines are unchanged.
+
 ## Receiver update contract
 
 Installing files does not reload a running Node receiver. Normal Linux updating
@@ -102,9 +120,17 @@ same-port restart, not a new daemon topology.
   process start identity, executable/argv/root, health instance/root and all
   three listening port owners. Recheck immediately before SIGTERM. First upgrade
   may adopt an old record only with those live checks, labelled old revision
-  unknown; PID-only signalling is forbidden.
+  unknown; PID-only signalling is forbidden. DEVCP's verified legacy process
+  uses the canonical source entry, not the flat installed entry. The guarded
+  updater normalizes its already trusted source root and passes the exact
+  derived receiver entry for that check; no path scanning or basename match.
 - Write a private durable transition journal before stopping: exact original
   endpoints and process identity, target fingerprint, transition token and phase.
+  Atomic rename alone is insufficient: persist the journal file and containing
+  directory before signalling. Before binding, a replacement child must own the
+  token-bearing startup lock and journal its own exact process identity. A
+  requester dying before handoff cannot authorize that child to bind; after
+  handoff, retry reconciles the recorded live child instead of spawning another.
   Preserve it independently of the service record. Respect bounded graceful
   drain; do not kill foreign listeners or silently choose new ports.
 - Verify replacement identity/ports/nonce/root/fingerprint before success. An

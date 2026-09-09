@@ -112,6 +112,51 @@ reasoning are not persisted by this adapter or copied to Atlas. Existing native
 Atlas export configuration is forwarded, with `otel.log_user_prompt=false`.
 Atlas is separate observability, never the worker message bus.
 
+Normal Linux wrappers explicitly register `accountingSource: codex_rollout`.
+The adapter snapshots the exact `opened.thread.path` before `turn/start`.
+Existing files start at EOF. Native 0.153.2 can defer a fresh file and its date
+directories: only the adapter's actual fresh-opening branch may snapshot that
+absence and pin existing ancestor identities. After the turn ACK, the reader
+opens that exact safely created file at offset zero; it never creates native
+files/directories. Missing resume or null paths remain degraded, and a replaced
+ancestor or disappearing opened file never becomes a new zero baseline.
+The adapter binds only the acknowledged thread/turn, polls every 250 ms independently of
+control replies, and performs bounded synchronous finalization before controlled
+transport close. A disconnected/already-killed peer permits only a bounded
+postmortem read, not a guaranteed provider flush. Timeout remains the original
+deadline, including while initialize/thread-open/turn-start ACK is pending.
+Synchronous setup is checked against that deadline before every startup request,
+so delayed timer delivery cannot authorize a new turn after budget expiry.
+
+Only standalone native `token_usage_record.payload.usage` is projected. Native
+response IDs are preserved as `response_id`; HTTP `request_id` stays unknown.
+Input/output/cache/reasoning fields and the provider's total are copied, not
+derived: cached input and reasoning output are subsets, so never add them again
+to input/output or blindly sum the Prometheus token-type series. Cumulative
+turn/thread snapshots are ignored. Missing optional cache-write stays null.
+The model is the returned **thread configuration**, not a provider-confirmed
+per-response model; actual response model and current runtime version remain
+unknown. A native completed response can be observed even if the worker later
+fails or is interrupted; response completion does not prove worker success.
+A logical failure arriving before a valid matching turn ACK still permits final
+capture on the open transport; dead/finalized transport cannot restart capture.
+
+Native records enter Atlas through the registered private spool, with stable
+response deduplication and conflicting-payload evidence. Its source authority
+makes that run's Codex OTEL metadata non-additive. Reader bytes, line buffers,
+response index and retries are bounded; backpressure retains unread responses.
+Missing paths/usage, limits, or delivery failure produce content-free capture
+status/gaps without replacing the final report or true worker failure. Gaps go
+to registered global project/root evidence; missing data is unknown, not zero.
+
+Coverage is only this acknowledged worker thread/turn: no home/history scan,
+internal child-thread coverage, or complete provider/billing reconciliation is
+claimed. Cold resume excludes all pre-open history. Non-worker/manual runs keep
+legacy accounting. Windows native rollout capture is not implemented and remains
+OPEN_REQUIRED; Windows launchers do not opt into Linux-only authority.
+`SGSD_ATLAS_DISABLED=1` prevents attachment and capture. The global installer
+delivers the Atlas dependency closure beside both installed worker layouts.
+
 ## Verification
 
 ```bash

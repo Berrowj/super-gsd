@@ -18,14 +18,16 @@ function fixture(t) {
   const projects = ['alpha', 'beta'].map(name => { const dir = path.join(root, name); fs.mkdirSync(path.join(dir, '.planning'), { recursive: true }); return dir; });
   return { root, projects, children, childPidFiles };
 }
-function start(f, project, mode = 'question', extra = [], holdPromptOpen = false) {
+function start(f, project, mode = 'question', extra = [], holdPromptOpen = false, atlas = {}) {
   assert.ok(fs.existsSync(runner), 'worker adapter must exist');
   const capture = path.join(f.root, `${mode}-${f.children.length}.jsonl`);
   const childPidFile = capture + '.child'; f.childPidFiles.push(childPidFile);
   const child = spawn(process.execPath, [runner, '--project', project, '--model', 'gpt-6-astra', '--reasoning', 'max', '--timeout', '8', ...extra],
     { windowsHide: true, env: { ...process.env, SGSD_CODEX_APP_SERVER_COMMAND: process.execPath,
       SGSD_CODEX_APP_SERVER_ARGS: JSON.stringify([path.join(__dirname, 'fixtures/app-server.cjs')]), WORKER_FIXTURE_MODE: mode,
-      WORKER_FIXTURE_CAPTURE: capture, WORKER_FIXTURE_CHILD_PID_FILE: childPidFile, SGSD_ATLAS_DISABLED: '1' } });
+      WORKER_FIXTURE_CAPTURE: capture, WORKER_FIXTURE_CHILD_PID_FILE: childPidFile, SGSD_ATLAS_DISABLED: '1',
+      SGSD_RUN_ID: '', SGSD_ATLAS_GLOBAL_ROOT: path.join(f.root, 'atlas-disabled'), SGSD_ATLAS_STATE_DIR: '',
+      CODEX_HOME: path.join(f.root, 'codex-home'), ...atlas } });
   f.children.push(child); let stdout = '', stderr = '';
   child.stdout.on('data', chunk => stdout += chunk); child.stderr.on('data', chunk => stderr += chunk);
   const completed = new Promise(resolve => child.on('close', code => resolve({ code, stdout, stderr })));
@@ -253,4 +255,252 @@ test('local installed Codex App Server initializes without a model turn', { skip
     rpc.send({ method: 'initialized', params: {} });
     t.diagnostic(result.userAgent);
   } finally { rpc.close(); }
+});
+
+function accounting(f, project, file = path.join(f.root, 'native-rollout.jsonl')) {
+  const root = path.join(f.root, 'atlas');
+  const run = require('../telemetry-atlas/global-store.cjs').registerRun({ root, projectDir: project, provider: 'openai', role: 'executor', accountingSource: 'codex_rollout' });
+  return { run, env: { SGSD_ATLAS_DISABLED: '0', SGSD_ATLAS_GLOBAL_ROOT: root, SGSD_RUN_ID: run.run_id,
+    SGSD_ATLAS_STATE_DIR: run.state_dir, WORKER_FIXTURE_ROLLOUT: file } };
+}
+function observations(run) {
+  const dir = path.join(run.state_dir, 'quota-spool');
+  return fs.existsSync(dir) ? fs.readdirSync(dir).map(name => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'))) : [];
+}
+function gaps(run) {
+  const file = path.join(run.metrics_dir, 'sgsd-atlas-gaps.jsonl');
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+}
+const linux = { skip: process.platform !== 'linux' };
+test('adapter captures durable native responses through the real private spool and final report path', linux, async t => {
+  const f = fixture(t), a = accounting(f, f.projects[0]);
+  const result = await start(f, f.projects[0], 'usage-complete', [], false, a.env).completed;
+  assert.equal(result.code, 0, result.stderr); assert.equal(result.stdout.trim(), 'usage fixture completed');
+  const events = observations(a.run);
+  assert.equal(events.length, 2, 'real adapter must capture both provider response records');
+  assert.deepEqual(events.map(e => e.usage.input_tokens).sort((a,b) => a-b), [80, 100]);
+  assert.ok(events.every(e => e.identity.request_id === null && e.runtime.codex_version === null));
+  assert.doesNotMatch(JSON.stringify(events), /PRIVATE_ROLLOUT_CANARY|PRIVATE_WORKER_PROMPT|77777|9000|70000/);
+});
+test('capture is periodic while waiting for a real control reply and does not replace that reply', linux, async t => {
+  const f = fixture(t), a = accounting(f, f.projects[0]), w = start(f, f.projects[0], 'usage-question', [], false, a.env);
+  const row = await state(f.projects[0], s => s.status === 'waiting_input');
+  const end = Date.now() + 1500;
+  while (!observations(a.run).length && Date.now() < end) await delay(25);
+  assert.equal(observations(a.run).length, 1, 'capture cannot wait for the worker to finish');
+  assert.equal(command(f.projects[0], 'reply', ['--worker', row.worker_id, '--request', row.pending[0].id, '--text', 'approved answer']).status, 0);
+  assert.equal((await w.completed).stdout.trim(), 'approved answer');
+});
+test('completed native responses survive later worker failure, interruption, timeout and transport death', linux, async t => {
+  for (const [mode, code] of [['usage-fail', 1], ['usage-interrupted', 130], ['usage-timeout', 124], ['usage-crash', 1]]) {
+    const f = fixture(t), a = accounting(f, f.projects[0]);
+    const result = await start(f, f.projects[0], mode, mode === 'usage-timeout' ? ['--timeout', '3'] : [], false, a.env).completed;
+    assert.equal(result.code, code, result.stderr); assert.equal(result.stdout, '');
+    assert.equal(observations(a.run).length, 1, mode);
+  }
+});
+test('early and final-flush responses bind to the acknowledged turn; cold resume excludes all preopen history', linux, async t => {
+  const f = fixture(t), a = accounting(f, f.projects[0]);
+  assert.equal((await start(f, f.projects[0], 'usage-early', [], false, a.env).completed).code, 0);
+  assert.equal(observations(a.run).length, 1);
+  const old = await state(f.projects[0], s => s.status === 'completed');
+  const b = accounting(f, f.projects[0]);
+  assert.equal((await start(f, f.projects[0], 'usage-final', ['--resume-worker', old.worker_id], false, b.env).completed).code, 0);
+  const events = observations(b.run); assert.equal(events.length, 1); assert.equal(events[0].identity.thread_id, old.thread_id);
+  assert.notEqual(events[0].identity.turn_id, old.turn_id); assert.equal(events[0].usage.input_tokens, 100);
+});
+test('missing capture capability and absent usage degrade content-free without replacing worker success', linux, async t => {
+  for (const mode of ['usage-none', 'usage-missing-path']) {
+    const f = fixture(t), a = accounting(f, f.projects[0]);
+    const result = await start(f, f.projects[0], mode, [], false, a.env).completed;
+    assert.equal(result.code, 0, result.stderr); assert.equal(observations(a.run).length, 0);
+    assert.match(gaps(a.run), /native_request_usage_unobserved/); assert.doesNotMatch(gaps(a.run), /PRIVATE_|native-rollout/);
+  }
+});
+test('pre-ACK deadline keeps worker_timeout and exit 124 at every awaited RPC stage', async t => {
+  for (const mode of ['hang-initialize', 'hang-thread', 'hang-turn']) {
+    const f = fixture(t), before = Date.now(), result = await start(f, f.projects[0], mode, ['--timeout', '1']).completed;
+    assert.equal(result.code, 124, `${mode}: ${result.stderr}`); assert.match(result.stderr, /worker_timeout/);
+    assert.ok(Date.now() - before < 2500, 'cleanup must not extend the deadline by another RPC timeout');
+    assert.equal((await state(f.projects[0], s => s.status === 'timed_out')).failure, 'worker_timeout');
+  }
+});
+test('disabled native capture leaves registered evidence untouched', linux, async t => {
+  const f = fixture(t), a = accounting(f, f.projects[0]);
+  const result = await start(f, f.projects[0], 'usage-complete', [], false, { ...a.env, SGSD_ATLAS_DISABLED: '1' }).completed;
+  assert.equal(result.code, 0); assert.equal(observations(a.run).length, 0); assert.equal(gaps(a.run), '');
+});
+test('real wrapper honors a disabled custom Atlas root without false native capture gaps', linux, async t => {
+  const f = fixture(t), project = f.projects[0], atlasRoot = path.join(f.root, 'custom-atlas');
+  const fixtureHome = path.join(f.root, 'home'), prompt = path.join(project, 'prompt'), report = path.join(project, 'report');
+  const selectedEnvironment = path.join(f.root, 'peer-environment.json'), peer = path.join(f.root, 'peer.cjs');
+  fs.mkdirSync(atlasRoot, { mode: 0o700 }); fs.mkdirSync(fixtureHome);
+  fs.writeFileSync(path.join(atlasRoot, 'disabled'), 'fixture disabled marker\n', { mode: 0o600 });
+  fs.writeFileSync(prompt, 'Isolated disabled Atlas wrapper fixture.\n');
+  fs.writeFileSync(peer, `
+const fs = require('node:fs');
+fs.writeFileSync(${JSON.stringify(selectedEnvironment)}, JSON.stringify({
+  root: process.env.SGSD_ATLAS_GLOBAL_ROOT, run_id: process.env.SGSD_RUN_ID,
+  disabled: process.env.SGSD_ATLAS_DISABLED
+}));
+require(${JSON.stringify(path.join(__dirname, 'fixtures/app-server.cjs'))});
+`);
+  const result = spawnSync('/bin/bash', [path.resolve(__dirname, '../../scripts/codex-executor.sh'),
+    '--workspace', project, '--prompt-file', prompt, '--report-out', report, '--profile', 'executor', '--timeout', '10'],
+  { cwd: project, encoding: 'utf8', timeout: 20000, env: { ...process.env,
+    HOME: fixtureHome, USERPROFILE: fixtureHome, CODEX_HOME: path.join(f.root, 'codex-home'), OPENAI_API_KEY: '',
+    PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, NODE_OPTIONS: '', NODE_PATH: '', BASH_ENV: '', ENV: '',
+    SGSD_CODEX_APP_SERVER_COMMAND: process.execPath, SGSD_CODEX_APP_SERVER_ARGS: JSON.stringify([peer]),
+    SGSD_CODEX_COMMAND: path.join(f.root, 'no-provider-fallback'), SGSD_CODEX_FORCE_LAUNCHER: 'direct',
+    SGSD_CODEX_EXECUTOR_REEXECED: '', SGSD_CODEX_EXECUTOR_ORIGINAL_SCRIPT_DIR: '', SGSD_WORKER_RESUME_ID: '',
+    SGSD_WORKER_OWNER: 'disabled-root-fixture', SGSD_ATLAS_DISABLED: '0', SGSD_ATLAS_GLOBAL_ROOT: atlasRoot,
+    SGSD_ATLAS_STATE_DIR: '', SGSD_RUN_ID: 'inherited-run-must-be-cleared',
+    WORKER_FIXTURE_MODE: 'usage-complete', WORKER_FIXTURE_REPORT: 'disabled wrapper completed',
+    WORKER_FIXTURE_CAPTURE: path.join(f.root, 'peer-frames.jsonl'), WORKER_FIXTURE_ROLLOUT: path.join(f.root, 'native-rollout.jsonl'),
+  } });
+  assert.equal(result.status, 0, JSON.stringify({ status: result.status, signal: result.signal, error: result.error?.message,
+    stdout: result.stdout, stderr: result.stderr }));
+  assert.equal(fs.readFileSync(report, 'utf8').trim(), 'disabled wrapper completed');
+  assert.deepEqual(JSON.parse(fs.readFileSync(selectedEnvironment, 'utf8')),
+    { root: atlasRoot, run_id: '', disabled: '0' }, 'prepare-off must clear only the active run, not the custom bootstrap root');
+  assert.deepEqual(fs.readdirSync(atlasRoot), ['disabled'], 'disabled root must receive no native gaps, spool or run registrations');
+  assert.equal(fs.readFileSync(path.join(atlasRoot, 'disabled'), 'utf8'), 'fixture disabled marker\n');
+  const records = require('./mailbox.cjs').list(project); assert.equal(records.length, 1);
+  const record = records[0]; assert.equal(record.status, 'completed'); assert.equal(record.atlas_run_id, null);
+  assert.equal(record.usage_capture, undefined, 'prepare-off must not start native capture');
+  const receipt = JSON.parse(fs.readFileSync(path.join(project, '.planning/worker-sessions', record.worker_id, 'wrapper-result.json'), 'utf8'));
+  assert.equal(receipt.exit_code, 0); assert.equal(receipt.report_path, report);
+  const live = fs.readFileSync(path.join(project, '.planning/metrics/codex-executor-live.txt'), 'utf8');
+  assert.doesNotMatch(result.stdout + result.stderr + live, /native worker usage|native_usage_|native_request_usage/);
+});
+test('controlled timeout finalizes capture before its first transport close, not only in finally', linux, async t => {
+  const f = fixture(t), a = accounting(f, f.projects[0]);
+  const order = path.join(f.root, 'cleanup-order.jsonl'), preload = path.join(f.root, 'observe-cleanup.cjs');
+  fs.writeFileSync(preload, `
+const fs = require('node:fs'), Module = require('node:module');
+const log = value => fs.appendFileSync(${JSON.stringify(order)}, JSON.stringify(value) + '\\n');
+const { Rpc } = require(${JSON.stringify(path.join(__dirname, 'rpc.cjs'))});
+const close = Rpc.prototype.close;
+Rpc.prototype.close = function(...args) { log('rpc.close'); return close.apply(this, args); };
+const load = Module._load;
+Module._load = function(request, ...args) {
+ const value = load.call(this, request, ...args);
+ if (!request.endsWith('/usage.cjs') && request !== './usage.cjs') return value;
+ return { ...value, createCapture(...args) {
+   const capture = value.createCapture(...args);
+   return { ...capture, finalizeSync(...args) { log('capture.finalize'); return capture.finalizeSync(...args); } };
+ } };
+};
+`);
+  const result = await start(f, f.projects[0], 'usage-timeout', ['--timeout', '3'], false,
+    { ...a.env, NODE_OPTIONS: `--require=${JSON.stringify(preload)}` }).completed;
+  assert.equal(result.code, 124, result.stderr);
+  const events = fs.readFileSync(order, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.ok(events.indexOf('capture.finalize') >= 0 && events.indexOf('capture.finalize') < events.indexOf('rpc.close'), JSON.stringify(events));
+  assert.equal(observations(a.run).length, 1);
+});
+test('unacknowledged responses never count and timeout cleanup retains an earlier real failure', linux, async t => {
+  for (const [mode, reason] of [['usage-early-cross-turn', 'worker_report_turn_mismatch'], ['hang-turn', 'worker_timeout'], ['fail-before-ack', 'worker_unsupported_host_request']]) {
+    const f = fixture(t), a = accounting(f, f.projects[0]);
+    const result = await start(f, f.projects[0], mode, ['--timeout', mode === 'hang-turn' ? '1' : '3'], false, a.env).completed;
+    assert.notEqual(result.code, 0); assert.match(result.stderr, new RegExp(reason));
+    assert.equal(observations(a.run).length, 0, mode);
+    assert.match(gaps(a.run), /native_request_usage_unobserved/);
+  }
+});
+for (const stage of ['thread', 'turn']) test(`same-chunk ${stage} ACK and transport fault cannot reopen native capture or leak a timer`, linux, async t => {
+  const f = fixture(t), a = accounting(f, f.projects[0]);
+  const lifecycle = path.join(f.root, 'fault-lifecycle.jsonl'), preload = path.join(f.root, 'observe-fault.cjs');
+  fs.writeFileSync(preload, `
+const fs = require('node:fs'), Module = require('node:module');
+const log = value => fs.appendFileSync(${JSON.stringify(lifecycle)}, JSON.stringify(value) + '\\n');
+const { Rpc } = require(${JSON.stringify(path.join(__dirname, 'rpc.cjs'))});
+const fail = Rpc.prototype.fail;
+Rpc.prototype.fail = function(error) { if (!this.closed) log('rpc.fault:' + error.message); return fail.call(this, error); };
+const load = Module._load;
+Module._load = function(request, ...args) {
+ const value = load.call(this, request, ...args);
+ if (request !== './usage.cjs') return value;
+ return { ...value, createCapture(...args) {
+   log('capture.create'); const capture = value.createCapture(...args);
+   return { ...capture,
+     bindTurn(...args) { log('capture.bind'); return capture.bindTurn(...args); },
+     close(...args) { log('capture.close'); return capture.close(...args); } };
+ } };
+};
+`);
+  const w = start(f, f.projects[0], `usage-${stage}-ack-fault`, [], false,
+    { ...a.env, NODE_OPTIONS: `--require=${JSON.stringify(preload)}` });
+  const setupBound = Date.now() + 8000;
+  while (Date.now() < setupBound && (!fs.existsSync(lifecycle) || !fs.readFileSync(lifecycle, 'utf8').includes('rpc.fault:app_server_invalid_json'))) await delay(25);
+  assert.ok(fs.existsSync(lifecycle) && fs.readFileSync(lifecycle, 'utf8').includes('rpc.fault:app_server_invalid_json'), 'fixture must reach its protocol-fault stage');
+  // Bound natural exit from the observed fault, independently of setup time.
+  let bound;
+  const result = await Promise.race([w.completed, new Promise(resolve => { bound = setTimeout(() => resolve(null), 2500); })]);
+  clearTimeout(bound);
+  if (!result) { w.child.kill('SIGKILL'); await w.completed; }
+  assert.ok(result, 'faulted adapter must exit naturally without a referenced capture interval');
+  assert.equal(result.code, 1, result.stderr); assert.match(result.stderr, /app_server_invalid_json/); assert.equal(result.stdout, '');
+  const events = fs.readFileSync(lifecycle, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.deepEqual(events, stage === 'thread' ? ['rpc.fault:app_server_invalid_json']
+    : ['capture.create', 'rpc.fault:app_server_invalid_json', 'capture.close']);
+  assert.equal(observations(a.run).length, 0);
+});
+
+test('fresh adapter handles lazy date-parents and final creation, while a missing resume remains degraded', linux, async t => {
+  const f = fixture(t), file = path.join(f.root, 'native', 'sessions', '2026', '09', '09', 'rollout.jsonl');
+  const a = accounting(f, f.projects[0], file);
+  assert.equal(fs.existsSync(path.dirname(file)), false);
+  assert.equal((await start(f, f.projects[0], 'usage-complete', [], false, a.env).completed).code, 0);
+  assert.equal(observations(a.run).length, 2);
+  const old = await state(f.projects[0], s => s.status === 'completed');
+  fs.unlinkSync(file);
+  const resumed = accounting(f, f.projects[0], file);
+  assert.equal((await start(f, f.projects[0], 'usage-resume-missing', ['--resume-worker', old.worker_id], false, resumed.env).completed).code, 0);
+  assert.equal(observations(resumed.run).length, 0); assert.match(gaps(resumed.run), /native_usage_path_unavailable/);
+  for (const mode of ['usage-final', 'usage-never-created']) {
+    const b = accounting(f, f.projects[0], path.join(f.root, mode, 'rollout.jsonl'));
+    assert.equal((await start(f, f.projects[0], mode, [], false, b.env).completed).code, 0);
+    assert.equal(observations(b.run).length, mode === 'usage-final' ? 1 : 0);
+    if (mode === 'usage-never-created') assert.match(gaps(b.run), /native_request_usage_unobserved/);
+  }
+});
+
+for (const [mode, code, reason] of [['usage-early-failed', 1, 'worker_turn_failed'], ['usage-early-interrupted', 130, 'worker_interrupted']]) {
+  test(`${mode} retains its completed response after a valid ACK on the open transport`, linux, async t => {
+    const f = fixture(t), a = accounting(f, f.projects[0]);
+    // Existing file isolates logical-failure ordering from lazy materialization.
+    fs.writeFileSync(a.env.WORKER_FIXTURE_ROLLOUT, '', { mode: 0o600 });
+    const result = await start(f, f.projects[0], mode, [], false, a.env).completed;
+    assert.equal(result.code, code, result.stderr); assert.match(result.stderr, new RegExp(reason)); assert.equal(result.stdout, '');
+    assert.equal(observations(a.run).length, 1);
+  });
+}
+
+test('synchronous capture setup cannot dispatch a new turn after the original deadline', linux, async t => {
+  const f = fixture(t), a = accounting(f, f.projects[0]);
+  const dispatches = path.join(f.root, 'startup-dispatches.jsonl'), preload = path.join(f.root, 'delay-capture.cjs');
+  fs.writeFileSync(preload, `
+const fs = require('node:fs'), Module = require('node:module');
+const log = value => fs.appendFileSync(${JSON.stringify(dispatches)}, JSON.stringify(value) + '\\n');
+const { Rpc } = require(${JSON.stringify(path.join(__dirname, 'rpc.cjs'))});
+const request = Rpc.prototype.request;
+Rpc.prototype.request = function(method, ...args) { log(method); return request.call(this, method, ...args); };
+const load = Module._load;
+Module._load = function(request, ...args) {
+ const value = load.call(this, request, ...args);
+ if (request !== './usage.cjs') return value;
+ return { ...value, createCapture(...args) {
+   const capture = value.createCapture(...args); log('capture.setup');
+   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3100);
+   return capture;
+ } };
+};
+`);
+  const result = await start(f, f.projects[0], 'usage-timeout', ['--timeout', '3'], false,
+    { ...a.env, NODE_OPTIONS: `--require=${JSON.stringify(preload)}` }).completed;
+  assert.equal(result.code, 124, result.stderr); assert.match(result.stderr, /worker_timeout/);
+  const methods = fs.readFileSync(dispatches, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.ok(methods.includes('capture.setup'), 'fixture must consume time in real capture setup');
+  assert.equal(methods.filter(method => method === 'turn/start').length, 0, 'expired setup must not initiate a provider turn');
 });

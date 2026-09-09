@@ -61,12 +61,51 @@ async function run(opts, prompt, deadline = Date.now() + opts.timeout * 1000) {
     '-c', 'approval_policy="never"', ...opts.config.flatMap(value => ['-c', value]),
     '-c', 'otel.log_user_prompt=false'], { cwd: workspace });
   const pending = new Map(), seen = new Set(); let settled = false, final = '', finalTurn = null, timer, poll, busy = false, releaseThread;
+  let firstFailure, closing = false, usageCapture, usagePoll, usageFinalized = false, usageWarned = false;
   let resolveDone, rejectDone;
   const done = new Promise((resolve, reject) => { resolveDone = resolve; rejectDone = reject; }); done.catch(() => {});
-  const fail = reason => { if (!settled) { settled = true; rejectDone(reason instanceof Error ? reason : new Error(reason)); } };
+  const fail = reason => {
+    firstFailure ||= reason instanceof Error ? reason : new Error(reason);
+    if (!settled) { settled = true; rejectDone(firstFailure); }
+  };
   const save = () => { record.pending = [...pending.values()].map(value => value.public); mailbox.save(record); };
+  const usageUnavailable = () => {
+    record.usage_capture = { healthy: false, complete_coverage: false, reasons: ['native_usage_capture_failed'] };
+  };
+  const saveUsage = () => {
+    if (record.usage_capture?.healthy === false && !usageWarned) {
+      usageWarned = true; process.stderr.write('[Atlas] native worker usage partial or unavailable; inspect the Atlas audit\n');
+    }
+    try { save(); } catch { /* Observability must not replace the actual worker outcome. */ }
+  };
+  const sampleUsage = (finalize = false) => {
+    if (!usageCapture) return;
+    try { record.usage_capture = finalize ? usageCapture.finalizeSync() : usageCapture.poll(); }
+    catch { usageUnavailable(); }
+    saveUsage();
+  };
+  const finalizeUsage = () => {
+    clearInterval(usagePoll); usagePoll = undefined;
+    if (usageFinalized) return; usageFinalized = true;
+    sampleUsage(true);
+    try { usageCapture?.close(); } catch { usageUnavailable(); saveUsage(); }
+  };
+  const closeTransport = () => { finalizeUsage(); closing = true; rpc.close(); };
+  const requireActiveTransport = () => {
+    // An ACK can resolve before a later line in the same stdout chunk faults.
+    // Its await continuation must not reopen capture or start another interval.
+    if (closing || rpc.closed || usageFinalized) throw firstFailure || new Error('app_server_closed');
+  };
+  const requireStartupBudget = () => {
+    requireActiveTransport();
+    if (firstFailure) throw firstFailure;
+    // Synchronous capture/filesystem setup can consume time before timers run.
+    if (Date.now() >= deadline) { fail('worker_timeout'); throw firstFailure; }
+  };
   const acceptTurn = (thread, turn) => thread === record.thread_id && (!record.turn_id || turn === record.turn_id);
-  rpc.on('fault', fail);
+  // Rpc faults may already have killed/disconnected the peer: this is only a
+  // bounded last read, not a promise that the provider flushed on interruption.
+  rpc.on('fault', error => { if (!closing) { fail(error); finalizeUsage(); } });
   rpc.on('message', message => {
     if (settled) return;
     try {
@@ -116,24 +155,52 @@ async function run(opts, prompt, deadline = Date.now() + opts.timeout * 1000) {
     } catch (error) { fail(error); }
   });
   const interrupt = () => { if (record.turn_id && !rpc.closed) rpc.request('turn/interrupt', { threadId: record.thread_id, turnId: record.turn_id }, 1000).catch(() => {}); };
-  const stop = () => { interrupt(); fail('worker_interrupted'); };
+  const stop = () => { interrupt(); fail('worker_interrupted'); closeTransport(); };
   process.on('SIGTERM', stop); process.on('SIGINT', stop);
-  timer = setTimeout(() => { interrupt(); fail('worker_timeout'); rpc.close(); }, Math.max(1, deadline - Date.now()));
+  timer = setTimeout(() => { interrupt(); fail('worker_timeout'); closeTransport(); }, Math.max(1, deadline - Date.now()));
   try {
     if (previous) releaseThread = mailbox.claimThread(record, previous.thread_id);
+    requireStartupBudget();
     await rpc.request('initialize', { clientInfo: { name: 'sgsd-worker', title: 'SGSD Worker', version: '1.0.0' }, capabilities: { experimentalApi: true } });
+    requireStartupBudget();
     rpc.send({ method: 'initialized', params: {} });
     const base = { cwd: workspace, model: opts.model, sandbox: 'danger-full-access', approvalPolicy: 'never', developerInstructions: INSTRUCTIONS };
+    requireStartupBudget();
     const opened = await rpc.request(previous ? 'thread/resume' : 'thread/start', previous ? { ...base, threadId: previous.thread_id }
       : { ...base, ephemeral: false, allowProviderModelFallback: false, dynamicTools: [TOOL] });
+    requireStartupBudget();
     if (typeof opened?.thread?.id !== 'string' || (previous && opened.thread.id !== previous.thread_id)) throw new Error('worker_thread_identity_mismatch');
     if (opened.model !== opts.model || opened.sandbox?.type !== 'dangerFullAccess' || opened.approvalPolicy !== 'never') throw new Error('worker_effective_configuration_mismatch');
     if (!previous) releaseThread = mailbox.claimThread(record, opened.thread.id);
     record.thread_id = opened.thread.id; record.status = 'running'; save();
+    if (process.platform === 'linux' && process.env.SGSD_ATLAS_DISABLED !== '1'
+        && process.env.SGSD_ATLAS_GLOBAL_ROOT && process.env.SGSD_RUN_ID) {
+      try {
+        // Snapshot the exact returned file BEFORE turn/start. Creation cliVersion
+        // is not the current runtime version on resume, so leave it unknown.
+        usageCapture = require('./usage.cjs').createCapture({ root: process.env.SGSD_ATLAS_GLOBAL_ROOT,
+          projectDir: project, runId: process.env.SGSD_RUN_ID, opened, opening: previous ? 'resume' : 'fresh' });
+        record.usage_capture = usageCapture.status();
+      } catch { usageUnavailable(); }
+      saveUsage();
+    }
+    requireStartupBudget();
     const started = await rpc.request('turn/start', { threadId: record.thread_id, input: [{ type: 'text', text: prompt }],
       model: opts.model, effort: opts.reasoning, cwd: workspace, approvalPolicy: 'never', sandboxPolicy: { type: 'dangerFullAccess' } });
+    requireActiveTransport();
     if (typeof started?.turn?.id !== 'string' || (record.turn_id && record.turn_id !== started.turn.id)) throw new Error('worker_turn_identity_mismatch');
     record.turn_id = started.turn.id; save();
+    if (usageCapture) {
+      try { usageCapture.bindTurn({ threadId: record.thread_id, turnId: started.turn.id }); }
+      catch { usageUnavailable(); saveUsage(); }
+    }
+    // A logical failed/interrupted notification can precede this valid ACK on
+    // a live transport. Bind its existing capture before preserving the outcome.
+    requireStartupBudget();
+    if (usageCapture) {
+      // Independent of mailbox/control work and bounded by the original deadline.
+      usagePoll = setInterval(() => sampleUsage(), 250);
+    }
     poll = setInterval(async () => {
       if (busy || settled) return; busy = true;
       try {
@@ -165,10 +232,13 @@ async function run(opts, prompt, deadline = Date.now() + opts.timeout * 1000) {
     if (finalTurn !== started.turn.id || record.turn_id !== started.turn.id) throw new Error('worker_report_turn_mismatch');
     record.status = 'completed'; record.pending = []; save(); return report;
   } catch (error) {
+    // Closing a still-awaited RPC rejects it as app_server_closed. Keep the
+    // first actual timeout/stop/provider failure, not that cleanup side effect.
+    error = firstFailure || error;
     record.status = error.message === 'worker_interrupted' ? 'interrupted' : error.message === 'worker_timeout' ? 'timed_out' : 'failed';
     record.failure = /^[a-zA-Z0-9_:/. -]{1,160}$/.test(error.message) ? error.message : 'worker_failed'; pending.clear(); save(); throw error;
   } finally {
-    clearTimeout(timer); clearInterval(poll); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop); rpc.close(); releaseThread?.();
+    clearTimeout(timer); clearInterval(poll); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop); closeTransport(); releaseThread?.();
   }
 }
 function collectPrompt(deadline) {

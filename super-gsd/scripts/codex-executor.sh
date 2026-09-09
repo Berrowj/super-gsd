@@ -215,7 +215,7 @@ sgsd_atlas_codex_args() { SGSD_ATLAS_CODEX_ARGS=(); }
 ATLAS_HELPER="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}/lib/atlas-shell.sh"
 if [[ -f "$ATLAS_HELPER" ]]; then
     source "$ATLAS_HELPER"
-    sgsd_atlas_attach executor openai "$PROJECT"
+    sgsd_atlas_attach executor openai "$PROJECT" codex_rollout
 fi
 set +e
 sgsd_codex_worker_run "$PROMPT_FILE" \
