@@ -671,9 +671,141 @@ test('transition timeout returns boundedly, retains its journal and requires exp
     await assert.rejects(restartService({ root, trustedSourceEntry: entry, timeoutMs: 20,
       transitionObserver: phase => phase === 'prepared' ? new Promise(resolve => setTimeout(resolve, 35)) : undefined }), /_timeout/);
     assert.ok(Date.now() - started < 1000, 'requester timeout remains bounded without force-killing');
-    assert.notEqual(JSON.parse(fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8')).phase, 'complete');
+    const journalFile = path.join(root, 'receiver-transition.json');
+    if (fs.existsSync(journalFile)) assert.notEqual(JSON.parse(fs.readFileSync(journalFile, 'utf8')).phase, 'complete');
+    else assert.equal(owned(launched.service.process_identity), true, 'pre-prepare expiry cannot signal the old receiver');
     assert.equal((await restartService({ root, trustedSourceEntry: entry })).status, 'restarted');
   } finally {
+    try { launched.child.kill('SIGTERM'); } catch {} await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('an expired prepared boundary performs no revalidation, signal, port scan or spawn before explicit retry', async t => {
+  if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-expired-boundary-'));
+  const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
+  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// expired boundary fixture\n');
+  const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root), phases = [];
+  const realNow = Date.now, timeoutMs = 5000;
+  try {
+    const started = realNow();
+    await assert.rejects(restartService({ root, trustedSourceEntry: entry, timeoutMs,
+      transitionObserver: phase => {
+        phases.push(phase);
+        if (phase === 'prepared') Date.now = () => realNow() + timeoutMs + 10000;
+      } }), /receiver_transition_timeout/);
+    Date.now = realNow;
+    assert.ok(realNow() - started < 1000, 'expired boundary returns without a hidden all-process scan');
+    assert.deepEqual(phases, ['prepared'], 'no post-deadline transition boundary is entered');
+    assert.equal(owned(launched.service.process_identity), true, 'the old exact receiver is not signalled after the deadline');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8')).phase, 'prepared',
+      'the durable pending journal remains at the last completed boundary');
+    assert.equal((await restartService({ root, trustedSourceEntry: entry })).status, 'restarted',
+      'only an explicit retry resumes the retained transition');
+  } finally {
+    Date.now = realNow;
+    try { launched.child.kill('SIGTERM'); } catch {} await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('deadline expiry immediately after lock acquisition releases the requester lock for explicit retry', async t => {
+  if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-expired-lock-'));
+  const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
+  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// expired lock fixture\n');
+  const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
+  const realFsync = fs.fsyncSync; let delayed = false;
+  try {
+    fs.fsyncSync = fd => {
+      realFsync(fd);
+      if (!delayed) { delayed = true; Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 35); }
+    };
+    await assert.rejects(restartService({ root, trustedSourceEntry: entry, timeoutMs: 20 }), /receiver_transition_timeout/);
+    fs.fsyncSync = realFsync;
+    assert.equal(fs.existsSync(path.join(root, 'startup.lock')), false, 'expired requester lock is released by its owner');
+    assert.equal((await restartService({ root, trustedSourceEntry: entry })).status, 'restarted',
+      'the still-alive requester can explicitly retry without waiting for itself');
+  } finally {
+    fs.fsyncSync = realFsync;
+    try { launched.child.kill('SIGTERM'); } catch {} await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('a deadline expiring during an all-process port scan stops the scan boundedly and retains completed history', async t => {
+  if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-scan-deadline-'));
+  const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
+  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// scan deadline fixture\n');
+  const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
+  const realReaddir = fs.readdirSync;
+  try {
+    const restarted = await restartService({ root, trustedSourceEntry: entry });
+    process.kill(restarted.service.pid, 'SIGTERM');
+    await untilValue(() => !owned(restarted.service.process_identity));
+    await untilValue(() => !fs.existsSync(path.join(root, 'service.json')));
+    const completed = fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8');
+    fs.readdirSync = (target, ...args) => {
+      if (target === '/proc') return Array(100).fill(String(process.pid));
+      if (target === `/proc/${process.pid}/fd`) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 4);
+      return realReaddir(target, ...args);
+    };
+    const started = Date.now();
+    await assert.rejects(restartService({ root, trustedSourceEntry: entry, timeoutMs: 50 }), /receiver_transition_timeout/);
+    const elapsed = Date.now() - started;
+    fs.readdirSync = realReaddir;
+    assert.ok(elapsed < 200, `deadline is checked within the scan, elapsed=${elapsed}ms`);
+    assert.equal(fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8'), completed, 'completed history is not rewritten');
+    assert.equal((await restartService({ root, trustedSourceEntry: entry })).status, 'absent', 'explicit retry observes genuine absence');
+  } finally {
+    fs.readdirSync = realReaddir;
+    try { launched.child.kill('SIGTERM'); } catch {} await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('deadline expiry during durable handoff persistence cannot transfer startup ownership to the child', async t => {
+  if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-handoff-deadline-'));
+  const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
+  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// handoff deadline fixture\n');
+  const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
+  const realFsync = fs.fsyncSync, realNow = Date.now; let delayHandoff = false, delayed = false, candidate;
+  const phases = [], timeoutMs = 15000;
+  try {
+    await assert.rejects(restartService({ root, trustedSourceEntry: entry, timeoutMs,
+      transitionObserver: phase => {
+        phases.push(phase);
+        if (phase === 'child_launched') {
+          delayHandoff = true;
+          fs.fsyncSync = fd => {
+            realFsync(fd);
+            if (delayHandoff && !delayed) {
+              delayed = true;
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 35);
+              Date.now = () => realNow() + timeoutMs + 10000;
+            }
+          };
+        }
+      } }), /receiver_transition_timeout/);
+    fs.fsyncSync = realFsync; Date.now = realNow;
+    const journal = JSON.parse(fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8'));
+    candidate = journal.candidate_identity;
+    assert.equal(delayed, true, 'the handoff journal fsync crossed the deadline');
+    assert.deepEqual(phases, ['prepared', 'old_stopped', 'child_launched'], 'no post-deadline handoff boundary is entered');
+    assert.equal(journal.phase, 'handoff', 'durable recovery identity remains at the completed handoff write');
+    assert.deepEqual(journal.old_identity, launched.service.process_identity, 'the exact stopped receiver identity remains recoverable');
+    assert.ok(candidate && owned(candidate), 'the waiting candidate identity is retained for exact cleanup and retry');
+    assert.equal(fs.existsSync(path.join(root, 'startup.lock')), false, 'requester ownership is released instead of transferred after expiry');
+    assert.equal(fs.existsSync(path.join(root, 'service.json')), false, 'the candidate cannot publish a service after expiry');
+    process.kill(candidate.pid, 'SIGTERM'); await untilValue(() => !owned(candidate), 3000);
+    candidate = null;
+    assert.equal((await restartService({ root, trustedSourceEntry: entry })).status, 'restarted',
+      'an explicit retry recovers from the durable handoff identity');
+  } finally {
+    fs.fsyncSync = realFsync; Date.now = realNow;
+    if (!candidate) {
+      try { candidate = JSON.parse(fs.readFileSync(path.join(root, 'receiver-transition.json'), 'utf8')).candidate_identity; } catch {}
+    }
+    if (candidate && owned(candidate)) { process.kill(candidate.pid, 'SIGTERM'); await untilValue(() => !owned(candidate), 3000); }
     try { launched.child.kill('SIGTERM'); } catch {} await stopOwned(root); fs.rmSync(base, { recursive: true, force: true });
   }
 });

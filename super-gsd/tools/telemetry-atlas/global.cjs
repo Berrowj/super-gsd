@@ -111,15 +111,35 @@ function exactIdentity(record, root, trustedSourceEntry) {
     throw new Error('service_identity_changed');
   return identity;
 }
-function portOwner(port) {
+function portOwner(port, deadline) {
   if (process.platform !== 'linux') return null;
-  for (const name of fs.readdirSync('/proc')) if (/^[1-9]\d*$/.test(name) && ownsPort(Number(name), port)) return Number(name);
+  for (const name of fs.readdirSync('/proc')) {
+    requireDeadline(deadline);
+    if (/^[1-9]\d*$/.test(name) && ownsPort(Number(name), port)) return Number(name);
+  }
   return null;
 }
-async function verifiedService(root, trustedSourceEntry, targetFingerprint) {
-  const record = await status(root); if (!record) throw new Error('service_health_unverified');
+function requireDeadline(deadline, reason = 'receiver_transition_timeout') {
+  if (deadline !== undefined && Date.now() >= deadline) throw new Error(reason);
+}
+function remainingTimeout(deadline, maximum = 250, reason = 'receiver_transition_timeout') {
+  if (deadline === undefined) return maximum;
+  requireDeadline(deadline, reason);
+  return Math.max(1, Math.min(maximum, deadline - Date.now()));
+}
+async function verifiedService(root, trustedSourceEntry, targetFingerprint, deadline, timeoutReason = 'receiver_transition_timeout') {
+  requireDeadline(deadline, timeoutReason);
+  const record = await status(root, remainingTimeout(deadline, 250, timeoutReason));
+  requireDeadline(deadline, timeoutReason);
+  if (!record) throw new Error('service_health_unverified');
   const identity = exactIdentity(record, root, trustedSourceEntry), ports = urlPorts(record);
-  for (const port of Object.values(ports)) if (!ownsPort(record.pid, port)) throw new Error('service_port_ownership_unverified');
+  requireDeadline(deadline, timeoutReason);
+  for (const port of Object.values(ports)) {
+    requireDeadline(deadline, timeoutReason);
+    const owns = ownsPort(record.pid, port);
+    requireDeadline(deadline, timeoutReason);
+    if (!owns) throw new Error('service_port_ownership_unverified');
+  }
   if (targetFingerprint && (record.runtime_fingerprint !== targetFingerprint || record.health?.runtime_fingerprint !== targetFingerprint))
     throw new Error('service_fingerprint_mismatch');
   return { record, identity, ports };
@@ -142,11 +162,11 @@ function getJson(url, timeout = 250) {
     request.on('error', () => done(null));
   });
 }
-async function status(root = rootPath()) {
+async function status(root = rootPath(), timeout = 250) {
   try {
     const record = readJson(servicePath(root));
     if (record.schema_version !== PROTOCOL || !alive(record.pid) || record.root_id !== digest(root)) return null;
-    const health = await getJson(record.urls.health + '/health');
+    const health = await getJson(record.urls.health + '/health', timeout);
     if (health?.pid !== record.pid || health.instance_id !== record.instance_id || health.project_id !== digest(root)
         || (health.root_id !== undefined && health.root_id !== digest(root))
         || (record.runtime_fingerprint && health.runtime_fingerprint !== record.runtime_fingerprint)) return null;
@@ -281,17 +301,22 @@ function validIdentity(identity) {
     && Array.isArray(identity.argv) && identity.argv.every(value => typeof value === 'string'));
 }
 async function waitForStopped(identity, ports, deadline) {
-  while (Date.now() < deadline && owned(identity)) await pause(40);
-  if (owned(identity)) throw new Error('receiver_stop_timeout');
+  for (;;) {
+    if (Date.now() >= deadline) throw new Error('receiver_stop_timeout');
+    if (!owned(identity)) break;
+    await pause(Math.min(40, Math.max(1, deadline - Date.now())));
+  }
   for (const port of Object.values(ports)) {
-    const owner = portOwner(port);
+    requireDeadline(deadline);
+    const owner = portOwner(port, deadline);
+    requireDeadline(deadline);
     if (owner !== null) throw new Error('receiver_port_taken');
   }
 }
 async function completeTransition(root, journal, deadline) {
   while (Date.now() < deadline) {
     try {
-      const replacement = await verifiedService(root, journal.target_entry, journal.target_fingerprint);
+      const replacement = await verifiedService(root, journal.target_entry, journal.target_fingerprint, deadline, 'receiver_start_timeout');
       const latest = readTransition(root);
       if (!latest || latest.token !== journal.token || latest.target_fingerprint !== journal.target_fingerprint) throw new Error('transition_journal_unverified');
       const recordedIdentity = latest.replacement_identity || latest.candidate_identity;
@@ -312,6 +337,7 @@ async function completeTransition(root, journal, deadline) {
 async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs = 5000, transitionObserver } = {}) {
   requireAttestedRuntime();
   root = path.resolve(root);
+  const deadline = Date.now() + timeoutMs;
   if (!fs.existsSync(root) || process.env.SGSD_ATLAS_DISABLED === '1' || fs.existsSync(path.join(root, 'disabled')))
     return { status: fs.existsSync(root) ? 'disabled' : 'absent' };
   const serviceFile = servicePath(root), existingJournal = readTransition(root);
@@ -323,14 +349,15 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
   if (journal && journal.phase !== 'complete'
       && (journal.target_fingerprint !== RUNTIME_FINGERPRINT || journal.target_entry !== targetEntry))
     throw new Error('receiver_transition_target_changed');
-  const deadline = Date.now() + timeoutMs;
   let token = journal && journal.phase !== 'complete' ? journal.token : crypto.randomUUID();
   if (!await acquireStartup(root, token, deadline)) throw new Error('startup_busy');
   let childOwnsLock = false;
   try {
+    requireDeadline(deadline);
     journal = readTransition(root);
     if (journal && journal.phase !== 'complete' && journal.token !== token) {
       releaseStartup(root, token);
+      requireDeadline(deadline);
       return restartService({ root, trustedSourceEntry, timeoutMs: Math.max(1, deadline - Date.now()), transitionObserver });
     }
     if (!fs.existsSync(serviceFile) && (!journal || journal.phase === 'complete')) {
@@ -342,13 +369,18 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
         const ports = urlPorts({ urls: journal.urls });
         if (['ingest', 'health', 'metrics'].some(name => journal.ports?.[name] !== ports[name]))
           throw new Error('transition_journal_unverified');
-        for (const port of Object.values(ports)) if (portOwner(port) !== null) throw new Error('receiver_port_taken');
+        for (const port of Object.values(ports)) {
+          requireDeadline(deadline);
+          const owner = portOwner(port, deadline);
+          requireDeadline(deadline);
+          if (owner !== null) throw new Error('receiver_port_taken');
+        }
       }
       return { status: 'absent' };
     }
     if (process.platform !== 'linux') throw new Error('receiver_transition_windows_open');
     if (!journal || journal.phase === 'complete') {
-      const old = await verifiedService(root, trustedEntry);
+      const old = await verifiedService(root, trustedEntry, undefined, deadline);
       if (old.record.runtime_fingerprint === RUNTIME_FINGERPRINT && old.record.health?.runtime_fingerprint === RUNTIME_FINGERPRINT) {
         return { status: 'already_current', service: old.record };
       }
@@ -359,11 +391,12 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
         urls: old.record.urls, ports: old.ports, replacement_instance_id: crypto.randomUUID() };
       durableJson(transitionPath(root), journal);
       if (transitionObserver) await transitionObserver('prepared', journal);
+      requireDeadline(deadline);
     }
     if (journal.target_fingerprint !== RUNTIME_FINGERPRINT || journal.target_entry !== targetEntry) throw new Error('receiver_transition_target_changed');
     if (!['prepared', 'stopping'].includes(journal.phase)) {
       try {
-        const ready = await verifiedService(root, journal.target_entry, journal.target_fingerprint);
+        const ready = await verifiedService(root, journal.target_entry, journal.target_fingerprint, deadline);
         if (ready.record.instance_id === journal.replacement_instance_id) return completeTransition(root, journal, deadline);
       } catch (error) {
         if (!['service_health_unverified', 'service_fingerprint_mismatch'].includes(error.message)) throw error;
@@ -371,10 +404,12 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
     }
     if (['prepared', 'stopping'].includes(journal.phase)) {
       if (owned(journal.old_identity)) {
-        const old = await verifiedService(root, journal.trusted_source_entry || undefined);
+        requireDeadline(deadline);
+        const old = await verifiedService(root, journal.trusted_source_entry || undefined, undefined, deadline);
         if (!sameIdentity(old.identity, journal.old_identity) || old.record.instance_id !== journal.old_instance_id
             || JSON.stringify(old.ports) !== JSON.stringify(journal.ports)) throw new Error('receiver_identity_changed');
         // Identity, health and every listener are re-proved immediately before this one graceful signal.
+        requireDeadline(deadline);
         process.kill(old.record.pid, 'SIGTERM');
         journal = { ...journal, phase: 'stopping', signal_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() };
         durableJson(transitionPath(root), journal);
@@ -383,6 +418,7 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
       journal = { ...journal, phase: 'stopped', stopped_at: new Date().toISOString(), updated_at: new Date().toISOString() };
       durableJson(transitionPath(root), journal);
       if (transitionObserver) await transitionObserver('old_stopped', journal);
+      requireDeadline(deadline);
       await waitForStopped(journal.old_identity, journal.ports, deadline);
     } else {
       await waitForStopped(journal.old_identity, journal.ports, deadline);
@@ -391,6 +427,7 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
     journal = { ...journal, phase: 'launching', launch_started_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     delete journal.candidate_identity; delete journal.replacement_identity;
     durableJson(transitionPath(root), journal);
+    requireDeadline(deadline);
     const args = expectedServeArgv(journal.target_entry, root, journal.token, journal.ports,
       journal.replacement_instance_id, journal.token).slice(1);
     const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore', windowsHide: true, env: { ...process.env } });
@@ -401,10 +438,13 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
     journal = { ...journal, phase: 'launching', candidate_identity: candidate, updated_at: new Date().toISOString() };
     durableJson(transitionPath(root), journal);
     if (transitionObserver) await transitionObserver('child_launched', journal);
+    requireDeadline(deadline);
     journal = { ...journal, phase: 'handoff', handoff_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     durableJson(transitionPath(root), journal);
+    requireDeadline(deadline);
     replaceStartupLock(root, child.pid, journal.token); childOwnsLock = true;
     if (transitionObserver) await transitionObserver('handoff', journal);
+    requireDeadline(deadline);
     return await completeTransition(root, journal, deadline);
   } finally { if (!childOwnsLock) releaseStartup(root, token); }
 }

@@ -105,6 +105,7 @@ done
 if [[ "$SELF_TEST" == true ]]; then
     ST_TMP="$(mktemp -d)"
     mkdir -p "$ST_TMP/project/.planning"
+    [[ "$SKIP_NETWORK" == true ]] && export SGSD_CODEX_PROFILE_LOG="$ST_TMP/codex-profile-resolution-log.jsonl"
     printf 'executor self-test fixture\n' > "$ST_TMP/prompt"
     ST_FIXTURE="$SCRIPT_DIR/../tools/codex-worker/fixtures/app-server.cjs"
     ST_PREFIX="$(node -e 'process.stdout.write(JSON.stringify([process.argv[1]]))' "$ST_FIXTURE")"

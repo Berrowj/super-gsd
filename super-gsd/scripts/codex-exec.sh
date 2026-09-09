@@ -75,6 +75,7 @@ PROFILE_OVERRIDE=""
 # so the caller can route to Claude. After every codex invocation, the result
 # is recorded via provider-circuit.cjs.recordProviderResult.
 MILESTONE_TAG=""
+OFFLINE_SELF_TEST_ROOT=""
 
 json_escape() {
     printf '%s' "${1:-}" | awk '
@@ -123,6 +124,15 @@ done
 if [[ -n "$PHASE_TAG" && ! "$PHASE_TAG" =~ ^[0-9]+$ ]]; then
   echo "ERR: --phase must be numeric, got: $PHASE_TAG" >&2
   exit 1
+fi
+
+# Offline diagnostics must redirect profile fallback evidence before the first
+# profile resolution. Normal wrapper launches retain the caller-selected sink.
+if [[ "$SELF_TEST" == true && "$SKIP_NETWORK" == true ]]; then
+    OFFLINE_SELF_TEST_ROOT="$(mktemp -d)" || exit 1
+    export SGSD_CODEX_PROFILE_LOG="$OFFLINE_SELF_TEST_ROOT/codex-profile-resolution-log.jsonl"
+    export SGSD_ATLAS_DISABLED=1
+    trap '[[ -z "${OFFLINE_SELF_TEST_ROOT:-}" ]] || rm -rf -- "$OFFLINE_SELF_TEST_ROOT"' EXIT
 fi
 
 # ── Required flags ──────────────────────────────────────────────────────────
@@ -309,6 +319,8 @@ fi
 # defined before the harness executes. Probes: 1=PATH(10) 2=auth(11)
 # 3=timeout-math(12) 4=contract(13 or skipped when --skip-network).
 if [[ "$SELF_TEST" == true ]]; then
+    # Offline diagnostics exercise nested fake wrappers. They must never inherit
+    # an enabled production Atlas root or emit a production self-test metric.
     ST_PATH=false
     ST_AUTH=false
     ST_TIMEOUT=false
@@ -434,7 +446,8 @@ if [[ "$SELF_TEST" == true ]]; then
     ST_FINALIZE=false
     ST_REPORT_WRITE=false
     if [[ "$SKIP_NETWORK" == true && "$EXIT_CODE" -eq 0 ]]; then
-        ST_TMP_ROOT="$(mktemp -d)"
+        ST_TMP_ROOT="$OFFLINE_SELF_TEST_ROOT"
+        ST_SELF="$SCRIPT_DIR/${BASH_SOURCE[0]##*/}"
         ST_PROJECT="$ST_TMP_ROOT/project"
         ST_PROMPT="$ST_TMP_ROOT/prompt.txt"
         ST_REPORT="$ST_TMP_ROOT/report.txt"
@@ -486,7 +499,7 @@ EOS
             before_rows=0
             [[ -f "$case_project/.planning/metrics/codex-log.jsonl" ]] && before_rows="$(wc -l < "$case_project/.planning/metrics/codex-log.jsonl" | tr -d ' ')"
             set +e
-            PATH="$ST_BIN:$PATH" SGSD_CODEX_APP_SERVER_COMMAND="$ST_BIN/codex" SGSD_CODEX_APP_SERVER_ARGS='[]' SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="$mode" "$0" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout "$timeout_value" --phase 145 --plan 145-01 --step "self-test-$mode" >/dev/null 2> "$case_dir/stderr.txt"
+            (cd "$case_project" && PATH="$ST_BIN:$PATH" SGSD_CODEX_APP_SERVER_COMMAND="$ST_BIN/codex" SGSD_CODEX_APP_SERVER_ARGS='[]' SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="$mode" "$ST_SELF" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout "$timeout_value" --phase 145 --plan 145-01 --step "self-test-$mode") >/dev/null 2> "$case_dir/stderr.txt"
             rc=$?
             set -e
             after_rows=0
@@ -514,7 +527,7 @@ EOS
                 return 0
             fi
             set +e
-            PATH="$ST_BIN:$PATH" SGSD_CODEX_APP_SERVER_COMMAND="$ST_BIN/codex" SGSD_CODEX_APP_SERVER_ARGS='[]' SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="contract" "$0" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout 5 --phase 145 --plan 145-01 --step "self-test-write-failure" >/dev/null 2> "$case_dir/stderr.txt"
+            (cd "$case_project" && PATH="$ST_BIN:$PATH" SGSD_CODEX_APP_SERVER_COMMAND="$ST_BIN/codex" SGSD_CODEX_APP_SERVER_ARGS='[]' SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="contract" "$ST_SELF" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout 5 --phase 145 --plan 145-01 --step "self-test-write-failure") >/dev/null 2> "$case_dir/stderr.txt"
             rc=$?
             chmod u+w "$report_dir" 2>/dev/null || true
             set -e
@@ -532,7 +545,7 @@ EOS
             printf 'prompt for report write failure\n' > "$case_prompt"
             printf 'not a directory\n' > "$report_parent"
             set +e
-            PATH="$ST_BIN:$PATH" SGSD_CODEX_APP_SERVER_COMMAND="$ST_BIN/codex" SGSD_CODEX_APP_SERVER_ARGS='[]' SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="success" "$0" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout 5 --phase 145 --plan 145-01 --step "self-test-report-write-failure" > "$case_dir/stdout.txt" 2> "$case_dir/stderr.txt"
+            (cd "$case_project" && PATH="$ST_BIN:$PATH" SGSD_CODEX_APP_SERVER_COMMAND="$ST_BIN/codex" SGSD_CODEX_APP_SERVER_ARGS='[]' SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="success" "$ST_SELF" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout 5 --phase 145 --plan 145-01 --step "self-test-report-write-failure") > "$case_dir/stdout.txt" 2> "$case_dir/stderr.txt"
             rc=$?
             set -e
             [[ "$rc" -eq 9 ]] && ! grep -q '^codex-exec: OK' "$case_dir/stdout.txt" && grep -q 'report write failure' "$case_dir/stderr.txt"
@@ -572,7 +585,7 @@ EOS
     # Append JSONL row to codex-log.jsonl (D-05) with probe metadata for triage.
     # Schema additions per architectural rule: probe_version, codex_version,
     # auth_method, checked_files, command_exit, stderr_excerpt.
-    if [[ -n "$ROOT" ]]; then
+    if [[ -n "$ROOT" && "$SKIP_NETWORK" != true ]]; then
         ST_LOG="$ROOT/.planning/metrics/codex-log.jsonl"
         ST_TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         mkdir -p "$(dirname "$ST_LOG")"

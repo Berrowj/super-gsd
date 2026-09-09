@@ -123,6 +123,17 @@ attachment; remove that marker to allow the next launch to start it again.
 failure does not block SGSD: telemetry is switched off for that launch and a gap
 is recorded where storage is available. The audit surfaces that degradation.
 
+Receiver replacement applies its caller deadline to health checks, exact process
+and listener verification, port-occupancy scans and launch. A timed-out transition
+keeps its durable journal at the last completed boundary and requires an explicit
+retry; expiry never authorizes signalling a process or starting a replacement.
+Deadline checks cannot preempt a synchronous operating-system call already in
+progress, so return latency can include the current synchronous operation; the
+next boundary is checked before signalling, spawning or transferring startup
+ownership.
+Offline `codex-exec.sh --self-test --skip-network` diagnostics isolate their fake
+workers from inherited Atlas roots and do not append parent-project metrics.
+
 The automatic service bounds payloads, its working indexes (eight resident
 project stores), per-project canonical capacity (128 MiB), and process memory
 (256 MiB V8 heap; shutdown above 512 MiB RSS). Capacity exhaustion stops detail

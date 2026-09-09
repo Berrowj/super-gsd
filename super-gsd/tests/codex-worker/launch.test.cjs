@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
+const atlas = require('../../tools/telemetry-atlas/global.cjs');
 const mailbox = require('../../tools/codex-worker/mailbox.cjs');
 const dispatch = require('../../scripts/lib/board-dispatch.cjs');
 const scripts = path.resolve(__dirname, '../../scripts');
@@ -84,6 +85,30 @@ async function waiting(f, processHandle) {
   assert.fail(`wrapper must keep an active question-bound worker: ${processHandle.stderr}`);
 }
 function frames(f) { return fs.readFileSync(f.capture, 'utf8').trim().split('\n').map(JSON.parse); }
+function treeSnapshot(root) {
+  if (!fs.existsSync(root)) return null;
+  const rows = [];
+  const visit = (directory, relative = '') => {
+    for (const name of fs.readdirSync(directory).sort()) {
+      const absolute = path.join(directory, name), child = path.join(relative, name), stat = fs.lstatSync(absolute);
+      if (stat.isDirectory()) { rows.push([child, 'directory', stat.mode & 0o777]); visit(absolute, child); }
+      else if (stat.isSymbolicLink()) rows.push([child, 'symlink', fs.readlinkSync(absolute)]);
+      else rows.push([child, 'file', stat.mode & 0o777, fs.readFileSync(absolute).toString('base64')]);
+    }
+  };
+  visit(root); return rows;
+}
+async function stopDetachedAtlas(root) {
+  let record;
+  try { record = JSON.parse(fs.readFileSync(path.join(root, 'service.json'), 'utf8')); } catch { return; }
+  const { owned } = require('../../tools/telemetry-atlas/lifecycle.cjs');
+  if (record.pid !== process.pid && record.process_identity && owned(record.process_identity)) {
+    process.kill(record.pid, 'SIGTERM');
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline && owned(record.process_identity)) await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(owned(record.process_identity), false, `detached Atlas fixture ${record.pid} stopped before cleanup`);
+  }
+}
 
 test('board wrapper pauses for its exact worker reply before validating the completed board report', { skip: bashOnly, timeout: 25000 }, async t => {
   const f = fixture(t);
@@ -384,6 +409,55 @@ test('offline wrapper self-tests exercise worker transport without a model call'
     assert.equal(result.status, 0, result.stdout + result.stderr);
   }
 });
+
+test('offline wrapper self-tests leave enabled production Atlas and project metrics byte-unchanged',
+  { skip: bashOnly, timeout: 130000 }, async t => {
+    for (const name of ['codex-exec.sh', 'codex-executor.sh']) {
+      const f = fixture(t), env = isolatedLegacyCommand(f);
+      const relativeScripts = path.join(f.root, 'relative wrapper scripts');
+      fs.symlinkSync(scripts, relativeScripts, 'dir');
+      const wrapper = path.relative(f.root, path.join(relativeScripts, name));
+      const atlasRoot = path.join(f.root, 'production atlas');
+      const productionProject = path.join(f.root, 'production project');
+      fs.mkdirSync(path.join(productionProject, '.planning'), { recursive: true });
+      atlas.registerRun({ root: atlasRoot, projectDir: productionProject, provider: 'openai', role: 'executor' });
+      const receiver = await atlas.startGlobal({ root: atlasRoot });
+      t.after(() => receiver.close());
+      const metricsRoot = path.join(f.root, '.planning/metrics');
+      const metrics = path.join(metricsRoot, 'codex-log.jsonl');
+      const profileLog = path.join(metricsRoot, 'custom-profile-resolution.jsonl');
+      const sourceMetrics = path.resolve(__dirname, '../../..', '.planning/metrics');
+      fs.mkdirSync(metricsRoot, { recursive: true });
+      fs.writeFileSync(metrics, '{"fixture":"production-before-self-test"}\n');
+      fs.writeFileSync(path.join(metricsRoot, 'existing-ledger.jsonl'), '{"fixture":"other-production-metric"}\n');
+      fs.writeFileSync(profileLog, '{"fixture":"profile-resolution-before-self-test"}\n');
+      const beforeAtlas = treeSnapshot(atlasRoot), beforeMetrics = treeSnapshot(metricsRoot);
+      const beforeSourceMetrics = treeSnapshot(sourceMetrics);
+      const result = await launch(t, [wrapper, '--self-test', '--skip-network'], f,
+        { ...env, SGSD_ATLAS_DISABLED: '', SGSD_ATLAS_GLOBAL_ROOT: atlasRoot,
+          SGSD_CODEX_PROFILE: 'unknown.fixture', SGSD_CODEX_PROFILE_LOG: profileLog }).done;
+      assert.equal(result.code, 0, result.stdout + result.stderr);
+      if (name === 'codex-exec.sh') {
+        assert.match(result.stdout, /Probe 5 profiles:\s+PASS/); assert.match(result.stdout, /Probe 6 finalize:\s+PASS/);
+        assert.match(result.stdout, /Exit: 0/);
+      } else assert.match(result.stdout, /codex-executor self-test: full-access worker completion PASS/);
+      assert.deepEqual(treeSnapshot(atlasRoot), beforeAtlas, `${name}: enabled parent Atlas root is diagnostic-read-only`);
+      assert.deepEqual(treeSnapshot(metricsRoot), beforeMetrics, `${name}: offline diagnostics do not change any production metric`);
+
+      const emptyHome = path.join(f.root, 'empty default home'); fs.mkdirSync(emptyHome);
+      const fallbackRegistry = path.join(f.root, name === 'codex-exec.sh' ? 'corrupt-profiles.yaml' : 'missing-profiles.yaml');
+      if (name === 'codex-exec.sh') fs.writeFileSync(fallbackRegistry, 'not: [valid');
+      const defaultRoot = path.join(emptyHome, '.local/state/sgsd/telemetry/global');
+      t.after(() => stopDetachedAtlas(defaultRoot));
+      const absent = await launch(t, [wrapper, '--self-test', '--skip-network'], f,
+        { ...env, HOME: emptyHome, USERPROFILE: emptyHome, SGSD_ATLAS_DISABLED: '', SGSD_ATLAS_GLOBAL_ROOT: '',
+          SGSD_CODEX_PROFILE: 'unknown.fixture', SGSD_CODEX_PROFILE_LOG: '', SGSD_CODEX_PROFILES_REGISTRY: fallbackRegistry }).done;
+      assert.equal(absent.code, 0, absent.stdout + absent.stderr);
+      assert.equal(fs.existsSync(defaultRoot), false, `${name}: an absent default Atlas root remains absent`);
+      assert.deepEqual(treeSnapshot(metricsRoot), beforeMetrics, `${name}: repeated offline diagnostics remain metrics-read-only`);
+      assert.deepEqual(treeSnapshot(sourceMetrics), beforeSourceMetrics, `${name}: default profile logging remains source-read-only`);
+    }
+  });
 
 test('explicit timeout escalation retains dispatch arguments and records both worker attempts', { skip: bashOnly, timeout: 22000 }, async t => {
   const f = fixture(t), entry = path.join(f.root, 'retry-peer.cjs'), attempts = path.join(f.root, 'attempts');
