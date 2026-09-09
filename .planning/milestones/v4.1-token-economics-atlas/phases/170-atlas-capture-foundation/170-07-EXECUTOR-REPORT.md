@@ -1,7 +1,10 @@
 # 170-07 trial-readiness executor evidence
 
-Status: IN_PROGRESS. No new publication, deployment, paid DEVCP worker attempt,
-acceptance pass, phase close or complete weekly coverage is claimed.
+Status: B0_BLOCKED / B1_PARTIAL. Reviewed repair published and normally installed
+as `2770952`; the single fresh acceptance stopped because a direct B0 profile
+inspection wrote one production fallback row. Live worker attempts **0/5**.
+Coverage census complete with result **PARTIAL**; weekly baseline not established.
+No acceptance pass, formal phase close, Windows pass or fleet completion claimed.
 
 ## Coverage census
 
@@ -133,6 +136,146 @@ Completion timestamp 09:00:07Z. Target loaded receiver fingerprint:
 `c44b0ad3d77721f7b5e796db4112f5ec1112164b5956c6df0af4956760ce60bc`.
 Publication, guarded update and the single fresh acceptance remain subsequent
 steps; no deployment or weekly-trial readiness is inferred from this candidate.
+
+## Publication and DEVCP/Linux update
+
+Published without force as `2770952f576aeb07fe2f947afdc97151f45910e3`
+(the preceding local doc-only commit `3776e249` was included). Staged runtime
+bytes were verified against the reviewed six-file freeze before commit.
+The user-owned `.planning/tmp/` remained untracked and untouched.
+
+Normal installed guarded updater ran from Clarity at 09:03Z, exit 0. Independent
+post-update verification at 09:03:11Z confirmed source and current-project pin
+`2770952`, clean source, all 122 comparisons (121 raw plus one expected derived
+Researcher agent), matching source/nested/flat Atlas fingerprints, and a completed
+owned receiver transition. Receiver PID369447 loaded fingerprint `c44b0ad3...`,
+retaining ports44797/43811/36943. Seven protected files, all twelve existing
+panes, six additional protected processes and all 47 other pin paths were
+unchanged. No model/auth defaults or existing sessions were restarted. This is a
+per-user/current-project update, not full-fleet freshness or Windows acceptance.
+
+Private deployment evidence:
+`/home/jackberrow/benchmarks/sgsd-worker-trial-repair-20260909-Y5cIfc/`, especially
+`deployment-verification.json`, before/after protection and installed hashes.
+
+## Fresh acceptance — stopped at B0
+
+New normal launcher session `sgsd-worker-trial-acceptance-20260909T090501Z`;
+operator pane `%12`, fresh Fable PID377569, actual Claude2.1.266, per-session
+Fable/xhigh override only. New evidence directory:
+`/home/jackberrow/benchmarks/sgsd-worker-trial-repair-20260909-Y5cIfc/fable-acceptance-20260909T090501Z-0vSvpU/`.
+Task SHA `accd8a18317341e3fb4224c996d8d8080f51ab46c71be24b3d09be56760025fa`.
+Native shell resolves Node24.15.0 and Codex0.153.4. The same Fable finished its
+blocked report at 09:23:43Z and was idle by 09:25Z. No live worker was launched.
+
+Launcher deviation retained in `launcher.stderr`: it selected the existing
+project-local scripts directory and warned that its cockpit start script was
+missing. Root did not repair or restart anything within the benchmark. Global
+installation and receiver checks passed separately; the warning and stale local
+shadows remain relevant to fleet/session freshness and must not be hidden.
+
+### Observed benchmark result and stop chronology
+
+| Step | Final result | Actual work |
+|---|---|---|
+| B0 | BLOCKED | Direct profile inspection appended one production fallback row |
+| B1 | PARTIAL_BLOCKED | Worker suite 94 tests: 92 pass, 0 fail, 2 skip; other three suites not run |
+| B2–B6 | NOT_RUN | No live worker round trips, recovery, steering or deadline test |
+| B7 | NOT_RUN | No acceptance before/after capture audit or native usage reconciliation |
+
+The B1 skips were the Windows-only transient-rename test and the explicitly
+opt-in local App Server initialization test. Suite reporter duration 46,610.162ms,
+wall 46.801s. This does not replace the four-suite B1 requirement. The preceding
+independently reviewed/root-verified native Linux suites remain separate evidence.
+
+At 09:12:51.772Z, direct installed
+`profile-resolver.cjs --resolve-cli codex.readonly.audit --default-cli review`
+appended one `unknown_profile` fallback to
+`/home/jackberrow/.claude/.planning/metrics/codex-profile-resolution-log.jsonl`.
+`codex.readonly.audit` is a role profile, not a `cli_profiles` entry. This direct
+invocation is not `--self-test --skip-network`, whose repaired isolation contract
+passed; ordinary production fallback logging was intentionally preserved.
+The fallback's built-in model was gpt-5.5, but the configured Architect descriptor
+provides an explicit gpt-6-astra/max override. No real board dispatch ran, so do
+not report the fallback model as an observed board wire model.
+
+Root sent a read-only installer-classification evidence pointer at 09:13:05Z;
+no install mismatch was repaired or gate relaxed. Root independently confirmed
+the ledger write and sent a queued stop at 09:17:02Z. That did not halt the active
+turn immediately: B1 suite 1 began at 09:17:11Z and finished at 09:17:57Z, before
+Fable read the message. Root then revalidated only new pane `%12` and sent one
+Ctrl-C at 09:18:39Z. A report-only continuation went to the same Fable at 09:19:22Z.
+No new acceptance session, further suite or live worker was launched.
+
+The production ledger remains 1,776 bytes, six rows, SHA-256
+`c2283aa62f627256a5f92162f0741f9dc493f8c8d9f0255700dc98537bf6ded5`;
+one row falls after this run's start. Root preserved a complete private copy as
+`root-profile-ledger-observation.jsonl` in the deployment parent. The row is a
+known diagnostic exclusion, not production workload or a row to delete. No
+automated exclusion/reporting adapter is claimed. Zero live worker attempts does
+not mean zero Fable orchestrator usage; this acceptance did not measure that cost.
+
+### Independent final evidence verification
+
+Fable's `BENCHMARK-RESULTS.md`: 18,201 bytes, SHA-256
+`f17c60ae46f408830f93a746d6ae6ae7fed8ac80cfd4603c9c767bd1aef255bc`.
+All three declared report/manifest hashes verified. Root separately sealed all
+88 evidence files with manifest SHA-256
+`37541b993a55f88fb8aeafc03af01ea51c0d7741200804b6b0460513582bf936`.
+At 09:29:42Z all 88 still matched. Empty B2–B7/project directories, absent worker
+session directories, command evidence and the native Fable tool transcript
+support **0 live worker attempts**. Six broad wrapper-name search hits were
+inspections/report generation, not launches; root read each complete command.
+
+All 238 recorded installed-file SHA-256 values and recorded Git blobs verified.
+190 files match source/pin; genuine stale/derived/independently-owned differences
+are classified, not erased. Git blob verification requires the repository's
+CRLF normalization for ten PowerShell files; their raw installed/source bytes
+also match. This does not certify Windows execution or all SGSD assets.
+
+Post-benchmark protection snapshot at 09:28:00Z verified seven protected files,
+twelve prior panes, six additional protected processes and all 48 pin paths
+unchanged since deployment (current Clarity plus the 47 other paths). Source is
+clean at `2770952`, receiver identity/record/endpoints unchanged and healthy.
+The two old benchmark reports remain byte-identical to their prior hashes.
+The four new benchmark panes remain; no old session was stopped. There was no
+exhaustive post-suite fixture-process census or cleanup claim.
+
+The receiver health snapshot still reports native requests partial, native
+metrics observed, native responses unavailable and storage coverage partial;
+207 rejected native records at this observation. These global counters are not
+attributed to this session and are not B7 evidence or billable usage.
+
+Root evidence in the deployment parent:
+`root-post-benchmark-protection.json`,
+`root-benchmark-evidence-verification.json`, and
+`root-benchmark-verification-corrections.json`. The first root reader assumed an
+`ok` health field, TAP reporter markers and raw Git blob hashing; actual contracts
+use `status: healthy`, Node24 spec markers and Git clean normalization. Its false
+health/blob flags and null counts are retained with an explicit correction using
+the same evidence. They were collector errors, not receiver/test regressions.
+
+Fable report errata, preserved without editing its immutable report:
+
+- B1 is PARTIAL_BLOCKED, not entirely NOT_RUN, despite that table label.
+- Old pane PIDs3140820/1293381 are launcher shells; actual protected Fable child
+  PIDs are3143564/1296359. Root snapshots identify both types correctly.
+- The command recorder flattens multiline argv into newline-separated values;
+  its `.meta` is not a lossless argv vector. Captured stdout proves commands ran.
+- “Installation complete and matching” applies only to inspected dependencies;
+  broader global/local agent drift and stale worktrees remain real.
+
+### Handoff boundary
+
+No automatic acceptance retry or phase advancement. A new run needs an explicitly
+non-writing B0 procedure: inspect profile registry/source and board descriptions,
+or isolate any necessary logging helper under an approved private diagnostic sink.
+P170 formal acceptance/gates remain open. P171 correlation and P172 reporting must
+then connect operation invocations, gate decisions, findings, repairs and provider
+calls, with missing/malformed/duplicate/excluded data counted explicitly. Their
+approved calibration/frozen-window requirements are necessary before weekly
+economics or savings claims. Windows remains OPEN_REQUIRED; fleet rollout remains
+partial. The coverage census is evidence of these gaps, not their implementation.
 
 ## Local diagnostic deviation and recovery
 

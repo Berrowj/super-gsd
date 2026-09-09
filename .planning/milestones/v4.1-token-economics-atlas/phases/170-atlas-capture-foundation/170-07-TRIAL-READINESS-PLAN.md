@@ -1,7 +1,10 @@
 ---
 phase: 170
 plan: "170-07"
-status: ACTIVE
+status: BLOCKED_ACCEPTANCE
+repair: DEPLOYED_2770952
+acceptance: B0_BLOCKED_B1_PARTIAL_B2_B7_NOT_RUN
+operational_coverage: PARTIAL
 authorized_by: operator
 authorized_at: 2026-09-09
 scope: DEVCP_LINUX_ACCEPTANCE_REPAIR_AND_OPERATIONAL_COVERAGE_AUDIT
@@ -53,7 +56,7 @@ closure actually changes. No other source changes without a plan amendment.
   board/routing regressions, syntax and diff checks. Record counts and skips.
   Seven existing propagation snapshot-helper digest failures remain visible;
   no changes to those guards or formal gate results.
-- [ ] Independent specification review, then quality review. Resolve Critical
+- [x] Independent specification review, then quality review. Resolve Critical
   and Important findings. Freeze and commit only reviewed task-owned files.
 
 ## Task 2 — Evidence-backed SGSD operational coverage census
@@ -86,18 +89,19 @@ source evidence includes malformed legacy rows. Weekly baseline NOT_ESTABLISHED.
 
 ## Task 3 — Reviewed publication and guarded Linux update
 
-- [ ] Recheck origin identity, captured upstream revision, worktree and exact
+- [x] Recheck origin identity, captured upstream revision, worktree and exact
   candidate hashes. Preserve unrelated edits, auth, model defaults, other pins,
   all twelve existing panes and previous Fable processes. No CLI install/remove.
-- [ ] Publish reviewed commits to origin/master without force. Use the normal
+- [x] Publish reviewed commits to origin/master without force. Use the normal
   trusted updater from Clarity, proving source/install hashes, loaded receiver
   fingerprint and unchanged endpoints before success. Preserve prior evidence.
-- [ ] Do not claim all DEVCP worktrees current from a per-user global install.
+- [x] Do not claim all DEVCP worktrees current from a per-user global install.
 
 ## Task 4 — One fresh Fable acceptance benchmark
 
-- [ ] New immutable evidence directory and new launcher session; never reset an
-  existing session. B0 uses explicit read-only commands: no bare global.cjs
+- [x] New immutable evidence directory and new launcher session; never reset an
+  existing session.
+- [ ] B0 uses explicit read-only commands: no bare global.cjs
   default-prepare call and no unplanned wrapper diagnostics.
 - [ ] B1 runs the existing four offline suites; optional native initialize only
   remains distinct from a model turn. If B0/B1 fails, stop live steps and report
@@ -106,8 +110,30 @@ source evidence includes malformed legacy rows. Weekly baseline NOT_ESTABLISHED.
   most five live worker attempts, 180 seconds each, twenty minutes live total.
   Prove actual two-way Fable supervision and native accounting, not dry-run model
   labels. Preserve real outcomes and coverage WARNs; no auto-answerer.
-- [ ] Verify manifest and protected-state snapshots independently; update this
+- [x] Verify manifest and protected-state snapshots independently; update this
   plan and STATE with observed results, remaining coverage work and Windows open.
+
+Task 4 terminated at the read-only prerequisite boundary. Fable's direct
+`--resolve-cli codex.readonly.audit` inspection appended one production fallback
+row at 09:12:51.772Z. The installed resolver distinguishes role profiles from
+`cli_profiles`; this was not the repaired, isolated offline self-test path.
+Root's queued stop arrived after one B1 suite had begun: worker **92 pass / 0 fail
+/ 2 skip**. B1 remains **PARTIAL_BLOCKED**, not a four-suite pass. B2–B7 were not
+run, and live worker attempts were **0/5**. No replacement acceptance is authorized
+by this plan. The same Fable wrote its blocked report, then stopped at 09:24Z.
+
+Root independently sealed 88 evidence files and verified all 238 recorded
+installed-file hashes, seven protected settings/config files, twelve prior panes,
+six other protected processes, all 48 post-deployment pin paths and both prior
+benchmark report hashes. The production diagnostic row was preserved and copied
+privately; it requires diagnostic exclusion, not deletion. Root evidence-reader
+schema/reporter/line-ending corrections are preserved separately, not rewritten.
+See `170-07-EXECUTOR-REPORT.md` for exact evidence and report errata.
+
+Next decision: authorize a corrected, explicitly non-writing B0 procedure and one
+new bounded acceptance. After P170 acceptance and existing phase gates, P171
+operation/call/finding/repair correlation and P172 weekly reporting remain
+necessary. Windows and full-fleet rollout are still separate open work.
 
 ## Completion boundary
 
