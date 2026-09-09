@@ -1,0 +1,5 @@
+FINDINGS: 0
+CRITICAL: 0
+WARNINGS: 0
+PASS_RATE: 10/10
+ONE_LINER: Validator rejects malformed identities before cleanup authority; all scoped ATC checks pass.

@@ -65,6 +65,32 @@ semantic_acceptance_criteria:
 
 # Linux acceptance and gated Atlas completion
 
+## Explicit contract-recovery amendment (2026-09-09 15:52Z)
+
+Root's one-use review prompt incorrectly requested free-text FINDINGS and a
+percentage PASS_RATE. The wrapper's presence-only extraction accepted this, but
+the existing secondary `validateContract` in `sgsd-orchestrate` requires integer
+FINDINGS/CRITICAL/WARNINGS and numerator/denominator PASS_RATE. Executing that
+exact existing function now rejects reports01-04. Earlier code findings and the
+positive04 assessment remain evidence; the recorded04 gate PASS is withdrawn
+pending a valid report. Preserve every original byte and append corrective ledger
+evidence rather than rewriting the previous verdict or source.
+
+Task4 authorizes one explicit180-second contract-only continuation of completed
+worker `c8135301-7e1f-4368-97f6-9d7a96b2d448`, same project/thread/profile/model/
+effort and unchanged four-file freeze. Positively verify its adapter stopped and
+thread claim released; verify all1,106 source/config inputs against P3RNwg and
+retain the prior report. Request the genuine existing review conclusion in the
+required five-field format, allowing a blocking finding; no forced PASS, new
+source import, tests, unrelated re-review, automatic retry or model substitution.
+Validate the new original report with the exact existing secondary function before
+any gate PASS/170-09 resume/publication. Save transport status and contract status
+separately. A failed continuation remains blocked and needs fresh diagnosis.
+
+Future170-09 quality dispatch must request that same existing valid format and
+apply its secondary guard. This amendment changes only the one-use orchestration
+procedure, not SGSD source gates or review policy.
+
 > For agentic workers: use subagent-driven-development for bounded implementation
 > tasks, with independent specification then quality review. Root owns deployment,
 > real Fable supervision, evidence reconciliation and existing phase gates.

@@ -58,6 +58,24 @@ semantic_acceptance_criteria:
 
 # Preserve native Codex selection across Linux launches
 
+Resume2026-09-09 16:02Z: actual170-08 QUALITY05 completed16:00:03.415Z on the
+unchanged four-file freeze, same original thread. Its original157-byte report
+SHA-256 `572509fd8f7cd0896bc20e84323450cff215b0af3df22705cf76ceabc1d88181`
+passes the exact existing secondary validator: FINDINGS0, CRITICAL0, WARNINGS0,
+PASS_RATE10/10. All1,106 inputs remained unchanged and report04 was preserved.
+Corrective and new PASS ledger receipts are retained separately. T1 resumes only
+the two bounded SPEC01 fixes from its meaningful0/2 RED checkpoint. Its own
+SPEC02 and registered QUALITY still precede publication/acceptance.
+
+Dependency correction2026-09-09 15:52Z: root independently executed the existing
+orchestrator `validateContract` guard and found170-08 QUALITY04 format-invalid
+(`FINDINGS: none`, `PASS_RATE: 100%`). The earlier activation paragraph below is
+retained as history, not current authority. T1 is paused at its safe checkpoint
+after SPEC01's two meaningful RED cases; no repair has been applied for those
+findings. Remote/boot retain b2a44c89/4a985b9c; added test hash5854f64e is retained.
+Resume only after a genuinely contract-valid170-08 registered QUALITY receipt.
+No older review, implementation evidence or actual failed acceptance is replaced.
+
 Activated2026-09-09 13:43Z after170-08 Task4 SPEC06, independently reconciled
 native integrationP3RNwg and registered QUALITY04 PASS (CRITICAL0/WARNINGS0,
 PASS_RATE100). Actual worker `c8135301-7e1f-4368-97f6-9d7a96b2d448` completed

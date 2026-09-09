@@ -404,6 +404,26 @@ value/edge writers recorded the pass, preserving all prior ledger prefixes:
 `atc-pass-04-ledgers-mEemg2/result.json`. The planned170-09 launcher dependency
 is now activated; it must pass its own reviews before publication.
 
+The reviewed170-08 repair and its planning/review history were checkpointed in
+local commit `4934ccb` without publication or deployment. The later read-only
+diagnostic at15:03:40Z independently reconciled all25 native response records
+from the21/1/3-response review chain to25 valid accepted canonical rows. Missing,
+duplicate, conflicting, unmatched accepted and pending-spool counts are allzero
+for that exact set. Total provider tokens are1,664,027: input1,653,437 plus
+output10,590. Cache-read1,543,424 is a subset of input, not an additional total;
+reasoning is a subset of output. Unknown cache-creation observations do not
+become zero merely because a known-value subtotal is zero.
+
+The content-free diagnostic is
+`/home/jackberrow/.cache/sgsd-native-verification/review-spend-reconciliation-c7Mntm/reconciliation.json`,
+SHA-256 `9da317a649016fc8d851b1fbb99274893b354ed042449517f5126b1565b15f7d`.
+Root independently read and verified its hash and result counts. The retained
+native-prefix hash and input postchecks match. Oversized rows are non-usage;
+usage rows are at most892bytes. Existing line-limit warnings remain, as do audit
+WARNs for unavailable HTTP request identity and capture gaps. This is diagnostic
+review spend, not a production cohort, billed-cost estimate, all-SGSD capture
+proof or a weekly baseline.
+
 Root's one-use acceptance helpers now prepare a hash-verified private B1 source
 and dependency copy; B0 reads its manifest without running tests or wrappers.
 The Fable launch command no longer substitutes a Codex selector or PATH. New
@@ -429,10 +449,87 @@ the future postdeployment acceptance baseline. The read-only inventory still
 shows7 protected files,20 panes,8 separately protected processes and48 pins;
 the existing fleet shadows/default gaps remain visible, with zero repair actions.
 
+The next inventory now explicitly includes `sgsd-boot.sh`, which the inherited
+122-entry manifest omitted; the old manifest remains unchanged. A read-only
+check15:01Z found all123 current entries resolve, including matching hashes for
+both launchers and their shared selector helper. The one-use protection collector
+now records both additional known old Fable/launcher processes directly (eight
+total) and refuses unreadable/live-unknown identity instead of labelling it absent.
+Pure guard fixtures first failed2/4, then passed4/4; the preceding Windows-path
+mock import failure is harness-invalid, not behavioral RED. No process was
+signalled by these fixtures or collectors.
+
+The updated zero-provider preflight diagnostic at15:05:34Z passed allnine checks
+and prepared7,251 private inputs at
+`/home/jackberrow/benchmarks/sgsd-linux-completion-20260909-gqrCwz/`.
+Its input-manifest hash is
+`c234d35c6578411b69535c9954901434291965bbc82ad8bd58eb7b7798569414`.
+It ran no test or launch, preserves20 panes/48pins, and is not the future
+postdeployment acceptance baseline. The production receiver remained healthy
+at its unchanged2770952 fingerprint.
+
+## Launcher review continuation (2026-09-09)
+
+Root's fresh native integration on the initial170-09 three-file freeze completed
+at15:39:38.352Z. Evidence is
+`/home/jackberrow/.cache/sgsd-native-verification/root-integration-t4zJ0A/evidence/`.
+Results (pass/fail/skip): worker92/0/2, Atlas122/0/4, board/routing15/0/0 and
+propagation81/7/0. The seven propagation failures match the separately retained
+published2770952 snapshot-contract baseline; they remain failures. All1,106
+candidate inputs and the protected-state comparison were unchanged. The four
+stdout SHA-256 values are, respectively:
+
+- `a05905aee6c4b65f7efe4bc7daaf180f4af2ae4812003fc1e139968503d0f2ab`
+- `f79275fe21e752ce22f5942608ac860dfb9fd1f112412eb78cf30a7a2177350f`
+- `a1eacbeb5106190c2b8fe353e82debeb95f6fe77d98393364ff44bcc07a78f53`
+- `d229e11f49627be13371d794b40848042927a51dcc21c927b4ed2f2f8a16a281`
+
+Independent specification review identified two untested T1 defects despite
+these named-suite results: normal remote launch checks for tmux before restoring
+the user-local executable path, and older selector-executing fixtures inherit
+caller HOME/selectors. Root independently inspected both sites and requested a
+bounded test-first repair under the existing170-09 plan. The original freeze,
+evidence and failed review are retained. Registered QUALITY and deployment do
+not proceed on this revision. No source/runtime/model/auth update or fresh
+acceptance has occurred during this continuation.
+
 ## Remaining work
 
-Task4's frozen repair now passes independent specification and registered
-quality review. The normal launcher repair and its own reviews precede another
+Correction15:52:28.659Z: the existing orchestrator secondary `validateContract`
+was executed verbatim against allfour raw170-08 review reports, and all failed
+its format guards. In04, `FINDINGS: none` is not an integer and `PASS_RATE: 100%`
+is not numerator/denominator. The root-authored prompt asked for the wrong
+format, and root previously omitted this secondary check. The earlier positive
+review content is retained, but the claimed registered gate PASS is withdrawn.
+The diagnostic is `atc-secondary-contract-K7njDD/result.json` beneath the one-use
+local helper directory; validator SHA-256 is
+`c33469c5e5835c5fcb380d33f9acf1e692ddfcd6b3857d9380aa1675a988f627`.
+It made no provider call or source mutation. Original report/ledger history is
+preserved.170-09 paused at a safe checkpoint, after genuine0/2 RED evidence for
+its SPEC01 findings; no production repair for those findings has been applied.
+Task4 now permits one explicitly diagnosed, unchanged-source contract-format
+continuation with the existing completed review thread. Deployment remains held.
+
+The one explicitly planned contract-only continuation subsequently completed
+16:00:03.415Z in11.340s. Its original157-byte
+[QUALITY05 report](170-08-ATC-REVIEW-05.txt), SHA-256
+`572509fd8f7cd0896bc20e84323450cff215b0af3df22705cf76ceabc1d88181`,
+passes the exact existing secondary validator with FINDINGS0, CRITICAL0,
+WARNINGS0 and PASS_RATE10/10. Root revalidated the original local bytes before
+the new gate PASS. Actual worker `f8d6341e-c0b5-4437-9aff-d44349b147d1` used the
+same original review thread, new turn `01a086e5-aaf2-7801-a18f-b165129a59ea` and
+Atlas run `sgsd-cba56dba-b7c8-4ebe-8438-e9f71afee92b`. Evidence is
+`root-integration-lz57ZA/source/.planning/reviews/170-08-contract05-DJvUGx/`.
+All1,106 P3RNwg inputs stayed unchanged; original04 stayed unchanged; the adapter
+is terminal. Its one native response was queued with zero pending but is not yet
+independently joined here. No source import or additional test was performed.
+
+The actual corrective ledger receipt `atc-contract-correction-ledgers-uGqOH4`
+and new valid PASS receipt `atc-pass-05-ledgers-82HMkI` preserve all earlier
+ledger prefixes. This is the first contract-valid170-08 Task4 QUALITY pass,
+not a rewritten04 or phase/rollout/acceptance pass.170-09 resumed16:02Z only at
+the bounded SPEC01 repair checkpoint. The normal launcher repair and its own
+reviews precede another
 bounded acceptance. P170 still lacks its formal phase gates; prose-only earlier
 plans need explicit contract reconciliation rather than a retrospective legacy
 exemption. P171 operation adapters/correlation and P172 reporting remain pending
