@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-status: ACTIVE
+status: COMPLETED_BOUNDED_LINUX
 phase: 170
 plan: "170-11"
 source_revision: 94ce08146e39099e1d2110ba8550419180377850
@@ -91,18 +91,18 @@ old process or project-local shadow.
 
 ## T1: repair only the reproduced hook dependency closure
 
-- [ ] Follow the actual settings hook into the flat routing import. Compare
+- [x] Follow the actual settings hook into the flat routing import. Compare
   with the nested installation; load with `--no-global-search-paths` and
   `logDegradation:false` so diagnosis emits no fake gate evidence.
-- [ ] Extend the existing real empty-home install fixture before production
+- [x] Extend the existing real empty-home install fixture before production
   edits. Assert `require(flatRouting).loadSkillRoutingRegistry({runtime:false,
   noCache:true,logDegradation:false})` succeeds in the supported updater layout, and
   that required installed dependency files match source. Run the existing
   native install test and retain its expected missing-dependency failure.
-- [ ] Use the installer's existing copy pattern to deliver the exact missing
+- [x] Use the installer's existing copy pattern to deliver the exact missing
   closure beside flat hooks. Do not add or claim a flat board CLI support contract.
   Record any newly demonstrated required source-file allowlist before editing.
-- [ ] Rerun native installed tests and relevant existing suites. Independent
+- [x] Rerun native installed tests and relevant existing suites. Independent
   SPEC first, then existing registered FULL ATC; address actual findings only.
 
 ### Reproduced root-layout correction, 08:35 UTC
@@ -128,10 +128,10 @@ global packaging contract. No extra model generation or gate policy changes.
 
 ## T2: diagnose Astra without guessing
 
-- [ ] Initialize installed App Server, query model/list (all pages) and read
+- [x] Initialize installed App Server, query model/list (all pages) and read
   the exact failed thread without resuming. Output model/effort/status/closed
   error metadata only. Close only the client process created by this check.
-- [ ] If existing metadata is inconclusive, use one of T3's finite normal
+- [x] If existing metadata is inconclusive, use one of T3's finite normal
   board invocations to reproduce while retaining privacy-safe error facts.
   A named external blocker is an honest result, not a reason to weaken gates.
 
@@ -143,22 +143,22 @@ sgsd-remote-tmux.sh greet/go command passes no model argument. The configured
 selection is therefore not enforced by this launcher. This is in the operator's
 explicit Fable/model acceptance scope, not permission to edit general settings.
 
-- [ ] Extend real launcher argv fixtures first: use the actual model resolver
+- [x] Extend real launcher argv fixtures first: use the actual model resolver
   and real routing config in the fixture source. Greet/go must pass Fable from
   the role config even if the general CLI default differs. A supported per-role
   Anthropic override must reach argv. Unsupported non-Anthropic transport or
   invalid routing must fail before cockpit/tmux/provider work; never substitute.
-- [ ] Resolve through existing model-routing.cjs against authoritative source
+- [x] Resolve through existing model-routing.cjs against authoritative source
   routing config (or its existing explicit routing-file/role override), validate
   provider/model, and quote the model on direct Claude argv. Preserve caller
   Codex executable selection, project/source pin check, telemetry prefix, `go`,
   terminal topology and non-starting shell/doctor modes. Do not build a Codex
   orchestrator transport or mutate auth, general preferences or role defaults.
-- [ ] Update the existing bounded stalled-attachment fixture with its real
+- [x] Update the existing bounded stalled-attachment fixture with its real
   routing dependency and changed Claude argv. Run provenance and Atlas runtime
   tests natively; independent SPEC then FULL registered review. T1 and T4 may
   share one combined registered FULL ATC after independent SPEC of each.
-- [ ] After installation verify actual generated normal-launcher argv in
+- [x] After installation verify actual generated normal-launcher argv in
   the existing no-provider fixture and, if feasible inside the remaining
   acceptance allowance, one bounded Fable print-mode/Agent smoke using the
   same selected model and Atlas launch helper. Label headless smoke separately
@@ -206,34 +206,44 @@ finding may follow, with the exact evidence and documentation diff, no new
 investigation or source changes. Preserve all earlier verdicts/spend and stop
 if it still blocks; never rewrite the blocking row into a pass.
 
-- [ ] Use complete isolated native source for fixture verification. Preserve
+- [x] Use complete isolated native source for fixture verification. Preserve
   source hashes and stdout/stderr separately from live acceptance evidence.
-- [ ] After reviews, publish the exact scoped commit and use the existing
+- [x] After reviews, publish the exact scoped commit and use the existing
   guarded normal DEVCP update. Verify source/install hashes, protected config,
   existing pane/process identity and the intended project pin before/after.
-- [ ] Use a private labelled acceptance directory or existing approved native
+- [x] Use a private labelled acceptance directory or existing approved native
   review workspace; do not add new trust config. Let codex-exec.sh create run
   registrations. Never set SGSD_RUN_ID manually or call run.cjs directly.
-- [ ] Prepare the actual board seat through board-dispatch.cjs; run its argv.
+- [x] Prepare the actual board seat through board-dispatch.cjs; run its argv.
   For the communication case, generate a challenge in supervisor memory only
   after pending question is observed, then reply by exact project/owner/worker/
   request identity. Require applied receipt, transformed answer and normal
   wrapper/report validation. Never persist the challenge before completion.
-- [ ] Resume one successful recorded thread with unchanged model/effort and a
+- [x] Resume one successful recorded thread with unchanged model/effort and a
   fresh report path. Verify new turn/worker/attempt, same thread and retained
   answer absent from continuation prompt. Preserve original report hash.
-- [ ] Reconcile each successful run to actual native TokenUsageRecord lines
+- [x] Reconcile each successful run to actual native TokenUsageRecord lines
   using existing capture/parser contracts. Verify input+output totals, distinct
   identity, canonical hashes, subset handling and failed-run unknown usage.
-- [ ] Recheck real MUDA and ATC source-byte/receipt/canonical proof using the
+- [x] Recheck real MUDA and ATC source-byte/receipt/canonical proof using the
   existing operation report. Genuine gate FAIL is not a capture failure. List
   unexercised families separately; do not generate model calls to fill charts.
-- [ ] Obtain receiver PID from global health/service identity and verify its
+- [x] Obtain receiver PID from global health/service identity and verify its
   actual process identity. Sample that PID's CPU-time deltas/RSS and collector
   pending/capacity counters for five minutes. Do not substitute legacy server
   CPU or total directory growth for collector/backlog measurement.
-- [ ] Report configured/resolved/live board status distinctly; report Fable
+- [x] Report configured/resolved/live board status distinctly; report Fable
   and Researcher limitations honestly. Final audit separates integrity FAIL,
   historical WARN, trial evidence and provider/billing unknowns.
-- [ ] Save concise result/evidence manifest and update this plan/state with
+- [x] Save concise result/evidence manifest and update this plan/state with
   what actually completed. Longer weekly observation and Windows stay open.
+
+Completion09:25 UTC: implementation c13888a published/deployed normally;
+12 installed hash comparisons, actual flat hook30/16 routes, canonical launcher
+doctor, installed-byte argv fixtures3/3 and live Fable CEO/Contrarian headless
+smoke PASS. Guards preserve7 protected files/28 panes/other52 pin paths and the
+owned receiver. Fresh ATC block/pass review+gate source joins4/4 exact. Final
+audit healthy/WARN69/0FAIL; historicalbackfill remains explicit. This completes
+the bounded correction plan, not phase/milestone closure, all-history capture,
+all-session freshness, Researcher selection or Windows. See sibling acceptance
+report for reproducible evidence paths and fresh canonical launcher command.

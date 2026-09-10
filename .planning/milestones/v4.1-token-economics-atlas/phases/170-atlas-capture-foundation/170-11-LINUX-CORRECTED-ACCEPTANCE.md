@@ -2,9 +2,10 @@
 schema_version: 1
 plan: "170-11"
 platform: linux-devcp
-status: VERIFIED_ATC_PASS_AWAITING_DEPLOYMENT
-checked_at: "2026-09-10T09:18:00Z"
+status: LINUX_CORRECTIONS_DEPLOYED_VERIFIED
+checked_at: "2026-09-10T09:27:00Z"
 baseline_revision: 94ce08146e39099e1d2110ba8550419180377850
+implementation_revision: c13888a759f2b22480e35bfe297352a4f6fa05c9
 windows: OPEN_REQUIRED
 ---
 
@@ -12,8 +13,10 @@ windows: OPEN_REQUIRED
 
 The demonstrated hook and Fable-launcher defects have minimal fixes, native
 regression coverage and independent SPEC approval. Registered FULL ATC now
-passes with0 critical/0 warnings/100%; normal guarded publication/deployment
-is pending at this checkpoint.
+passes with 0 critical/0 warnings/100%. Implementation c13888a was published to
+origin/master and deployed on DEVCP through the normal guarded sgsd-update.
+Installed verification passed; historical coverage, Researcher selection and
+Windows remain separate open boundaries.
 This report supersedes the flawed procedure's conclusions only where fresh
 evidence below does so; earlier failed reports remain unchanged.
 
@@ -23,6 +26,7 @@ evidence below does so; earlier failed reports remain unchanged.
 | --- | --- |
 | Actual flat global hooks | Missing js-yaml/argparse closure and wrong validation root reproduced; fixed installer/loader. Real empty-home updater-layout test passes, including strict30 routes, adapted16 routes, source-local behavior and explicit absent-canonical failure. |
 | Fable launch | General Claude preference was opus[1m], despite SGSD's Fable default. Linux greet/go now resolves the existing role selection and passes the model on actual direct Claude argv; supported overrides and rejection before side effects are tested. No preferences changed. |
+| Live Fable seats | One bounded headless CEO session called the real sgsd-board-contrarian Agent exactly once with model fable. Provider model claude-fable-5-1; both markers returned, exit0, 9.091 seconds. Not a full deliberation or fresh interactive tmux session. |
 | Astra | Earlier acceptance selected Codex0.144.3, which did not list Astra. Normal .local/bin/codex0.153.4 was already installed; its actual Architect/max turn now succeeds. No guessed model, model swap, upgrade or auth change. The original provider error was not retained, so its exact reason remains unknown. |
 | Two-way bridge | Fresh Astra and Luna workers asked through sgsd_ask_orchestrator; challenge generated only after each pending question, held in supervisor memory until completion, exact owner/project/worker/request reply applied, transformed answer returned. Wrong owner/project and duplicate reply rejected. |
 | Continuation | Astra kept its thread, opened a new turn/worker/run/attempt and recalled the previous answer without it being restated. Original report hash unchanged. |
@@ -71,7 +75,26 @@ Independent native reconciliation of the timed-out review matches18/18 responses
 tokens. Its verdict continuation matches1/1 response:126,771 input +1,972 output
 =128,743 tokens, including125,824 cache-read tokens. These failed/review costs
 are explicitly retained, not hidden behind the101,008-token acceptance total.
-Adjudication usage is recorded separately in its final native addendum.
+Adjudication matches 1/1 response:129,301 input +607 output =129,908 tokens,
+including126,592 cache-read tokens. Total registered review usage is1,526,001
+tokens, including1,385,984 cache-read tokens. This is a concrete trial finding:
+the reviewer over-read context and required bounded follow-ups; retain that
+cost in the economics analysis rather than calling the whole check101,008 tokens.
+
+The separate Fable CLI reports list-price costUSD1.18092025 for its parent/child
+smoke, under the explicit $2 cap. This is CLI-reported list pricing, not an
+invoice or subscription charge. Do not add Anthropic cache fields using the
+Codex subset convention; their provider-native definitions differ.
+
+Automatic Fable capture is also proven: the registered orchestrator run produced
+10 canonical events, including3 API request usage records spanning the parent
+and real Contrarian child. Each uniquely matches its native transcript's input,
+output, cache-read and cache-creation components with an11–30ms occurrence delta;
+session identity and payload hashes match, with0 unmatched records. These are
+usage/time joins, not response-ID joins: canonical Claude OTEL records do not
+carry the native message IDs. Canonical provider-total and reasoning fields
+remain null/unknown. Components are input36, output288, cache-read39,851 and
+cache-creation68,341; no billing/account total is inferred.
 
 Two fresh workers reported native_usage_line_limit. Independent bounded source
 inspection found only oversized non-usage world_state rows: all5 usage records
@@ -83,7 +106,11 @@ addendum checks the actual persisted/applied command and exact identity, proves
 the round trip passed, and records the harness error. No worker rerun was used
 to replace that evidence.
 
-The midpoint audit is WARN (65WARN,0FAIL across17 registered projects).
+The final audit is WARN (69 WARN,0 FAIL across17 registered projects), with a
+healthy current receiver,0 operational canonical duplicates/conflicts and
+0 checked source mismatches. About14,015,621 operational source bytes remain
+pending at this bounded snapshot. The midpoint had65 WARN; new coverage findings
+are not hidden by claiming a stable warning count.
 Historical unsupported/unsafe/malformed/absent-source records and provider
 identity coverage remain explicit; operational backfill is still pending.
 Selected exact reconciliation does not prove every historical request or every
@@ -92,18 +119,50 @@ possible SGSD action was captured. No billing-completeness claim.
 ## Deployment and remaining boundaries
 
 Pre-update guard: all7 protected configuration/credential hashes,28 existing
-tmux pane identities and53 inventoried project-pin paths unchanged during this
-acceptance. Canonical DEVCP source is clean at the baseline revision.
+tmux pane identities and53 inventoried project-pin paths unchanged during the
+acceptance. Normal update then changed only Clarity's intended pin. Source is
+clean at c13888a and12 targeted source/installed comparisons match, including
+both routing-library copies, launcher, wrappers, board/routing config, hook,
+flat YAML dependencies and corrected deliberate skill.
 
-Publication, normal sgsd-update, installed hashes, live Fable smoke and final
-guard/audit are pending. No existing interactive session has been restarted.
+The actual installed hook loads strict30 YAML routes and16 adapted routes with
+degraded=false. Canonical-source launcher doctor resolves Fable and current
+.local/bin/codex and verifies matching source/project pin. A bare direct
+launcher call without authoritative paths instead selects Clarity's vendored
+source and correctly fails provenance; that failed diagnostic is preserved.
+Use the canonical paths below when launching from this project shadow.
+
+Post-install actual-argv fixtures were rerun with the byte-identical installed
+launcher copied into the existing isolated fixture:3/3 pass, covering
+greet/go/shell, override binding and invalid-provider rejection before effects.
+
+Post-update and post-Fable guards both preserve all7 protected files and28
+existing panes; Atlas remains the same healthy owned process and instance.
+Fresh source-byte -> receipt -> canonical checks also match both new ATC review
+rows and both gate rows (the original block AND adjudicated pass):4/4 exact.
+No existing interactive session has been restarted.
 Global deployment means this OS user's global runtime assets plus the chosen
 Clarity project pin, not every old process, worktree pin or local shadow.
 
 Researcher/Atlas remains correctly blocked pending an operator-approved exact
-model ID. CEO/Contrarian are configured Fable; headless provider/Agent proof is
-pending, distinct from a fresh interactive launcher session. Windows, longer
-weekly observation and phase/milestone closure remain open.
+model ID. CEO/Contrarian headless provider/Agent proof passes. Astra Architect
+and Luna Pragmatist passed real board wrappers; Moonshot resolves to the same
+working Astra/max transport but did not receive a separate live turn. No full
+board deliberation was manufactured for acceptance. Windows, longer weekly
+observation and phase/milestone closure remain open.
+
+For a fresh session, run on DEVCP (use a new session name; do not reset old work):
+
+```bash
+bash ~/.claude/super-gsd/scripts/sgsd-remote-tmux.sh \
+  --project /opt/clarity/project-clarity-erp \
+  --source-dir ~/.claude/super-gsd/source \
+  --scripts-dir ~/.claude/super-gsd/scripts \
+  --agents-dir ~/.claude/agents --session sgsd-weekly-20260910 --greet
+```
+
+This command uses the existing launcher and its installed telemetry attachment;
+no new command, project trust entry or session replacement was created.
 
 ## Evidence locations (private, content-free summaries)
 
@@ -120,6 +179,12 @@ DEVCP base:
 - T170-11-ATC-REPORT.txt (timeout), T170-11-ATC-FINISH-REPORT.txt (original CRIT)
 - T170-11-ATC-EVIDENCE.json (block), T170-11-ATC-ADJUDICATE-REPORT.txt and -EVIDENCE.json (pass)
 - correction-atc-timeout-native.json, correction-atc-finish-native.json, flat-board-scope-proof.json
+- correction-atc-adjudicate-native.json, fresh-atc-reviews-proof.json, fresh-atc-gates-proof.json
+- normal-update.log, installed-verification.json, installed-launcher-canonical-doctor.log
+- installed-launcher-argv-proof.log (post-install3/3)
+- guard-immediate-pre-update.json, guard-post-update.json, guard-post-fable.json, audit-final.json
+- fable-smoke-result.json (headless CEO/Contrarian), fable-smoke-launch.log (automatic Atlas run attachment)
+- correction-fable-smoke-native-complete.json (parent/child native usage vs automatic canonical capture)
 - Receiver sample: sibling ../live-receiver-sample-TQJZVK/result.json
 
 No prompts, challenge values, transcripts or credentials are copied into this
