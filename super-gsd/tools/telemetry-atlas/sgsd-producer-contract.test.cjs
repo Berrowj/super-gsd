@@ -265,6 +265,10 @@ test('MUDA audit appends structured evidence without calling a real provider and
   fs.mkdirSync(path.join(scripts, 'lib'), { recursive: true });
   fs.mkdirSync(bin, { recursive: true });
   fs.mkdirSync(path.join(root, '.planning', 'phases', '01-test'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.planning', 'phases', '07.2-dotted'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.planning', 'phases', 'v30-07-product-intelligence-api'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.planning', 'phases', 'v30-06.8-existing-namespace'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.planning', 'phases', 'legacy-phase'), { recursive: true });
   fs.copyFileSync(path.resolve(__dirname, '..', '..', 'scripts', 'sgsd-muda-audit.sh'), path.join(scripts, 'sgsd-muda-audit.sh'));
   fs.copyFileSync(OBSERVATION, path.join(scripts, 'lib', 'atlas-observation.cjs'));
   const executable = (file, body) => { fs.writeFileSync(file, body); fs.chmodSync(file, 0o755); };
@@ -297,11 +301,11 @@ exec '/mnt/c/Program Files/nodejs/node.exe' "\${converted[@]}"
   const audit = slash(path.join(scripts, 'sgsd-muda-audit.sh'));
   const projectArg = slash(root);
   const metrics = path.join(root, '.planning', 'metrics', 'muda-log.jsonl');
-  const run = (extraEnv, extraArgs = []) => {
+  const run = (extraEnv, extraArgs = [], phase = '1') => {
     const fixtureEnv = { SGSD_RUN_ID: RUN, CODEX_QUAL_ENABLED: 'true', COMMITS_IN_PHASE: '1',
       SGSD_ATLAS_DEBUG: 'true', ...extraEnv };
     const exports = Object.entries(fixtureEnv).map(([key, value]) => `${key}='${value}'`).join(' ');
-    const command = `${exports} PATH='${slash(bin)}':"$PATH" bash '${audit}' 1 --project '${projectArg}' --no-curate ${extraArgs.join(' ')}`;
+    const command = `${exports} PATH='${slash(bin)}':"$PATH" bash '${audit}' '${phase}' --project '${projectArg}' --no-curate ${extraArgs.join(' ')}`;
     return spawnSync(BASH, ['-lc', command], {
       encoding: 'utf8',
       env: process.env,
@@ -339,6 +343,27 @@ exec '/mnt/c/Program Files/nodejs/node.exe' "\${converted[@]}"
     written = rows(metrics);
     assert.equal(written[3].atlas_muda.mechanical.synthetic, true);
     assert.equal(written[3].atlas_muda.mechanical.executed, false);
+
+    assert.equal(written[0].phase, '01', 'numeric phase identity remains the resolved numeric prefix');
+    const dotted = run({ CODEX_QUAL_ENABLED: 'false' }, [], '07.2');
+    assert.equal(dotted.status, 0, dotted.stderr);
+    const namespaced = run({ CODEX_QUAL_ENABLED: 'false' }, [], 'v30-07');
+    assert.equal(namespaced.status, 0, namespaced.stderr);
+    const namespacedDotted = run({ CODEX_QUAL_ENABLED: 'false' }, [], 'v30-06.8');
+    assert.equal(namespacedDotted.status, 0, namespacedDotted.stderr);
+    written = rows(metrics);
+    assert.equal(written[4].phase, '07.2', 'dotted phase identity remains unchanged');
+    assert.equal(written[5].phase, 'v30-07', 'namespaced phase identity is retained exactly');
+    assert.equal(written[6].phase, 'v30-06.8', 'dotted namespaced phase identity is retained exactly');
+    assert.equal(fs.existsSync(path.join(root, '.planning', 'phases',
+      'v30-07-product-intelligence-api', 'WASTE.md')), true);
+
+    const beforeUnsupported = fs.readFileSync(metrics, 'utf8');
+    const unsupported = run({ CODEX_QUAL_ENABLED: 'false' }, [], 'legacy-phase');
+    assert.equal(unsupported.status, 3);
+    assert.match(unsupported.stderr, /unsupported phase directory identity: legacy-phase/);
+    assert.equal(fs.readFileSync(metrics, 'utf8'), beforeUnsupported, 'unsupported identity does not append');
+    assert.equal(fs.existsSync(path.join(root, '.planning', 'phases', 'legacy-phase', 'WASTE.md')), false);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(fixture, { recursive: true, force: true });
@@ -366,6 +391,10 @@ test('worker publications emit bounded selected metadata once and prefer the wor
     record.thread_id = threadCanary;
     record.pending = [{ id: INVOCATION, kind: 'user_input', question_ids: ['q'], text: 'must-not-escape' }];
     mailbox.save(record);
+    record.usage_capture = { healthy: true, complete_coverage: false, reasons: [] };
+    mailbox.save(record);
+    assert.deepEqual(mailbox.read(root, record.worker_id).usage_capture, record.usage_capture,
+      'coalescing observational saves does not skip primary worker-state publication');
     mailbox.submit(root, record.worker_id, 'steer', { text: 'must-not-escape' });
     mailbox.result(record, { id: INVOCATION, action: 'reply' }, 'applied', 'must-not-escape');
 
@@ -390,6 +419,100 @@ test('worker publications emit bounded selected metadata once and prefer the wor
   } finally {
     if (original === undefined) delete process.env.SGSD_RUN_ID;
     else process.env.SGSD_RUN_ID = original;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('worker save observations coalesce only successfully delivered identical selected snapshots', () => {
+  const helper = require(OBSERVATION);
+  const firstProject = project();
+  const secondProject = project();
+  const record = {
+    worker_id: '55555555-5555-4555-8555-555555555555',
+    instance: '66666666-6666-4666-8666-666666666666',
+    wrapper_attempt_id: INVOCATION,
+    atlas_run_id: RUN,
+    thread_id: UUID_V7,
+    turn_id: '77777777-7777-4777-8777-777777777777',
+    role: 'executor',
+    status: 'running',
+    pending: [],
+  };
+  const events = root => rows(path.join(root, '.planning', 'metrics', 'worker-events.jsonl'));
+  const originalRun = process.env.SGSD_RUN_ID;
+  try {
+    assert.equal(helper.appendWorkerEvent(firstProject, record, 'save'), true);
+    assert.equal(helper.appendWorkerEvent(firstProject, record, 'save'), true);
+    assert.equal(events(firstProject).length, 1, 'an identical save is suppressed after delivery');
+
+    assert.equal(helper.appendWorkerEvent(secondProject, record, 'save'), true);
+    assert.equal(events(secondProject).length, 1, 'the same record has an independent first save per project');
+
+    record.pending.push({ id: INVOCATION });
+    assert.equal(helper.appendWorkerEvent(firstProject, record, 'save'), true);
+    assert.equal(events(firstProject).length, 2, 'a selected pending-count change is emitted');
+    assert.equal(events(firstProject)[1].pending_count, 1);
+
+    const selectedChanges = [
+      () => { record.status = 'waiting_input'; },
+      () => { record.atlas_run_id = RUN_2; },
+      () => { record.thread_id = '99999999-9999-4999-8999-999999999999'; },
+      () => { record.turn_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; },
+      () => { record.wrapper_attempt_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; },
+      () => { record.worker_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'; },
+      () => { record.instance = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'; },
+      () => { record.role = 'reviewer'; },
+      () => { record.resumed_from = 'ffffffff-ffff-4fff-8fff-ffffffffffff'; },
+    ];
+    for (const change of selectedChanges) {
+      const before = events(firstProject).length;
+      change();
+      assert.equal(helper.appendWorkerEvent(firstProject, record, 'save'), true);
+      assert.equal(events(firstProject).length, before + 1, 'each selected identity or status change is emitted');
+    }
+
+    const environmentRecord = {
+      worker_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', status: 'running', pending: [],
+    };
+    process.env.SGSD_RUN_ID = RUN;
+    assert.equal(helper.appendWorkerEvent(firstProject, environmentRecord, 'save'), true);
+    process.env.SGSD_RUN_ID = RUN_2;
+    assert.equal(helper.appendWorkerEvent(firstProject, environmentRecord, 'save'), true);
+    const environmentEvents = events(firstProject).slice(-2);
+    assert.deepEqual(environmentEvents.map(event => event.atlas_observation.sgsd_run_id), [RUN, RUN_2],
+      'a changed effective environment run is not suppressed when the record has no run');
+
+    assert.equal(helper.appendWorkerEvent(firstProject, record, 'create'), true);
+    assert.equal(helper.appendWorkerEvent(firstProject, record, 'submit', 'steer'), true);
+    assert.equal(helper.appendWorkerEvent(firstProject, record, 'result', 'reply', 'applied'), true);
+    assert.deepEqual(events(firstProject).slice(-3).map(event => event.boundary),
+      ['create', 'submit', 'result'], 'non-save boundaries are never coalesced');
+  } finally {
+    if (originalRun === undefined) delete process.env.SGSD_RUN_ID;
+    else process.env.SGSD_RUN_ID = originalRun;
+    fs.rmSync(firstProject, { recursive: true, force: true });
+    fs.rmSync(secondProject, { recursive: true, force: true });
+  }
+});
+
+test('failed worker save observation append is retried instead of cached as delivered', () => {
+  const helper = require(OBSERVATION);
+  const root = project();
+  const file = path.join(root, '.planning', 'metrics', 'worker-events.jsonl');
+  const record = {
+    worker_id: '88888888-8888-4888-8888-888888888888',
+    atlas_run_id: RUN,
+    status: 'running',
+    pending: [],
+  };
+  try {
+    fs.mkdirSync(file);
+    assert.equal(helper.appendWorkerEvent(root, record, 'save'), false);
+    fs.rmSync(file, { recursive: true, force: true });
+    assert.equal(helper.appendWorkerEvent(root, record, 'save'), true);
+    assert.equal(helper.appendWorkerEvent(root, record, 'save'), true);
+    assert.equal(rows(file).length, 1, 'retry is delivered once, then identical saves coalesce');
+  } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });

@@ -84,6 +84,14 @@ native completed-response observations as described below. Account quota snapsho
 must not be summed across projects. `complete_coverage` remains false: this is
 not yet a reconciliation against provider billing or every request issued.
 
+Worker `save` observations are change-triggered: the first successfully appended
+selected snapshot is retained, while later identical snapshots for the same live
+record and project are coalesced. Selected status, identity or pending-count
+changes are still appended, as are every `create`, `submit` and `result`
+boundary. An append failure is not remembered as delivery, so the next identical
+save retries. This affects only the observational worker-events ledger; mailbox
+state publication and native usage capture are unchanged.
+
 ### Native Linux Codex response observations
 
 Normal Linux SGSD worker wrappers register immutable `codex_rollout` accounting

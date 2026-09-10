@@ -21,6 +21,7 @@ const WORKER_STATUSES = new Set([
   'ok', 'warn', 'fail', 'skipped', 'timeout', 'blocked', 'starting', 'running',
   'waiting_input', 'completed', 'failed', 'orphaned', 'stopped', 'queued', 'unconfirmed',
 ]);
+const deliveredWorkerSave = new WeakMap();
 
 function validRun(value) {
   return typeof value === 'string' && SGSD_RUN.test(value) ? value : null;
@@ -215,9 +216,8 @@ function workerEnum(value, values) {
 function appendWorkerEvent(project, record, boundary, action, resultStatus) {
   try {
     const run = validRun(record && record.atlas_run_id);
-    const event = withObservation({
+    const selected = {
       schema_version: 1,
-      ts: new Date().toISOString(),
       worker_id: workerIdentifier(record && record.worker_id),
       instance: workerIdentifier(record && record.instance),
       wrapper_attempt_id: workerIdentifier(record && record.wrapper_attempt_id),
@@ -231,10 +231,26 @@ function appendWorkerEvent(project, record, boundary, action, resultStatus) {
       result_status: WORKER_RESULTS.has(resultStatus) ? resultStatus : null,
       resume_id: workerIdentifier(record && record.resumed_from),
       pending_count: Array.isArray(record && record.pending) ? record.pending.length : 0,
+    };
+    const isSave = boundary === 'save' && record && typeof record === 'object' && !Array.isArray(record);
+    const fingerprint = isSave
+      ? crypto.createHash('sha256').update(JSON.stringify({
+        selected,
+        observation_sgsd_run_id: run || validRun(process.env.SGSD_RUN_ID),
+      }), 'utf8').digest('hex')
+      : null;
+    const delivered = isSave ? deliveredWorkerSave.get(record) : null;
+    if (delivered && delivered.project === project && delivered.fingerprint === fingerprint) return true;
+    const { schema_version: schemaVersion, ...selectedFields } = selected;
+    const event = withObservation({
+      schema_version: schemaVersion,
+      ts: new Date().toISOString(),
+      ...selectedFields,
     }, { sgsd_run_id: run });
     const file = path.join(project, '.planning', 'metrics', 'worker-events.jsonl');
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.appendFileSync(file, JSON.stringify(event) + '\n', 'utf8');
+    if (isSave) deliveredWorkerSave.set(record, { project, fingerprint });
     return true;
   } catch {
     return false;

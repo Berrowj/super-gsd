@@ -1,6 +1,6 @@
 # Linux operational capture — overnight evidence
 
-Status: IMPLEMENTED_VERIFIED, publication/deployment pending at 02:13Z. This report is
+Status: DEPLOYED Linux `5976297` at 02:17Z; live producer verification in progress. This report is
 not a passing phase gate, completed weekly baseline or replacement for any
 previous failed acceptance evidence.
 
@@ -404,3 +404,183 @@ actual codex-log duration/model and report hash were checked before recording.
 T1-T4 implementation/review is now accepted. Publication and actual Linux
 capture/resource verification remain required below; this does not close the
 old failed benchmark, Windows, the entire milestone or a week not yet observed.
+
+## Publication and guarded Linux deployment, 02:17-02:19 UTC
+
+Published source `59762975abb657f34e60d92665bc45907e4882f3` to origin/master
+with a normal non-force fast-forward. Exactly 31 selected files were committed:
+28 reviewed source files and the active plan/report/state. All 28 staged Git
+blob hashes matched the reviewed native candidate, not merely working-copy text.
+Unrelated prior planning edits and `.planning/tmp/` remain uncommitted/preserved.
+
+Normal `sgsd-update.sh` from actual Clarity ran 02:17:25.780Z-02:17:31.596Z,
+exit 0. Canonical source and Clarity pin both became `59762975`; global assets
+and project hook closure were installed by the existing installer. Existing
+hook/settings merges reported zero additions, Codex hooks unchanged, and the
+canonical source remained clean. The owned Atlas receiver transitioned from
+PID 2957105 to 2275022 on exactly the same three ports. Loaded fingerprint:
+`7a5a1516f016abcfd27e91738676830b2a81d0a621f6aaa833debfe30e5addc9`,
+new instance `6b64b1dd-2aa8-4a76-bca0-48b00e485142`.
+
+Immediate before/after guard: all seven protected file hashes and all 28 prior
+tmux pane PID/start identities unchanged; only Clarity's intended version pin
+changed among 53 inventoried pin paths. No other pane/session/pin refresh is
+claimed. Evidence `guard-immediate-preupdate.json`,
+`guard-immediate-postupdate.json`, `guard-update-comparison.json` and
+`linux-operational-update.stdout`/`.stderr` in the private native base.
+Receiver-only five-minute resource sampling started in
+`live-receiver-sample-SK1axL/`; result is pending, not presumed.
+
+The first actual MUDA invocation used the existing SGSD observer attachment,
+run `sgsd-b8a13172-aa85-4e80-9527-e5015232efc6`, then the installed audit on
+`v30-07` with `--no-curate`. It exited 1 in 348 ms at 02:18:28Z, with no audit
+output. Source inspection found numeric-only phase extraction under errexit
+rejecting the real resolved `v30-07-product-intelligence-api` basename before
+WASTE.md/ledger append. This is a producer failure, not a successful MUDA gate
+or evidence of lost capture. Original `actual-muda-check.stdout`/`.stderr`
+are preserved. T170-10-5 now authorizes the smallest phase parsing repair,
+regression and normal incremental rollout; no phase rename or fake probe.
+
+## Live checks and producer follow-up, 02:22-02:35 UTC
+
+The first actual receiver sample completed at 02:23:02Z: 61 samples over
+300187 ms, stable PID/start identity, 1.152615% of one CPU core and peak RSS
+82,866,176 bytes (79.028 MiB). This measures the owned receiver during initial
+backfill, not all SGSD processes or a completed weekly soak. The sampler made
+zero model calls. Evidence: `live-receiver-sample-SK1axL/result.json`.
+
+The first read-only live operational report took 149 ms at 02:22:33Z and
+returned WARN, no FAIL findings. All ten existing registered projects had
+matching receipt/state counts and no missing/mismatched/orphan/conflicting or
+duplicated scanned canonical joins. Clarity had 3982 observations, 3981 source
+digest matches, zero mismatches and one unverifiable root-owned historical
+source; its 25,781,898 pending bytes remained explicit. Seven removed historical
+test roots were still registered and reported missing capture state. This is
+successful checked capture with historical gaps/backfill, not complete coverage.
+Evidence: `first-live-operation-report.json`.
+
+Independent rollout verification now distinguishes 28/28 hashes in the actual
+canonical DEVCP source from the earlier separate private-candidate 28/28 check.
+The 53/53 installed destination checks are unchanged and valid: Atlas 34,
+producer libraries 16, mailbox 2, MUDA 1. All 81 actual source/install checks
+match the published R3 manifest, with zero errors and the same live fingerprint.
+
+T5 independent SPEC passed the frozen audit hash
+`7f93dcaf50e20ba71ae5a29c5b0938ff4b9dbc2986e332750bf4b51f6b26ee43`
+and producer-test hash
+`43927661c437075395d1cc99d93b7c4aaa4508957318b32f02d0129fab86ecdf`.
+Root native private-copy producer tests passed 9/9, zero failures/skips,
+1782.928515 ms; full output read and stderr empty. Numeric/dotted prefix
+semantics remain intact, namespaced phases are supported, unsupported resolved
+identities fail explicitly before writing. T6 now exclusively owns the shared
+test file after independent T5 review; neither repair is deployed yet.
+
+Actual selected ATC R3 evidence has now passed independent original-byte to
+receipt to canonical proof, using the existing read-only operational report and
+exact byte hashing. Review observation `254da576-e54e-4a3f-83fa-2edda8ce8079`
+has source SHA `d59ee083a5a159fbb6ade16e818c52336cd068dcddcf13203b881ad48c95b3db`;
+gate observation `bca63647-5eff-4cd3-b26c-53bb4c7bb52c` has source SHA
+`612a1662d7655f2dda17da5aa96c0175f3f874a07d902682e8c11c2d6ce09528`.
+Both have exactly one requested/source/receipt/canonical match, zero errors,
+and project source verification `verified`; overall report WARN is preserved.
+These are real registered gate/review rows from this work, not synthetic events.
+Evidence: `actual-atc-r3-review-proof.json`, `actual-atc-r3-gate-proof.json`.
+
+## Native accounting and in-flight reconciliation, 02:35-02:40 UTC
+
+The existing installed audit exited 10/WARN with empty stderr at 02:36:27Z.
+Its explicit historical gaps, unavailable HTTP-request identity, idle sessions,
+partial quota windows and operational warnings are retained; no integrity FAIL
+was reported. Evidence: `live-audit-0237.json` and paired stderr (filename is a
+label; the actual time is the recorded generated timestamp).
+
+An independent read-only comparison now covers all seven actual native review
+thread/turns: 31 original TokenUsageRecord responses equal 31 canonical response
+observations, zero missing/extra/duplicate records, zero usage/identity/hash
+mismatches, and stable original files. Totals in this strictly bounded scope:
+1,655,048 input + 35,657 output = 1,690,705 tokens. Cached input and reasoning
+are subsets, not added again. This excludes the root API and platform agents,
+does not reconcile unavailable HTTP request IDs or billing, and is not a total
+for all overnight work. The earlier four-turn proof remains unchanged. Evidence:
+`overnight-seven-review-native-reconciliation.json`, checked 02:38:43Z.
+
+The live 02:35:36 report briefly showed five canonical records awaiting receipts.
+Independent read-only follow-up showed two at 02:38:29, then zero at 02:39:22:
+391 canonical rows/391 matched receipts, receipt/state counts both 15698.
+The two intermediate event IDs were checked explicitly; their writes occurred
+at 02:38:16Z and later received receipts. This was a canonical-first in-flight
+batch, not persistent lost data; no evidence was edited to clear the warning.
+The original report remains preserved as `live-operation-report-0238.json`.
+
+## T5/T6 frozen candidate and registered review, 02:42 UTC
+
+T6 independent SPEC passed the exact frozen helper
+`466d1b486ca6c6a07d4663e179e2db9931b69ba18e4fd4b705be9514fefdfaae`,
+shared producer tests
+`416eed505f4322f2a272b53fec65fce80abf01e2cbb7cef701e143a51202e8e5`,
+and README `d1e3549d99b451940de18f6e99b8afd0aa1d8f65b68a8e5bd14ef60a99101c64`.
+T5 audit hash remains unchanged. Effective fallback run identity is included
+in save comparison; actual identity/status/pending changes, all control
+boundaries and failed-append retries are covered. Primary mailbox publication
+and native usage persistence still execute on observationally coalesced saves.
+Independent focused 3/3, merged producer 11/11 and existing mailbox
+control-history 1/1 passed; the reviewer made no edits.
+
+Root verified all four native candidate hashes, then ran the complete native
+Atlas and worker suites: Atlas 205 tests/201 PASS/0 FAIL/4 SKIP, 33022.062413 ms
+(nested optional runtime skip separate); worker 94 tests/92 PASS/0 FAIL/2 SKIP,
+47162.753692 ms. Full outputs read; both stderr files empty. Evidence:
+`t56-native-atlas.stdout`, `t56-native-worker.stdout` and paired stderr files.
+These private fixture tests made no model calls.
+
+One actual combined FULL registered ATC review started at 02:42:48.679Z,
+step `T170-10-56-atc`, through the existing wrapper's retained T12 R2 worker
+`39dab15b-aad0-41e2-8739-53e9313cfb10`. The 40727-byte exact delta/current
+helper packet has SHA `55fae9656a513184b9dfaafda3abac4a581762d165741a7635831fba70fbb318`.
+The gate result remains pending here; no follow-up publication is presumed.
+
+## T5/T6 actual ATC and tests-only warning closure, 02:45-02:47 UTC
+
+Actual FULL review completed at 02:44:21Z, worker
+`9f831e4d-4e5e-46ae-819d-5e8e5fabf612`, run
+`sgsd-4e7ccf6a-6cde-46c7-9edb-a637da62f7d7`, retained thread
+`01a088a1-8a75-7843-afb3-956ee5c25f9c`, new turn
+`01a08932-4dd9-7031-99e7-af2fc0d53c09`. Duration 92013 ms, CRITICAL 0,
+WARNINGS 1, PASS_RATE 90. The reviewer found the implementation sound; the
+warning requested direct tests for four additional fingerprinted fields.
+Existing gate/review writers recorded WARN once under invocation
+`30c78ec2-336a-47da-8be1-c8f5b5c7b0a0`; report 462 bytes, SHA
+`552efb811f1ade9760c5a67eef808bc17850bba640ff3a4322649721c8d0333e`.
+Original WARN is retained, not relabelled a model PASS.
+
+The author added only `worker_id`, `instance`, `role` and `resumed_from`
+mutations to the existing regression. Production files remain byte-identical.
+Final test SHA `13b52bbb18ae3332f94af9511b4def29034955bd078a4e04b008cdf24f6a7fc0`;
+root native producer 11/11 PASS, zero failures/skips, 1735.320486 ms, full output
+read and stderr empty. Final manifest: `T56-final-manifest.json`. Independent
+tests-only recheck is pending at this entry; no repeated paid review is needed
+for unchanged implementation after the narrow warning is demonstrably covered.
+
+The real 92-second review emitted four observations (one create, three changed
+saves), 2755 bytes, zero identical consecutive save rows. Normal primary state
+publication continued; native capture retained its one completed response with
+zero pending records or reasons. Evidence: `actual-t56-worker-coalescing.json`.
+All eight actual native review turns now reconcile: 32/32 responses, no missing,
+extra, duplicate, identity/hash or usage mismatch. Selected-scope total is
+1,699,553 input + 38,362 output = 1,737,915 tokens, excluding root API/platform
+agents and not billing. Evidence: `overnight-eight-review-native-reconciliation.json`.
+
+Independent read-only Clarity census found all 22 currently existing supported
+sources tracked, plus seven per-phase fallback review files (29 state sources).
+Its existing gate-evidence, MUDA and empty live-orchestrator sources are tracked;
+19 generic metric files are tracked. Gate-value, canonical review, route,
+edge-guard and worker-events files do not currently exist in that exact project,
+so no execution/capture is invented for them. Native Atlas outputs are correctly
+excluded from operational discovery. Remaining historical pending bytes are
+reported explicitly; no supported existing file was omitted from the census.
+
+Independent warning closure recheck passed at the final test hash: exactly the
+four requested mutations, focused 1/1 PASS, production helper/README unchanged.
+T5/T6 are accepted for normal incremental publication. Existing plan validation,
+hook-manifest dependency check, Bash syntax and `git diff --check` all passed.
+Original FULL ATC remains WARN with its sole tests-only warning now closed.

@@ -76,6 +76,31 @@ tasks:
     falsifier: "Empty data becomes complete coverage; legacy/fixture rows become current production; report hides rejected/uncorrelated data or copies source text."
     stop_rule: "Report/privacy/real-source reconciliation tests and existing Atlas suite pass; actual Linux producer records incl MUDA/ATC reconcile after normal guarded update; registered reviews remain required."
     depends_on: [T170-10-3]
+  - id: T170-10-5
+    agent: gsd-executor
+    model: codex
+    files_touched:
+      - super-gsd/scripts/sgsd-muda-audit.sh
+      - super-gsd/tools/telemetry-atlas/sgsd-producer-contract.test.cjs
+    input_contract: "Actual deployed MUDA invocation on resolved Clarity phase v30-07-product-intelligence-api exited before WASTE/ledger because numeric-only phase extraction fails under errexit."
+    output_contract: "Namespaced phase v30-07 and existing numeric/dotted phase identities reach the same existing MUDA audit/append path without changing mechanical verdict, thresholds, qualitative eligibility or curation policy."
+    hypothesis: "A bounded phase-identity parsing repair permits the real project's existing audit to produce its own truthful telemetry row."
+    falsifier: "Namespaced phase still exits silently, numeric/dotted phase identity changes, or a debug probe/policy override substitutes for the actual mechanical audit."
+    stop_rule: "Reproduce actual slug failure with a zero-provider fixture; repair and rerun existing producer/native tests; independent SPEC then registered FULL ATC; normal update and actual MUDA source/receipt proof."
+    depends_on: [T170-10-4]
+  - id: T170-10-6
+    agent: gsd-executor
+    model: codex
+    files_touched:
+      - super-gsd/scripts/lib/atlas-observation.cjs
+      - super-gsd/tools/telemetry-atlas/sgsd-producer-contract.test.cjs
+      - super-gsd/tools/telemetry-atlas/README.md
+    input_contract: "Measured actual worker-events ledger: 5590 save observations, 5569 identical consecutive selected snapshots excluding timestamp/observation envelope; existing worker usage poll saves the same record repeatedly."
+    output_contract: "Change-triggered save telemetry suppresses only already-successfully-emitted identical selected snapshots; first save, changed state/identity/pending count, create, submit and result remain observable. Primary mailbox writes and native usage capture are unchanged."
+    hypothesis: "Coalescing observational no-op snapshots removes measured recorder waste and avoids prematurely exhausting bounded weekly storage without losing represented state transitions or communication events."
+    falsifier: "A changed snapshot or real control boundary disappears; failed append is cached as delivered; two projects share dedup state; cache grows independently of live worker records; primary worker behavior changes."
+    stop_rule: "Zero-provider repeat/change/control/failure/project-isolation regressions, existing producer/native tests, independent SPEC then registered FULL ATC; normal incremental update and installed hashes. Preserve historical duplicate rows."
+    depends_on: [T170-10-2]
 semantic_acceptance_criteria:
   - input: "Actual registered DEVCP project source ledgers and deployed operational observations after ordinary SGSD activity, including real MUDA and ATC/review records."
     expected_outcome: "Read-only source verification accounts for supported source records by original byte/digest provenance, without duplicating native tokens or inventing original sessions. Missing/nonexecuted families are explicit, not PASS."
@@ -226,6 +251,10 @@ labels. Native usage counters remain unchanged by semantic collection.
 - [x] T4: write failing report/source-verification tests; integrate existing
   audit and all test discovery/install checks; verify no token double counting;
   spec then quality/registered ATC review before publication.
+- [ ] T5: repair the demonstrated namespaced-phase MUDA producer abort, with
+  regression, independent SPEC, registered FULL ATC and guarded incremental update.
+- [ ] T6: coalesce measured identical worker-save observations without suppressing
+  real state/control changes; verify independently and publish normally.
 - [ ] Publish reviewed source through the existing normal DEVCP update path;
   compare installed hashes and protected config/session state before/after.
 - [ ] Observe actual source rows and automatic capture, with source-digest
@@ -324,3 +353,28 @@ state, read, cache and processing limits remain unchanged. Capacity admission
 also preserves the existing 10% free-space floor for receipt-only/excluded
 batches. Do not prune, rotate away, rewrite or delete evidence. Full conditions
 must remain explicit; this is finite measured headroom, not unlimited retention.
+
+Live producer repair at 02:19Z: the first normal installed MUDA invocation on
+Clarity's resolved `.planning/phases/v30-07-product-intelligence-api` exited 1
+without WASTE.md or a MUDA ledger row. Its numeric-only `PHASE_NUM` grep fails
+under errexit after the mechanical probe. T170-10-5 is an explicitly bounded
+follow-up inside the two existing producer files. Preserve ordinary numeric
+and dotted identities, support the actual namespaced identity, and retain
+mechanical/qualitative policy and the first failed evidence. Do not rename the
+project's phase, choose a fake numeric phase, inject a synthetic MUDA result,
+disable the mechanical probe, or relabel this producer failure as capture PASS.
+
+Live efficiency repair at 02:25Z: the actual overnight worker-events ledger has
+5,599 rows/3,967,231 bytes, including 5,590 saves. Of those, 5,569 (99.624%) repeat
+the previous selected snapshot for the same worker after excluding timestamp
+and newly minted observation envelope. The 200 ms usage-poll save path can
+therefore consume the finite 100,000-event operational index during normal
+long-running work. T170-10-6 may coalesce only identical save projections at
+the observational helper; it must not alter mailbox publication or native usage
+capture. A weakly held per-record cache, with project and selected snapshot in
+its identity and updated only after successful append, is sufficient; no new
+daemon, persisted cache, heartbeat framework or source-history rewrite. Create,
+submit, result and actual selected state/identity/pending changes stay emitted.
+T5's test author is frozen; T6 owns the shared producer test file only after
+independently reviewing T5, preventing concurrent edits. T5/T6 may share one
+FULL registered follow-up ATC after independent SPEC and native verification.

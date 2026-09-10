@@ -168,8 +168,16 @@ if [[ -z "$PROBE_JSON" ]]; then
 fi
 
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-PHASE_NUM=$(basename "$PHASE_DIR" | grep -oE '^[0-9]+(\.[0-9]+)?')
 PHASE_SLUG=$(basename "$PHASE_DIR")
+if [[ "$PHASE_SLUG" =~ ^([0-9]+(\.[0-9]+)?) ]]; then
+    # Preserve the historical numeric/dotted prefix semantics exactly.
+    PHASE_NUM="${BASH_REMATCH[1]}"
+elif [[ "$PHASE_SLUG" =~ ^(v[0-9]+-[0-9]+(\.[0-9]+)?)(-|$) ]]; then
+    PHASE_NUM="${BASH_REMATCH[1]}"
+else
+    echo "sgsd-muda-audit: unsupported phase directory identity: $PHASE_SLUG" >&2
+    exit 3
+fi
 
 # Parse probe verdicts without jq (portable) — node is installed per install.sh.
 # Emit fields tab-separated so evidence strings (which can contain spaces,
