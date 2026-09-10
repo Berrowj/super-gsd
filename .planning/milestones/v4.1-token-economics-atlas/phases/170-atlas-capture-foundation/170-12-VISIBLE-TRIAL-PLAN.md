@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-status: ACTIVE
+status: COMPLETE
 phase: 170
 plan: "170-12"
 authorized_at: "2026-09-10"
@@ -114,7 +114,7 @@ recorded here before downstream assumptions are coded.
 
 ## Task 1: minute monitor (independent owner)
 
-- [ ] Add monitor tests before implementation, including this fail-closed entry:
+- [x] Add monitor tests before implementation, including this fail-closed entry:
 
 ```js
 test('empty root never proves collection', async () => {
@@ -124,22 +124,22 @@ test('empty root never proves collection', async () => {
 });
 ```
 
-- [ ] Run `node --test super-gsd/tools/telemetry-atlas/monitor.test.cjs` and
+- [x] Run `node --test super-gsd/tools/telemetry-atlas/monitor.test.cjs` and
   record RED, then implement the API and CLI `check --root <root>`.
-- [ ] Read private monitor config, existing `global.status`, registrations,
+- [x] Read private monitor config, existing `global.status`, registrations,
   capture state and bounded native tails. Never execute a provider or collect
   args/environment dumps. Enumerate bounded Linux process identities only;
   missing attribution stays unmatched/unknown. Cache full native summaries
   with actual timestamps; minute checks must not scan full growing ledgers.
-- [ ] Atomic latest snapshot and deduplicated incident/recovery history;
+- [x] Atomic latest snapshot and deduplicated incident/recovery history;
   exclusive safe locks, byte/time/directory caps, no source writes. Stale after
   3 minutes, native 15m stale-or-idle, spool 120s, capacity 80/90%, backup 30h.
-- [ ] Test missing service/config, malicious path, idle vs activity, old backfill,
+- [x] Test missing service/config, malicious path, idle vs activity, old backfill,
   absent gates, limits, fixture exclusion, current timestamps and source preservation.
 
 ## Task 2: daily audit and immutable evidence (independent owner)
 
-- [ ] Add real filesystem tests before production code. Verify a copied WARN
+- [x] Add real filesystem tests before production code. Verify a copied WARN
   audit is transferable, but corrupt content cannot pass independent rehash:
 
 ```js
@@ -150,24 +150,24 @@ fs.appendFileSync(copiedEvidence,'tamper');
 assert.throws(() => verifyBundle({directory:copiedBundle}));
 ```
 
-- [ ] Run new evidence suite RED then implement `createBundle`, `verifyBundle`
+- [x] Run new evidence suite RED then implement `createBundle`, `verifyBundle`
   and catalogue CLI. Bundle manifests use validated relative paths and hashes;
   transfer only immutable, content-free selected evidence. No raw root archives.
-- [ ] Complete-line live prefixes, fstat/identity/ownership checks, bounded
+- [x] Complete-line live prefixes, fstat/identity/ownership checks, bounded
   streaming hashes and local verification. Refuse symlinks/traversal/races.
   Preserve audit FAIL/WARN separately from transfer verdict. Timeout/limits
   produce incomplete evidence, not a healthy badge.
-- [ ] Keep export directories under monitor/exports with an immutable ID and
+- [x] Keep export directories under monitor/exports with an immutable ID and
   manifest. 10GiB export budget, no automatic deletion; use a flat safe layout
   for SSH/scp pulls. All manifest bytes/entries bounded before copying.
-- [ ] Daily audit reuses `audit.cjs` once (already verifies source receipts),
+- [x] Daily audit reuses `audit.cjs` once (already verifies source receipts),
   preserves actual status and invokes export after it. Catalogue missing days
   for Windows catch-up. Tests cover concurrent append, partial tail, hash
   failure, invalid names, capacity and existing good snapshots.
 
 ## Task 3: existing cockpit Atlas panel (independent owner)
 
-- [ ] Add tests before code for read-only bounded snapshot loading and stale UI:
+- [x] Add tests before code for read-only bounded snapshot loading and stale UI:
 
 ```js
 const s = readAtlasSnapshot({root:fixtureRoot,now:Date.now()});
@@ -175,48 +175,49 @@ assert.equal(s.complete_coverage,false);
 assert.notEqual(s.status,'PASS');
 ```
 
-- [ ] New `atlas-panel.cjs` owns safe read/projector. Add GET `/atlas` in
+- [x] New `atlas-panel.cjs` owns safe read/projector. Add GET `/atlas` in
   `serve.cjs`; serve cached private snapshot, not a full audit or new daemon.
-- [ ] Add a dedicated subpanel within existing telemetry section. Poll 60s,
+- [x] Add a dedicated subpanel within existing telemetry section. Poll 60s,
   immediately on load, show disconnected/missing/stale explicitly. Render
   escaped text, separate native/operational freshness and audit/copy status,
   included/excluded project inventory and matched/unmatched runs. Native totals
   are observed and time-scoped; cached/reasoning are subsets, not extra tokens.
-- [ ] Preserve existing renderers/connection topology. Test safe HTML escaping,
+- [x] Preserve existing renderers/connection topology. Test safe HTML escaping,
   missing and malformed snapshots, stale timer, no default-green and responsive
   browser behavior. No new theme or general cockpit redesign.
 
 ## Task 4: schedules, client, packaging and deployment (integration owner)
 
-- [ ] RED client/schedule tests include preserve-last-good and marked cron block:
+- [x] RED client/schedule tests include preserve-last-good and marked cron block:
 
 ```js
 assert.equal(mergeCrontab('other job\n',entry).startsWith('other job\n'),true);
 assert.throws(() => verifyBundle({directory:partialCopy}));
 ```
 
-- [ ] Node client owns `pull`, `status` and `open`: BatchMode SSH, connection
+- [x] Node client owns `pull`, `status` and `open`: BatchMode SSH, connection
   deadline, bounded catalogue, missing-bundle copies in private staging,
   independent hashes and atomic publish. One instance; timeout or auth failure
   persists locally without erasing successful copies. Client default root is
   LocalAppData/SGSD/Atlas/devcp; 20GiB cap, no destructive cleanup.
-- [ ] Minute Linux scheduler uses a narrow marked crontab block, compares
-  pre/post state and refuses concurrent edits; no global daemon/linger changes.
+- [x] Minute Linux scheduler uses a narrow marked crontab block, compares
+  pre/post state and refuses detected concurrent edits under the documented
+  optimistic-concurrency limitation; no global daemon/linger changes.
   Daily UTC due check is independent of host timezone; locks prevent overlaps.
-- [ ] Windows scripts use existing Interactive/Limited/StartWhenAvailable/
+- [x] Windows scripts use existing Interactive/Limited/StartWhenAvailable/
   IgnoreNew pattern, hidden PowerShell, logon and 5-minute repeat. Native
   notification attempts have explicit availability/outcome. No stored password,
   no credential or SSH-agent changes. Open uses checked local SSH cockpit port.
-- [ ] Reuse whole-directory Atlas/cockpit copy targets, extend exact script
+- [x] Reuse whole-directory Atlas/cockpit copy targets, extend exact script
   packaging only where necessary, register suites and document run/access/disable.
-- [ ] Run new suites and existing Atlas/cockpit/install coverage on native Linux
+- [x] Run new suites and existing Atlas/cockpit/install coverage on native Linux
   as needed; independent SPEC then existing FULL ATC/quality. Publish selected
   files only, normal `sgsd-update`, preserve protected metadata and sessions.
-- [ ] Configure DEVCP Clarity monitor scope, register cron and Windows task;
+- [x] Configure DEVCP Clarity monitor scope, register cron and Windows task;
   observe scheduled execution and real source freshness, run one baseline
   export and independent local verification. Observe a second scheduled poll;
   use isolated failure fixtures, not fabricated production telemetry.
-- [ ] Record installed hashes, source revision, protected preservation,
+- [x] Record installed hashes, source revision, protected preservation,
   schedule execution, sample health, copy manifest/hash and final local cockpit
   URL in `170-12-VISIBLE-TRIAL-ACCEPTANCE.md`. Status is bounded acceptance;
   uncovered legacy sessions and billing/Windows-capture gaps remain explicit.

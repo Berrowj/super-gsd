@@ -1,6 +1,7 @@
 # 170-12 visible trial — verification and review
 
-Status: CANDIDATE_VERIFIED; registered FULL ATC PASS. Rollout pending.
+Status: DEPLOYED_VERIFIED; registered FULL ATC PASS. See the bounded
+`170-12-VISIBLE-TRIAL-ACCEPTANCE.md` for actual schedules, transfer and preservation.
 
 Scope is the approved visible-weekly-trial plan. No gate policy, worker bridge,
 model roster, receiver implementation or credentials changed. Two independent
@@ -97,7 +98,7 @@ do not estimate spend or treat this private review as production trial usage.
 
 ## Rollout gate
 
-Pending: normal DEVCP update, installed hash match,
-minute cron check, daily real export, Windows scheduled pull, independent local
-bundle verification, and exact protected-state/session/pin comparison.
+Completed: normal DEVCP update, installed hash match, minute cron checks, daily
+real export, Windows scheduled pull, independent local bundle verification and
+scoped protected-state/session/pin comparison. Evidence is in the acceptance file.
 No weekly completeness, complete billing or old-session refresh claim.
