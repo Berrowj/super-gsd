@@ -84,8 +84,13 @@ incidents. Missing coverage must prevent an overall all-sessions-covered claim.
 ## 2. Automatic checks and visible warnings
 
 Use a narrowly marked block in DEVCP's user crontab: `/usr/bin/crontab` exists
-and the cron service is active. Preserve every unrelated entry, refuse concurrent
-crontab changes, and do not change global services or enable user lingering.
+and the cron service is active. Preserve every unrelated entry, refuse detected
+concurrent crontab changes, and do not change global services or enable user
+lingering. Implementation review: the system crontab tool has no atomic CAS;
+the installer serializes its own operations, reads/compares twice, retains a
+private preimage and verifies the result. It cannot exclude an unrelated editor
+writing inside that final comparison window. Do not edit this user's crontab
+simultaneously with installation; no atomic-concurrency guarantee is claimed.
 The current user systemd manager has `Linger=no`, so relying on a user timer
 would not guarantee checks after logout. Run one cheap check per minute; an
 explicit UTC due-time check schedules the existing integrity audit once daily

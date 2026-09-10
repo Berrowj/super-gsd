@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Atlas weekly-trial design: visible SGSD collection health, automatic warnings and verified DEVCP evidence copies. Static design review, not live telemetry.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>Atlas · See the evidence, not just a green light</title>
+<style>
+:root{--paper:#f6f7f8;--ink:#202629;--muted:#58656c;--line:#d8dee1;--panel:#fff;--teal:#147a74;--green:#426b3a;--blue:#315f90;--amber:#8c5a13;--red:#a23f38;--violet:#6a5b8f;--radius:8px}
+*{box-sizing:border-box}html{scroll-behavior:smooth;background:var(--paper);color:var(--ink)}body{margin:0;font:16px/1.6 "Segoe UI",Aptos,"Helvetica Neue",sans-serif}a{color:var(--teal);text-underline-offset:3px}a:focus-visible,summary:focus-visible{outline:3px solid var(--blue);outline-offset:4px}.shell{width:min(1180px,calc(100% - 40px));margin:auto}.skip{position:absolute;left:20px;top:-100px;padding:10px;background:white;z-index:30}.skip:focus{top:10px}
+header{padding:48px 0 32px;border-top:7px solid var(--teal);background:white}.masthead{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:32px}.brand{font-weight:800;font-size:18px;color:var(--teal)}.brand span{font-weight:500;color:var(--muted);margin-left:12px;padding-left:12px;border-left:1px solid var(--line)}.kicker{margin:0 0 10px;color:var(--teal);font-size:12px;font-weight:750;text-transform:uppercase;letter-spacing:.09em}h1,h2,h3{margin:0;line-height:1.14;letter-spacing:0}h1{font-size:clamp(38px,5vw,62px);max-width:870px;font-weight:750}h2{font-size:clamp(26px,3.4vw,38px)}h3{font-size:19px}p{margin:12px 0 0}.subhead{font-size:21px;color:#425158;max-width:840px;margin-top:20px}.meta-strip,.legend{display:flex;flex-wrap:wrap;gap:8px}.meta-strip{margin-top:24px}.pill{display:inline-block;padding:4px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;line-height:1.5;font-weight:700;background:white}.proposed{color:var(--violet);background:#f4f1fa;border-color:#d8cfe8}.observed{color:var(--teal);background:#eff8f7;border-color:#bfdfdc}.caution{color:var(--amber);background:#fff7e8;border-color:#e8cda4}.danger{color:var(--red);background:#fff2f0;border-color:#e3bab6}.positive{color:var(--green);background:#f0f7ed;border-color:#cadac4}
+nav{position:sticky;top:0;z-index:10;background:#f6f7f8f5;border-block:1px solid var(--line)}nav .shell{display:flex;gap:6px;overflow-x:auto;padding:9px 0}nav a{flex:0 0 auto;text-decoration:none;font-size:13px;font-weight:650;color:var(--ink);padding:7px 11px;border-radius:999px}nav a:hover{background:#fff;box-shadow:inset 0 0 0 1px var(--line)}section{padding:38px 0;border-bottom:1px solid var(--line);scroll-margin-top:68px}.section-head{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:end;margin-bottom:24px}.section-head p{margin:0;color:var(--muted)}.grid{display:grid;gap:16px}.two{grid-template-columns:repeat(2,minmax(0,1fr))}.three{grid-template-columns:repeat(3,minmax(0,1fr))}.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}.panel p{color:#425158}.warning{border-left:5px solid var(--red);background:#fff7f5}.callout{border-left:5px solid var(--amber);background:#fffaf1}.ok{border-left:5px solid var(--green);background:#f4fbf4}.notice{margin-top:22px;padding:15px 18px;font-size:14px}.note{font-size:14px;color:var(--muted)}.small{font-size:13px}.wide{grid-column:1/-1}ul,ol{padding-left:22px;margin:12px 0 0}li+li{margin-top:8px}.step-no{color:var(--teal);font-size:13px;font-weight:800;display:block;margin-bottom:10px}code,.mono{font-family:"Cascadia Mono",Consolas,monospace;font-size:13px;overflow-wrap:anywhere}code{background:#edf1f3;padding:2px 5px;border-radius:3px}.path{display:block;padding:12px;margin-top:12px;background:#f2f5f6;color:#33464e;line-height:1.65}.diagram{border:1px solid var(--line);border-radius:8px;background:white;overflow:hidden}.diagram-scroll{overflow-x:auto;padding:8px}.diagram svg{display:block;width:100%;min-width:880px;height:auto}.legend{padding:12px 18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);gap:20px}.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;background:var(--teal)}.legend .source i{background:#bc8c44}.legend .client i{background:var(--blue)}.legend .planned i{background:var(--violet)}.flow-words{padding:0 18px 18px;margin:0;font-size:14px;color:var(--muted)}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:white}table{width:100%;border-collapse:collapse;font-size:14px}caption{text-align:left;padding:14px;font-weight:700;border-bottom:1px solid var(--line)}th,td{text-align:left;vertical-align:top;padding:13px 15px;border-bottom:1px solid var(--line)}th{background:#edf3f3;font-size:12px;font-weight:750;color:#45555b}tr:last-child td{border:0}td:first-child{font-weight:650}time{font-variant-numeric:tabular-nums}.mockup{border:1px solid #c5d3d6;border-radius:8px;overflow:hidden;background:white;box-shadow:0 10px 24px #2034390b}.mock-title{padding:16px 20px;display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid var(--line)}.mock-title h3{font-size:18px}.mock-desc{margin:0;padding:12px 20px;background:#f4f1fa;color:var(--violet);font-size:13px;font-weight:650}.mock-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--line)}.metric{padding:18px 20px}.metric+.metric{border-left:1px solid var(--line)}.metric span{display:block;font-size:12px;font-weight:650;color:var(--muted)}.metric strong{display:block;font-size:20px;line-height:1.3;margin:8px 0;color:var(--ink)}.metric small{display:block;font-size:12px;color:var(--muted)}.mock-footer{padding:14px 20px;background:#fffaf1;color:#71501f;font-size:14px}.timeline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:22px}.time-step{border-top:3px solid var(--teal);padding:16px 20px 0 0}.time-step strong{display:block;font-size:17px}.time-step p{font-size:14px;color:var(--muted);margin-top:7px}.time-step span{font-size:12px;color:var(--teal);font-weight:750;display:block;margin-bottom:8px}.source-list{list-style:none;padding:0}.source-list li{padding:13px 0;border-bottom:1px solid var(--line)}.source-list li:last-child{border:0}.source-list .pill{margin-right:8px}.source-list p{font-size:14px;color:var(--muted);margin:5px 0 0}details{margin-top:20px}summary{cursor:pointer;font-weight:700;color:var(--teal)}footer{padding:24px 0 40px;color:var(--muted);font-size:13px}.footer-line{display:flex;justify-content:space-between;gap:16px}.status-word{color:var(--red);font-weight:750}
+@media(max-width:860px){.section-head,.two,.three{grid-template-columns:1fr}.section-head{gap:14px}.mock-metrics,.timeline{grid-template-columns:repeat(2,minmax(0,1fr))}.metric:nth-child(3){border-left:0}.metric:nth-child(n+3){border-top:1px solid var(--line)}.timeline{gap:22px 16px}.masthead{align-items:flex-start}.brand span{display:block;margin:4px 0 0;padding:0;border:0}.diagram-scroll{padding-bottom:16px}}
+@media(max-width:520px){.shell{width:calc(100% - 28px)}header{padding-top:24px}h1{font-size:39px}.subhead{font-size:18px}.masthead{margin-bottom:24px}.mock-title,.footer-line{display:block}.mock-title .pill{margin-top:10px}.metric{padding:14px}.panel{padding:18px}section{padding:30px 0}th,td{padding:10px;min-width:145px}.mock-metrics strong{font-size:17px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media print{nav,.skip{display:none}header{padding-top:20px}section{padding:22px 0}body{font-size:12px}.shell{width:100%}.panel,.mockup,.diagram{break-inside:avoid;box-shadow:none}.diagram svg{min-width:0}.table-wrap{overflow:visible}.pill{font-size:10px}a{color:inherit}.section-head{grid-template-columns:1fr 1fr}h1{font-size:38px}}
+</style>
+</head>
+<body>
+<a class="skip" href="#overview">Skip to explanation</a>
+<header><div class="shell">
+  <div class="masthead"><div class="brand">SGSD / ATLAS <span>Weekly trial · visibility &amp; evidence</span></div><span class="pill proposed">DESIGN REVIEW · NOT DEPLOYED</span></div>
+  <p class="kicker">The missing operator view</p>
+  <h1>See the evidence.<br>Not just a green light.</h1>
+  <p class="subhead">Keep collecting on DEVCP. Show which Clarity sessions are reporting. Bring a verified copy of the evidence back to this PC every day.</p>
+  <div class="meta-strip"><span class="pill observed">Collector exists</span><span class="pill proposed">Health panel + warnings to add</span><span class="pill proposed">Daily local copies to add</span></div>
+  <div class="notice callout"><strong>This is a static explanation, not a live dashboard.</strong> Inspected facts below are from 10 September 2026. The monitoring and copy setup is proposed; opening this page does not install or enable anything.</div>
+</div></header>
+<nav aria-label="Report sections"><div class="shell"><a href="#overview">In plain English</a><a href="#flow">Data flow</a><a href="#cockpit">What you will see</a><a href="#warnings">When it warns</a><a href="#copies">Daily copies</a><a href="#review">The weekly review</a><a href="#sources">Evidence</a></div></nav>
+<main>
+<section id="overview"><div class="shell">
+  <div class="section-head"><div><p class="kicker">01 / In plain English</p><h2>A flight recorder needs<br>a working warning light.</h2></div><p>Atlas is the recorder. The new monitor checks that entries are arriving. The cockpit is your warning light. The daily copy is your off-machine evidence.</p></div>
+  <div class="grid three">
+    <article class="panel"><span class="pill observed">OBSERVED</span><h3 style="margin-top:14px">Some data is arriving</h3><p>At <time datetime="2026-09-10T09:49:38Z">10:49 BST</time>, the receiver was healthy and Clarity operational evidence had just advanced. Its native/token ledger last changed at <time datetime="2026-09-10T02:50:06Z">03:50 BST</time>.</p></article>
+    <article class="panel callout"><span class="pill caution">INFERRED · NOT A DIAGNOSIS</span><h3 style="margin-top:14px">Coverage needs checking</h3><p>A quiet token ledger can mean idle or unattached sessions. It is not proof the receiver is broken—and a healthy receiver is not proof every session is reporting.</p></article>
+    <article class="panel"><span class="pill proposed">RECOMMENDED</span><h3 style="margin-top:14px">Make gaps hard to miss</h3><p>Show delivery freshness, unmatched sessions, audit findings and copy age together. Missing evidence stays <strong>unknown or uncovered</strong>, never silently green.</p></article>
+  </div>
+  <div class="table-wrap" style="margin-top:22px"><table><caption>Today versus the proposed setup</caption><thead><tr><th scope="col">Question</th><th scope="col">Today · observed</th><th scope="col">After implementation · proposed</th></tr></thead><tbody>
+    <tr><td>Can I see Atlas capture health?</td><td>CLI diagnostics exist. The cockpit reads older project telemetry.</td><td>One Atlas panel in the existing cockpit, with explicit age and coverage.</td></tr>
+    <tr><td>Will I notice a gap during the week?</td><td>No Atlas scheduled warnings were found.</td><td>Minute-by-minute checks, persistent incidents and supported desktop notifications.</td></tr>
+    <tr><td>Is the evidence back on my PC?</td><td>No automatic DEVCP-to-Windows copy.</td><td>Daily verified bundles, with a visible last-success receipt and catch-up.</td></tr>
+  </tbody></table></div>
+</div></section>
+<section id="flow"><div class="shell">
+  <div class="section-head"><div><p class="kicker">02 / Architecture</p><h2>One collection point.<br>Two places to see the evidence.</h2></div><p>The collector remains on DEVCP. Your PC views the cockpit over SSH and pulls evidence back. No public telemetry endpoint or new cloud service is needed.</p></div>
+  <figure class="diagram" style="margin:0">
+    <div class="diagram-scroll" tabindex="0" role="region" aria-label="Architecture diagram; scroll horizontally on a small screen">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 510" role="img" aria-labelledby="flow-title flow-desc">
+      <title id="flow-title">Atlas collection and proposed visibility flow</title>
+      <desc id="flow-desc">On DEVCP, registered Fable and Codex sessions and SGSD operational ledgers feed the existing Atlas collector. A proposed minute monitor feeds a proposed Atlas panel in the existing cockpit, viewed from Windows over SSH. A proposed daily audit and export makes evidence bundles which Windows pulls and verifies. Actual deployment of the new pieces has not happened.</desc>
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#506c74"/></marker></defs>
+      <rect x="16" y="42" width="696" height="444" rx="8" fill="#f7faf9" stroke="#cbdad7"/>
+      <rect x="746" y="42" width="338" height="444" rx="8" fill="#f4f7fc" stroke="#c9d5e5"/>
+      <g font-family="Segoe UI,Arial,sans-serif" fill="#202629">
+        <text x="38" y="76" font-size="17" font-weight="700">DEVCP · collection stays here</text>
+        <text x="768" y="76" font-size="17" font-weight="700">THIS PC · view + verified copy</text>
+        <rect x="38" y="120" width="178" height="152" rx="8" fill="#fffaf1" stroke="#d9ba89"/>
+        <text x="54" y="146" fill="#8c5a13" font-size="12" font-weight="700">EXISTING SOURCES</text>
+        <text x="54" y="176" font-size="19" font-weight="700">Clarity sessions</text>
+        <text x="54" y="202" font-size="15">Fable + Codex usage</text>
+        <text x="54" y="226" font-size="15">Gates · MUDA · ATC</text>
+        <text x="54" y="253" font-size="13" fill="#58656c">Registered paths only</text>
+        <rect x="254" y="120" width="198" height="152" rx="8" fill="#edf8f5" stroke="#a9cebf"/>
+        <text x="270" y="146" fill="#147a74" font-size="12" font-weight="700">COLLECTOR EXISTS</text>
+        <text x="270" y="176" font-size="19" font-weight="700">Atlas</text>
+        <text x="270" y="202" font-size="15">Native event ledgers</text>
+        <text x="270" y="226" font-size="15">Operational evidence</text>
+        <text x="270" y="253" font-size="13" fill="#58656c">Receipts + capture gaps</text>
+        <rect x="490" y="120" width="200" height="152" rx="8" fill="white" stroke="#c9bbdf"/>
+        <text x="506" y="146" fill="#6a5b8f" font-size="12" font-weight="700">TO ADD · EVERY MINUTE</text>
+        <text x="506" y="176" font-size="19" font-weight="700">Health monitor</text>
+        <text x="506" y="202" font-size="15">Freshness + coverage</text>
+        <text x="506" y="226" font-size="15">Backlog + capacity</text>
+        <text x="506" y="253" font-size="13" fill="#58656c">Persistent incidents</text>
+        <rect x="776" y="120" width="278" height="152" rx="8" fill="white" stroke="#9db7d4"/>
+        <text x="792" y="146" fill="#6a5b8f" font-size="12" font-weight="700">TO ADD · ATLAS PANEL</text>
+        <text x="792" y="176" font-size="19" font-weight="700">Existing SGSD cockpit</text>
+        <text x="792" y="202" font-size="15">Browser view through SSH</text>
+        <text x="792" y="226" font-size="15">See stale / uncovered sessions</text>
+        <text x="792" y="253" font-size="13" fill="#58656c">Not a second collector</text>
+        <rect x="354" y="350" width="336" height="106" rx="8" fill="white" stroke="#c9bbdf"/>
+        <text x="372" y="377" fill="#6a5b8f" font-size="12" font-weight="700">TO ADD · DAILY AFTER 06:00 UTC</text>
+        <text x="372" y="406" font-size="19" font-weight="700">Audit + evidence bundle</text>
+        <text x="372" y="432" font-size="15">Reuse audit · snapshot · SHA-256 manifest</text>
+        <rect x="776" y="350" width="278" height="106" rx="8" fill="white" stroke="#9db7d4"/>
+        <text x="792" y="377" fill="#6a5b8f" font-size="12" font-weight="700">TO ADD · LOCAL STORAGE</text>
+        <text x="792" y="406" font-size="19" font-weight="700">Verify, then save</text>
+        <text x="792" y="432" font-size="15">Dated evidence + last-success receipt</text>
+        <path d="M216 196 H249 M452 196 H485 M690 196 H770" stroke="#506c74" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+        <text x="733" y="181" text-anchor="middle" font-size="12" fill="#315f90">SSH</text>
+        <path d="M353 272 V311 H456 V344" stroke="#506c74" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+        <text x="372" y="301" font-size="13" fill="#58656c">Evidence snapshot</text>
+        <path d="M690 406 H770" stroke="#506c74" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+        <text x="733" y="389" text-anchor="middle" font-size="12" fill="#315f90">SSH pull</text>
+        <text x="38" y="401" font-size="14" fill="#58656c">No session restarts.</text>
+        <text x="38" y="425" font-size="14" fill="#58656c">No gate bypasses.</text>
+        <text x="38" y="449" font-size="14" fill="#58656c">No monitoring model calls.</text>
+      </g>
+    </svg></div>
+    <div class="legend"><span class="source"><i></i>Source evidence</span><span><i></i>Existing collector</span><span class="planned"><i></i>To add</span><span class="client"><i></i>Your PC / SSH</span><span>Solid arrows = intended primary information flow</span></div>
+    <figcaption class="flow-words">The diagram mixes existing and proposed components; each box says which it is. Windows initiates transfers. After local verification, only a content-free success receipt goes back to the monitor.</figcaption>
+  </figure>
+  <div class="grid two" style="margin-top:20px">
+    <article class="panel"><h3>Original evidence</h3><p>SGSD writes into each project’s planning records, including gate, MUDA and audit ledgers and phase documents.</p><code class="path">/opt/clarity/project-clarity-erp/.planning/</code></article>
+    <article class="panel"><h3>Collected evidence</h3><p>Atlas keeps private per-project native data under <code>metrics/</code> and operational records and receipts under <code>operational/</code>.</p><code class="path">~/.local/state/sgsd/telemetry/global/projects/&lt;project-id&gt;/</code></article>
+  </div>
+</div></section>
+<section id="cockpit"><div class="shell">
+  <div class="section-head"><div><p class="kicker">03 / Operator view</p><h2>“Is everything reporting?”<br>One place to check.</h2></div><p>The panel separates receiver health, session coverage, data freshness and backup success. One healthy component cannot make the rest look healthy.</p></div>
+  <div class="mockup" aria-label="Illustrative cockpit panel; not connected to telemetry">
+    <div class="mock-title"><h3>Atlas / Clarity collection health</h3><span class="pill proposed">ILLUSTRATIVE MOCK-UP · NOT LIVE</span></div>
+    <p class="mock-desc">Example states only—not measurements, real session names, or a current fleet inventory.</p>
+    <div class="mock-metrics">
+      <div class="metric"><span>RECEIVER</span><strong>Running</strong><small>Identity + health check</small></div>
+      <div class="metric"><span>SESSION COVERAGE</span><strong style="color:var(--red)">Needs attention</strong><small>Uncovered session present</small></div>
+      <div class="metric"><span>LAST AUDIT</span><strong style="color:var(--amber)">WARN</strong><small>Read the coverage findings</small></div>
+      <div class="metric"><span>LOCAL EVIDENCE COPY</span><strong style="color:var(--green)">Hash verified</strong><small>Transfer succeeded; audit still WARN</small></div>
+    </div>
+    <div class="table-wrap" style="border:0;border-radius:0"><table><thead><tr><th scope="col">Example row</th><th scope="col">Collection status</th><th scope="col">Evidence shown</th><th scope="col">What you do</th></tr></thead><tbody>
+      <tr><td>Fresh Fable session</td><td><span class="pill positive">REPORTING</span></td><td>Native event received + matched run</td><td>Continue; this row has observed delivery.</td></tr>
+      <tr><td>Older Codex session</td><td><span class="pill danger">UNCOVERED</span></td><td>Process seen; no matching registration</td><td>Confirm attachment; refresh separately if needed.</td></tr>
+      <tr><td>Quiet registered worker</td><td><span class="pill caution">STALE OR IDLE</span></td><td>No recent native observation</td><td>Check whether work is actually underway.</td></tr>
+      <tr><td>MUDA / ATC / gates</td><td><span class="pill observed">EVIDENCE LINKS</span></td><td>Latest outcome, original time, capture receipt</td><td>Distinguish a gate failure from a capture failure.</td></tr>
+    </tbody></table></div>
+    <div class="mock-footer"><strong>No false “all clear”.</strong> Observed usage is not a complete bill. Benchmark traffic is excluded from Clarity totals; unknown identities remain visible.</div>
+  </div>
+  <p class="note">The production panel would show actual timestamps and the last verified copy time. If the monitor or browser connection goes stale, the old display must be visibly marked stale, not left looking current.</p>
+</div></section>
+<section id="warnings"><div class="shell">
+  <div class="section-head"><div><p class="kicker">04 / Failure modes</p><h2>Warn about the gap.<br>Keep the evidence.</h2></div><p>These are proposed thresholds. They surface problems without changing gates, killing processes, modifying credentials or making paid model calls.</p></div>
+  <div class="table-wrap"><table><thead><tr><th scope="col">Input</th><th scope="col">Classification</th><th scope="col">Evidence / consequence</th></tr></thead><tbody>
+    <tr><td>Monitor snapshot older than 3 minutes</td><td><span class="pill danger">STALE MONITOR</span></td><td>Show snapshot age; do not present cached health as current.</td></tr>
+    <tr><td>No native observation for 15+ minutes on an open run</td><td><span class="pill caution">STALE OR IDLE</span></td><td>Use activity evidence before claiming delivery has failed.</td></tr>
+    <tr><td>Session cannot be matched to registration</td><td><span class="pill danger">UNCOVERED / UNKNOWN</span></td><td>Expose the unmatched identity, not a zero-token “success”.</td></tr>
+    <tr><td>Pending spool older than 120 seconds</td><td><span class="pill caution">BACKLOG</span></td><td>Show age and pending bytes; fresh historical backfill is not fresh work.</td></tr>
+    <tr><td>Capacity at 80% / 90%, or capture stopped</td><td><span class="pill danger">WARN / CRITICAL</span></td><td>Show the actual configured store limit—not just free disk space.</td></tr>
+    <tr><td>Local verified copy older than 30 hours</td><td><span class="pill caution">COPY OVERDUE</span></td><td>Show last success and reason; catch up after reconnecting.</td></tr>
+    <tr><td>Copy interrupted or a file hash mismatches</td><td><span class="pill danger">TRANSFER FAILED</span></td><td>Preserve the previous good copy. Never advance last-success.</td></tr>
+  </tbody></table></div>
+  <div class="notice warning"><strong>Notifications have a delivery boundary.</strong> Cockpit warnings require you to view the cockpit. Desktop notifications require a supported, awake, signed-in Windows session. No email or chat notification service is included; failures remain recorded for the next connection.</div>
+</div></section>
+<section id="copies"><div class="shell">
+  <div class="section-head"><div><p class="kicker">05 / Evidence coming back here</p><h2>Daily copies you can verify.<br>Not “the transfer probably worked”.</h2></div><p>DEVCP retains evidence while this PC is offline. Windows pulls the retained bundles when it is awake, signed in, connected and able to authenticate through SSH.</p></div>
+  <div class="timeline">
+    <div class="time-step"><span>01 · EVERY MINUTE</span><strong>Check collection health</strong><p>DEVCP runs bounded, lightweight checks through its user cron schedule. Incidents persist even with the browser closed.</p></div>
+    <div class="time-step"><span>02 · DAILY, AFTER 06:00 UTC</span><strong>Audit and package</strong><p>Run the existing integrity audit. Snapshot sanitized evidence with per-file sizes, times and SHA-256 hashes.</p></div>
+    <div class="time-step"><span>03 · PC CHECKS EVERY 5 MINUTES</span><strong>Pull what is missing</strong><p>Fetch incident updates and new daily bundles. Missed runs catch up at logon or when the schedule resumes.</p></div>
+    <div class="time-step"><span>04 · BEFORE MARKING SUCCESS</span><strong>Verify locally</strong><p>Check every manifest entry, size and hash. Publish the dated copy only after verification; record the receipt.</p></div>
+  </div>
+  <div class="grid two" style="margin-top:26px">
+    <article class="panel"><h3>Your proposed local evidence folder</h3><code class="path">C:\Users\jack.berrow\AppData\Local\SGSD\Atlas\devcp\</code><p>Each dated bundle contains selected Clarity evidence, audit results, capture gaps and a manifest. Nothing is sent to this chat automatically.</p><p class="note">This folder and the scheduled copy job are not created by this HTML.</p></article>
+    <article class="panel callout"><h3>Two checks, two different answers</h3><p><strong>“Hash verified”</strong> means the copied files match the captured bundle.</p><p><strong>“Capture healthy”</strong> is a separate judgement about coverage, freshness and integrity. A verified copy can contain a WARN or FAIL audit—and must keep that evidence.</p></article>
+  </div>
+  <details><summary>Privacy, live-file handling and storage safeguards</summary><div class="grid two" style="margin-top:16px"><article class="panel"><h3>Only the evidence we need</h3><p>No prompts, transcripts, raw CLI spools, credentials or whole-project archives. Paths are allowlisted; unsafe files are rejected. Live append-only files are copied as complete-line prefixes with recorded lengths, not described as one atomic fleet-wide snapshot.</p></article><article class="panel"><h3>No silent deletion</h3><p>Proposed export budgets: <strong>10 GiB on DEVCP</strong>, <strong>20 GiB on this PC</strong>. Warn at 80%; stop new copies/bundles at the limit and retain prior evidence. These are separate from Atlas’s existing capture limits.</p></article></div></details>
+</div></section>
+<section id="review"><div class="shell">
+  <div class="section-head"><div><p class="kicker">06 / A useful week of evidence</p><h2>Review usage and waste.<br>With the missing parts visible.</h2></div><p>The target is a defensible weekly review, not a promise of complete billing data or a rewrite of SGSD’s execution engine.</p></div>
+  <div class="grid two">
+    <article class="panel"><h3>What the evidence should let us assess</h3><ul><li>Which Clarity projects, worktrees and sessions were covered—and when they were not.</li><li>Observed token usage by the identities and roles the records actually contain, without counting cached/reasoning subsets twice.</li><li>Which gate, MUDA and ATC outcomes were observed, and what missing or rejected evidence limits our conclusions.</li><li>Whether collection or copying stopped during the trial, with preserved incident and recovery history.</li></ul></article>
+    <article class="panel ok"><h3>What “finished” must prove</h3><ol><li>A real Atlas panel accessible from this PC.</li><li>Automatic checks with execution evidence, not just installed jobs.</li><li>One real off-host baseline, rehashed successfully here.</li><li>Failure/recovery and missed-copy behaviour tested safely.</li></ol><p>Old sessions remain visible gaps until safely refreshed. No synthetic production records or fresh model calls are needed for this feature’s tests.</p></article>
+  </div>
+  <p class="note"><strong>Next step:</strong> review this design, then implement under a Phase 170 plan and deploy through the normal SGSD update after the applicable checks. Windows collection parity, Researcher model selection and formal milestone closure remain separate work.</p>
+</div></section>
+<section id="sources"><div class="shell">
+  <div class="section-head"><div><p class="kicker">07 / Source ledger</p><h2>What this page is based on.</h2></div><p>Local sources, not invented live figures. No VTP retrieval tools were available in this session, so no book or research claim is used as operational evidence.</p></div>
+  <ul class="source-list">
+    <li><span class="pill proposed">DESIGN AUTHORITY</span><a href="2026-09-10-atlas-visible-weekly-trial-design.md">Written weekly-trial visibility design</a><p>Local commit e008fc5. Proposed architecture, thresholds, schedules, transfer verification and acceptance conditions. Not an implementation record.</p></li>
+    <li><span class="pill observed">OBSERVED · DATED</span>DEVCP read-only inspection, 10 September 2026<p>Receiver and file metadata checked at 09:49 UTC / 10:49 BST; scheduler and SSH availability recorded in the design. Ledger modification times do not establish every session’s delivery.</p></li>
+    <li><span class="pill observed">CODE EVIDENCE</span><a href="../../super-gsd/tools/telemetry-atlas/README.md">Atlas README</a> · <a href="../../super-gsd/tools/telemetry-atlas/global-store.cjs">Global store</a> · <a href="../../super-gsd/tools/telemetry-atlas/audit.cjs">Audit</a><p>Per-user/host capture, registration boundaries, canonical storage, native capacity and the existing source-verification audit.</p></li>
+    <li><span class="pill observed">CODE EVIDENCE</span><a href="../../super-gsd/tools/telemetry-atlas/sgsd-ledger-runtime.cjs">Operational ledger runtime</a> · <a href="../../super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs">Existing cockpit composition</a><p>Operational receipts/state and limits; current telemetry composition is not the proposed Atlas monitor panel.</p></li>
+    <li><span class="pill observed">PROJECT STATE</span><a href="../STATE.md">Canonical planning state</a><p>Phase 170, plan 170-11 at inspection. Bounded Linux correction acceptance is recorded; weekly coverage and this visibility feature are not marked complete.</p></li>
+    <li><span class="pill">PRESENTATION LENS</span>VTP HTML Explainer house theme and method<p>Observed / inferred / recommended separation, inline SVG and a source ledger. Visual styling is not evidence that monitoring works.</p></li>
+  </ul>
+</div></section>
+</main>
+<footer><div class="shell footer-line"><span>SGSD / Atlas · Design review · 10 September 2026</span><span>Self-contained HTML · No tracking · No live data requests</span></div></footer>
+</body>
+</html>

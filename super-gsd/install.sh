@@ -732,6 +732,19 @@ install_global_assets() {
   copy_tree_files "$SCRIPT_DIR/tools/plan-schema/node_modules/argparse" "$CLAUDE_DIR/tools/plan-schema/node_modules/argparse"
   log "  Hook scripts/lib, registry, VTP readiness, Atlas runtime, and YAML dependencies installed"
 
+  # An explicitly installed Windows Atlas companion follows global updates.
+  # RefreshOnly never creates a task for users who did not opt in.
+  if [[ "$DRY_RUN" = false ]]; then
+    case "$(uname -s)" in
+      MINGW*|MSYS*|CYGWIN*)
+        if command -v powershell.exe >/dev/null 2>&1; then
+          powershell.exe -NoProfile -NonInteractive -File \
+            "$(cygpath -w "$SCRIPT_DIR/scripts/install-atlas-monitor-task.ps1")" -RefreshOnly || return 1
+        fi
+        ;;
+    esac
+  fi
+
   echo ""
   log "Smoke-testing and registering hooks in ~/.claude/settings.json..."
   SETTINGS_FILE="$CLAUDE_DIR/settings.json"

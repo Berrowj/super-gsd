@@ -11,6 +11,7 @@ const suites = {
   install: 'install.test.cjs', global: 'global.test.cjs', audit: 'audit.test.cjs', launch: 'launch.test.cjs',
   ledger: 'sgsd-ledger.test.cjs', producer: 'sgsd-producer-contract.test.cjs',
   ledgerRuntime: 'sgsd-ledger-runtime.test.cjs', operation: 'operation-report.test.cjs',
+  monitor:'monitor.test.cjs', evidence:'monitor-evidence.test.cjs', client:'monitor-client.test.cjs', schedule:'monitor-schedule.test.cjs',
 };
 const tasks = { T1: ['store','ledger'], T2: ['store','receiver','runtime','producer'],
   T3: ['runtime','stack','install','ledgerRuntime','global','receiver'],

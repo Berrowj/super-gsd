@@ -98,6 +98,7 @@ button{font-family:inherit;color:inherit}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 .chrome .kbd{
   display:inline-flex;align-items:center;gap:0.25rem;
+  flex-wrap:wrap;min-width:0;
   color:var(--ink-dim);font:500 0.66rem/1 var(--mono);
 }
 .chrome .kbd kbd{

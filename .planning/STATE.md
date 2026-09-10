@@ -3,7 +3,8 @@ gsd_state_version: 1.0
 milestone: v4.1-token-economics-atlas
 current_phase: "170"
 milestone_name: Token Economics Atlas
-current_plan: "170-11"
+current_plan: "170-12"
+visible_trial_status: "170-12 ACTIVE 2026-09-10: operator approved written design and HTML. Implement Atlas cockpit health, minute checks, warnings and daily verified DEVCP-to-PC evidence copies. No deployment or weekly coverage claim yet."
 corrected_acceptance_status: "170-11 LINUX_CORRECTIONS_DEPLOYED_VERIFIED 2026-09-10: c13888a published/deployed via normal update. Actual flat hook30/16routes healthy; Fable explicitlaunch+CEO/Contrarianheadless PASS; Astra/Luna wrapper roundtrips+retained continuation PASS,5/5nativeusageexact.322tests pass,6Node+1nestedoptional skips. FULLATC pass after retained timeout/block/adjudication; alloriginalevidence preserved. NewATCreview/gaterows4/4source-receipt-canonical match. Protected7files/28panes/other52pins unchanged. Finalaudit healthy/WARN69,0FAIL; historicalbackfill/Researchermodelchoice/Windows remainopen."
 overnight_capture_status: "LINUX_CAPTURE_IMPLEMENTATION_COMPLETE 2026-09-10: 59762975 core and50440c65 producer repairs published/deployed normally. Independent SPEC/native suites/registered FULL ATC complete; sole tests-only warning independently closed. Actual MUDA and ATC source-byte/receipt/canonical proofs PASS. Passive historical backfill continues without model calls; old unsafe/malformed/absent-source gaps remain explicit. Phase/milestone closure, weekly baseline, billing completeness and Windows are not claimed."
 repair_status: "effccea deployed. lGioCR/KjTzM5 acceptance FAILED: B0/B1 pass (225 tests,6 Node skips plus1 nested optional); B2 driver persisted challenges before replies; protected Codex config gained2 test-project trust sections. Three real workers completed; no full acceptance. Root verified173 sealed entries20:20Z. No automatic retry; Windows OPEN_REQUIRED."

@@ -16,6 +16,32 @@
   const lastHtml = { 1: null, 2: null, 3: null };
   let lastSnapshotAt = 0;
   let lastSnapshot = null;
+  let atlasHtml = '<div class="atlas-panel" role="status">Atlas collection health: waiting for monitor data.</div>';
+  let atlasFetchedAt = 0;
+  let atlasGeneratedAt = 0;
+  async function refreshAtlas() {
+    const controller = new AbortController();
+    const timeout = setTimeout(function () { controller.abort(); }, 10000);
+    try {
+      const response = await fetch('/atlas', { signal: controller.signal, cache: 'no-store' });
+      if (!response.ok) throw new Error('atlas_unavailable');
+      const body = await response.json();
+      if (typeof body.html !== 'string' || body.html.length > 2000000 || body.snapshot?.schema_version !== 1) throw new Error('atlas_invalid');
+      atlasHtml = body.html;
+      atlasFetchedAt = Date.now();
+      atlasGeneratedAt = Date.parse(body.snapshot.generated_at) || 0;
+    } catch (_err) {
+      atlasHtml = '<div class="atlas-panel" role="alert">Atlas monitor connection unavailable. Current capture is UNKNOWN; previous data is not proof of collection.</div>';
+      atlasFetchedAt = 0;
+    } finally {
+      clearTimeout(timeout);
+      renderTelemetry(lastSnapshot || {});
+    }
+  }
+  function atlasDisplay() {
+    const stale = atlasFetchedAt && (Date.now() - atlasFetchedAt > 180000 || !atlasGeneratedAt || Date.now() - atlasGeneratedAt > 180000);
+    return (stale ? '<p role="alert" style="color:#b86b27;font-weight:700">Atlas snapshot is STALE. The data below is cached, not a current collection check.</p>' : '') + atlasHtml;
+  }
 
   // connState — fills data-conn span on every transition.
   // States: SSE LIVE / RECONNECTING / OFFLINE / STALE.
@@ -148,6 +174,9 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    refreshAtlas();
+    setInterval(refreshAtlas, 60000);
+    setInterval(function () { renderTelemetry(lastSnapshot || {}); }, 15000);
     fetch('/snapshot')
       .then(function (response) { return response.json(); })
       .then(function (snap) {
@@ -427,7 +456,7 @@
         'Heuristics, bandwidth, dispatch volume, token spend, context size, elapsed — the live instruments.') +
       '<div class="telem">' +
         ids.map(function (id) { return renderTelemCell(id, tel[id] || {}); }).join('') +
-      '</div>';
+      '</div>' + atlasDisplay();
     if (section.innerHTML !== html) section.innerHTML = html;
   }
 

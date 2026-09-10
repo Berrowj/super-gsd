@@ -318,6 +318,79 @@ that monitor is degraded and cannot claim the design's resource acceptance.
 The collector's 2% rolling CPU budget is a calibration acceptance measurement,
 not a CPU throttle in this configuration.
 
+## Visible weekly trial (opt-in monitoring and off-host evidence)
+
+The existing cockpit's **Telemetry** view reads `/atlas` once per minute. It
+shows receiver health separately from native deliveries, operational families
+(including gates, MUDA and ATC), registered runs, unmatched process attachment,
+the daily integrity audit, and the last Windows-verified evidence copy. Original
+event time and receive time remain separate. The small native tail summary is
+**not a weekly token total or a complete provider bill**. A missing/stale monitor
+is WARN, never proof of zero spend or complete coverage.
+
+On DEVCP, after the normal SGSD update, explicitly select the Clarity repository
+and opt this user into the monitor (linked registered Git worktrees are included):
+
+```sh
+node ~/.claude/tools/telemetry-atlas/monitor-schedule.cjs configure --project-dir /opt/clarity/project-clarity-erp
+node ~/.claude/tools/telemetry-atlas/monitor-schedule.cjs install
+node ~/.claude/tools/telemetry-atlas/monitor-schedule.cjs tick
+```
+
+The marked user-crontab block runs a bounded check every minute. After 06:00 UTC,
+it runs the existing audit once per successful day and seals an immutable export;
+failed attempts retry no sooner than hourly. Existing crontab entries are retained.
+The installer detects changes between reads and keeps a private preimage, but
+the system `crontab` command has no atomic compare-and-swap: do not run another
+crontab editor simultaneously. Dead/unverifiable locks are preserved and require
+operator inspection, never automatically unlinked; a stale snapshot/copy remains
+visibly overdue if an interrupted process leaves a lock behind.
+`disable` removes only that marked block; no evidence or running sessions are
+removed. No model calls are made by these commands.
+
+The canonical DEVCP state stays at
+`~/.local/state/sgsd/telemetry/global/`: project native evidence in
+`projects/<project-id>/metrics/`, operational evidence and receipts in
+`projects/<project-id>/operational/`, registrations in `runs/`, and monitoring in
+`monitor/`. `latest.json` is the current bounded snapshot; `incidents.jsonl` holds
+deduplicated changes, `audit.json` is a compact dated audit projection, and
+`exports/<bundle-id>/manifest.json` binds immutable allowlisted evidence payloads
+with SHA-256. Full audits are retained in the bundles. Project `.planning/metrics`
+remain the original SGSD gate/MUDA/ATC evidence; they are not replaced or deleted.
+
+On this Windows PC, run `super-gsd/scripts/install-atlas-monitor-task.ps1` once.
+It installs the current user's `SGSD-Atlas-Monitor` task, an immutable versioned
+client runtime, and `Open Atlas.lnk` under `%LOCALAPPDATA%/SGSD/Atlas/devcp/`.
+The task polls every five minutes and at logon using the existing `devcp` SSH
+alias, copies missing daily bundles, and independently verifies every payload
+before moving it from a `.partial-*` directory into `snapshots/<bundle-id>/`.
+Per-bundle receipts live in `receipts/`; `status.json` records last contact,
+verification and failure, while `health.json` retains the last received snapshot.
+A content-free acknowledgement returns to DEVCP only after local verification.
+Audit WARN/FAIL remains visible even when the transfer is verified.
+
+Open `Open Atlas.lnk` to establish a loopback-only SSH tunnel and open
+`http://127.0.0.1:17777/`. Existing unrelated listeners are never replaced. The
+client's `config.json` contains non-secret host/path/port settings; no credentials
+are copied or changed. Normal Windows SGSD updates refresh an already installed
+companion but do not opt in other users. `-Remove` disables only the named task
+and preserves all evidence and its runtime.
+
+Windows must be awake and signed in with working non-interactive SSH to receive
+updates. Missed copies catch up on the next successful poll. Changed problems
+attempt a native desktop notification; `notification.json` records the attempt,
+not guaranteed delivery (Focus Assist and lock/sleep can suppress it). DEVCP
+continues collecting while this PC is offline. A copy older than 30 hours is
+overdue. A failed/corrupt copy cannot replace a previous verified bundle.
+
+Exports stop at a 10 GiB budget; the Windows client stops at 20 GiB with warnings
+near capacity. Neither automatically deletes evidence. Each poll has a ten-minute
+aggregate transfer budget checked between bounded operations; the task has a
+fifteen-minute hard runtime limit. Inspect `.partial-*` failures before explicitly
+removing any retained partial copy. A weekly review must use the daily manifests,
+full audit payloads and original event times, deduplicating canonical identities
+across cumulative daily snapshots; do not sum repeated snapshots as new usage.
+
 ## Verification
 
 ```sh

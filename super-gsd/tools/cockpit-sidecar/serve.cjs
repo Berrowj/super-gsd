@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const sidecar = require('./cockpit-sidecar.cjs');
 const { renderShell } = require('./render-html.cjs');
+const { readAtlasSnapshot, renderAtlasPanel } = require('./atlas-panel.cjs');
 
 const DEFAULT_PORT = 7777;
 // Legacy fixed watch list — kept as fallback for environments where fs.watch
@@ -392,6 +393,14 @@ async function start(options = {}) {
 
     const url = new URL(req.url || '/', 'http://127.0.0.1');
     const pathname = url.pathname;
+
+    if (pathname === '/atlas') {
+      const snapshot = readAtlasSnapshot();
+      res.setHeader('Cache-Control', 'no-store');
+      writeResponse(res, 200, 'application/json; charset=utf-8',
+        JSON.stringify({ snapshot, html: renderAtlasPanel(snapshot) }) + '\n');
+      return;
+    }
 
     if (pathname === '/') {
       writeResponse(res, 200, 'text/html; charset=utf-8', renderShell());
