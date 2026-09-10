@@ -17,7 +17,14 @@ const { logGateEvidence } = require('./gate-evidence-log.cjs');
 const { findSgsdRoot, readState } = require('./sgsd-state.cjs');
 
 const DEFAULT_REGISTRY_PATH = path.resolve(__dirname, '..', '..', 'registry', 'skill-routing.yaml');
-const DEFAULT_REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+const RUNTIME_ROOT = path.resolve(__dirname, '..', '..');
+const RUNTIME_PARENT = path.dirname(RUNTIME_ROOT);
+const GLOBAL_CANONICAL_REPO_ROOT = path.basename(RUNTIME_ROOT) === '.claude'
+  ? path.join(RUNTIME_ROOT, 'super-gsd', 'source')
+  : path.basename(RUNTIME_ROOT) === 'super-gsd' && path.basename(RUNTIME_PARENT) === '.claude'
+    ? path.join(RUNTIME_ROOT, 'source')
+    : null;
+const DEFAULT_REPO_ROOT = GLOBAL_CANONICAL_REPO_ROOT || path.resolve(__dirname, '..', '..', '..');
 const DEFAULT_SGSD_ROOT = path.join(DEFAULT_REPO_ROOT, 'super-gsd');
 const YAML_LIB_PATH = path.resolve(__dirname, '..', '..', 'tools', 'plan-schema', 'node_modules', 'js-yaml');
 const GATES_YAML_PATH = path.join(DEFAULT_SGSD_ROOT, 'registry', 'gates.yaml');
@@ -260,6 +267,15 @@ function _safeWarn(message) {
 
 function _yaml() {
   return require(YAML_LIB_PATH);
+}
+
+function _assertCanonicalSourceAvailable() {
+  if (!GLOBAL_CANONICAL_REPO_ROOT || fs.existsSync(GATES_YAML_PATH)) return;
+  const error = new Error('skill-routing-registry canonical source unavailable for global hook runtime: '
+    + GLOBAL_CANONICAL_REPO_ROOT);
+  error.code = 'SKILL_ROUTING_CANONICAL_SOURCE_UNAVAILABLE';
+  error.reasonCode = 'skill_routing_canonical_source_unavailable';
+  throw error;
 }
 
 function _registryPathFromOpts(opts) {
@@ -661,6 +677,7 @@ function _normalizeDocument(doc, sourceTag, registryPath) {
 }
 
 function compiledFallbackRegistry() {
+  _assertCanonicalSourceAvailable();
   return _normalizeDocument({ routes: _clone(COMPILED_FALLBACK_ROWS) }, FALLBACK_SOURCE, 'compiled:fallback');
 }
 
@@ -707,6 +724,7 @@ function _logRuntimeDegradation(error, opts, registryPath, durationMs) {
 }
 
 function _loadStrict(registryPath) {
+  _assertCanonicalSourceAvailable();
   const yaml = _yaml();
   const parsed = yaml.load(fs.readFileSync(registryPath, 'utf8'));
   return _normalizeDocument(parsed, 'yaml', registryPath);
@@ -724,6 +742,7 @@ function loadSkillRoutingRegistry(opts) {
     if (!o.noCache) _cache.set(cacheKey, _clone(registry));
     return registry;
   } catch (error) {
+    if (error && error.code === 'SKILL_ROUTING_CANONICAL_SOURCE_UNAVAILABLE') throw error;
     if (!o.runtime) throw error;
     _safeWarn(_errorReasonCode(error) + ': using compiled fallback');
     const fallback = compiledFallbackRegistry();

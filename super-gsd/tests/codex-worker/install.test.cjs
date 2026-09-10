@@ -57,6 +57,13 @@ test('isolated global install delivers the full worker closure and its installed
   const fixtureHome = path.join(root, 'home'), project = path.join(root, 'project'); fs.mkdirSync(project);
   fs.mkdirSync(path.join(fixtureHome, '.claude/get-shit-done'), { recursive: true });
   const nodeExecutable = fs.realpathSync(process.execPath);
+  const sourceLocal = spawnSync(nodeExecutable, ['--no-global-search-paths', '-e', `
+const registry = require(process.argv[1]).loadSkillRoutingRegistry({ runtime: false, noCache: true, logDegradation: false });
+process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: registry.source }));
+`, path.join(source, 'scripts/lib/skill-routing-registry.cjs')],
+  { cwd: project, env: { ...process.env, NODE_PATH: '', NODE_OPTIONS: '--no-global-search-paths' }, encoding: 'utf8', timeout: 5000 });
+  assert.equal(sourceLocal.status, 0, sourceLocal.stderr);
+  assert.deepEqual(JSON.parse(sourceLocal.stdout), { routes: 30, source: 'yaml' });
   const callerBin = path.join(root, 'caller bin'), localBin = path.join(fixtureHome, '.local/bin');
   const nvmBin = path.join(fixtureHome, '.nvm/versions/node/v99.0.0/bin');
   const selectedExecutableLog = path.join(root, 'selected executable');
@@ -75,6 +82,7 @@ test('isolated global install delivers the full worker closure and its installed
     { cwd: project, env, encoding: 'utf8', timeout: 150000, maxBuffer: 4 * 1024 * 1024 });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   const installed = path.join(fixtureHome, '.claude/super-gsd');
+  const flatRoot = path.join(fixtureHome, '.claude');
   const isolatedEnv = { ...env, NODE_PATH: '', NODE_OPTIONS: '--no-global-search-paths' };
   for (const file of ['run.cjs', 'rpc.cjs', 'mailbox.cjs', 'control.cjs', 'usage.cjs', 'fixtures/app-server.cjs']) {
     const target = path.join(installed, 'tools/codex-worker', file);
@@ -96,6 +104,74 @@ test('isolated global install delivers the full worker closure and its installed
     assert.deepEqual(fs.readFileSync(target), fs.readFileSync(path.join(source, file)));
   }
   assert.deepEqual(fs.readdirSync(path.join(installed, 'tools/plan-schema/node_modules')).sort(), ['argparse', 'js-yaml']);
+  for (const dependency of ['js-yaml', 'argparse']) {
+    const installedDependency = path.join(flatRoot, 'tools/plan-schema/node_modules', dependency);
+    assert.ok(fs.existsSync(installedDependency), `flat hook runtime includes ${dependency}`);
+    assert.deepEqual(fs.readFileSync(path.join(installedDependency, dependency === 'js-yaml' ? 'index.js' : 'argparse.js')),
+      fs.readFileSync(path.join(source, 'tools/plan-schema/node_modules', dependency,
+        dependency === 'js-yaml' ? 'index.js' : 'argparse.js')));
+  }
+  const flatRouting = path.join(flatRoot, 'scripts/lib/skill-routing-registry.cjs');
+  const nestedRouting = path.join(installed, 'scripts/lib/skill-routing-registry.cjs');
+  const flatHook = path.join(flatRoot, 'hooks/sgsd-intent-classifier.cjs');
+  const loadInstalledRouting = (registryPath) => spawnSync(nodeExecutable, ['--no-global-search-paths', '-e', `
+const routing = require(process.argv[1]);
+const hook = require(process.argv[2]);
+const opts = { runtime: false, noCache: true, logDegradation: false };
+const strict = routing.loadSkillRoutingRegistry(opts);
+const adapted = hook.readRegistry(null, {}, { logDegradation: false, noCache: true });
+const missing = routing.loadSkillRoutingRegistry({ ...opts, runtime: true, registryPath: process.argv[3] });
+process.stdout.write(JSON.stringify({
+  strict_routes: strict.routes.length,
+  strict_source: strict.source,
+  adapted_routes: adapted.routes.length,
+  adapted_source: adapted.prompt_registry_source,
+  adapted_degraded: adapted.prompt_registry_degraded,
+  missing_routes: missing.routes.length,
+  missing_source: missing.source,
+  missing_degraded: missing.degraded,
+  missing_reason: missing.degradation_reason,
+}));
+`, flatRouting, flatHook, registryPath],
+  { cwd: project, env: isolatedEnv, encoding: 'utf8', timeout: 5000 });
+  const unsupportedLoad = spawnSync(nodeExecutable, ['--no-global-search-paths', '-e', `
+try {
+  require(process.argv[1]).loadSkillRoutingRegistry({ runtime: true, noCache: true, logDegradation: false });
+  process.stdout.write('unexpected-pass');
+  process.exit(9);
+} catch (error) {
+  process.stderr.write(String(error.code || '') + ':' + String(error.message || error));
+}
+`, flatRouting], { cwd: project, env: isolatedEnv, encoding: 'utf8', timeout: 5000 });
+  assert.equal(unsupportedLoad.status, 0, unsupportedLoad.stderr);
+  assert.match(unsupportedLoad.stderr, /^SKILL_ROUTING_CANONICAL_SOURCE_UNAVAILABLE:/);
+  assert.equal(unsupportedLoad.stdout, '');
+
+  const canonicalRoot = path.join(installed, 'source');
+  fs.cpSync(source, path.join(canonicalRoot, 'super-gsd'), { recursive: true,
+    filter: candidate => !candidate.split(path.sep).includes('node_modules') });
+  const nestedLoad = spawnSync(nodeExecutable, ['--no-global-search-paths', '-e', `
+const registry = require(process.argv[1]).loadSkillRoutingRegistry({
+  runtime: false, noCache: true, logDegradation: false, registryPath: process.argv[2],
+});
+process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: registry.source }));
+`, nestedRouting, path.join(flatRoot, 'registry/skill-routing.yaml')],
+  { cwd: project, env: isolatedEnv, encoding: 'utf8', timeout: 5000 });
+  assert.equal(nestedLoad.status, 0, nestedLoad.stderr);
+  assert.deepEqual(JSON.parse(nestedLoad.stdout), { routes: 30, source: 'yaml' });
+  const supportedLoad = loadInstalledRouting(path.join(root, 'missing-skill-routing.yaml'));
+  assert.equal(supportedLoad.status, 0, supportedLoad.stderr);
+  assert.deepEqual(JSON.parse(supportedLoad.stdout), {
+    strict_routes: 30,
+    strict_source: 'yaml',
+    adapted_routes: 16,
+    adapted_source: 'yaml',
+    adapted_degraded: false,
+    missing_routes: 30,
+    missing_source: 'compiled_fallback',
+    missing_degraded: true,
+    missing_reason: 'skill_routing_registry_missing',
+  });
   const resolver = spawnSync(nodeExecutable, ['--no-global-search-paths', path.join(installed, 'tools/codex-pro/profile-resolver.cjs'),
     '--resolve-cli', 'executor'], { cwd: project, env: isolatedEnv, encoding: 'utf8', timeout: 5000 });
   assert.equal(resolver.status, 0, resolver.stderr);

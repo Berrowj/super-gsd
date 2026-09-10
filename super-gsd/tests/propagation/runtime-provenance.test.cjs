@@ -96,6 +96,9 @@ function createRuntimeFixture() {
   run('git', ['config', 'user.name', 'SGSD Runtime Test'], { cwd: source });
   run('git', ['config', 'user.email', 'runtime@example.invalid'], { cwd: source });
   write(path.join(source, 'tracked.txt'), 'canonical source\n');
+  for (const relative of ['scripts/lib/model-routing.cjs', 'config/model-routing.json']) {
+    write(path.join(source, 'super-gsd', relative), fs.readFileSync(path.join(REPO_ROOT, 'super-gsd', relative), 'utf8'));
+  }
   write(
     path.join(source, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs'),
     'process.stdout.write(JSON.stringify({ok:true,issues:[]}));\n',
@@ -339,6 +342,10 @@ function selectionEnv(fixture, additions = {}) {
     PATH: `incoming-bin:${shellPath(fixture.fakeBin)}:/usr/bin:/bin`,
     HOME: shellPath(fixture.home),
     USERPROFILE: shellPath(fixture.home),
+    CODEX_HOME: shellPath(path.join(fixture.home, '.codex')),
+    SGSD_MODEL_ROUTING_FILE: '',
+    SGSD_MODEL_OVERRIDE: '',
+    SGSD_MODEL_ORCHESTRATOR: '',
     SGSD_TEST_COCKPIT_MARKER: shellPath(fixture.cockpitMarker),
     SGSD_TEST_TMUX_MARKER: shellPath(fixture.tmuxMarker),
     SGSD_TEST_SESSION_MARKER: shellPath(fixture.sessionMarker),
@@ -621,7 +628,7 @@ if (!bash) {
       assert.equal(result.status, 0, output(result));
       const session = nulFields(fixture.sessionMarker);
       assert.equal(session[1], path.join(fixture.incomingBin, 'codex'));
-      assert.equal(nulFields(fixture.claudeMarker)[7], 'go');
+      assert.deepEqual(nulFields(fixture.claudeMarker).slice(6), ['--model', 'fable', '--dangerously-skip-permissions', 'go']);
       assert.equal(nulFields(fixture.loginMarker)[0], 'LOGIN');
     } finally {
       fs.rmSync(fixture.root, { recursive: true, force: true, maxRetries: 3 });
@@ -729,8 +736,8 @@ if (!bash) {
 
       const claude = nulFields(fixture.claudeMarker);
       assert.deepEqual(claude.slice(0, 5), ['CLAUDE', selected, legacy, prefixArgs, 'direct']);
-      assert.equal(claude[6], '--dangerously-skip-permissions');
-      assert.match(claude[7], /You are booting in Super GSD mode/);
+      assert.deepEqual(claude.slice(6, 9), ['--model', 'fable', '--dangerously-skip-permissions']);
+      assert.match(claude[9], /You are booting in Super GSD mode/);
 
       const login = nulFields(fixture.loginMarker);
       assert.deepEqual(login.slice(0, 5), ['LOGIN', selected, legacy, prefixArgs, 'direct']);
@@ -915,7 +922,7 @@ if (!bash) {
         fixture.writeCodex(path.join(fixture.incomingBin, 'codex'), 'incoming');
         const result = run(bash, remoteFixtureArgs(fixture, mode), {
           cwd: fixture.caller,
-          env: selectionEnv(fixture, { SGSD_TEST_CLAUDE_EXIT: '23' }),
+          env: selectionEnv(fixture, { SGSD_TEST_CLAUDE_EXIT: '23', ...(mode === '--shell' ? { SGSD_MODEL_ORCHESTRATOR: 'astral' } : {}) }),
           unsetEnv: SELECTOR_NAMES,
         });
         assert.equal(result.status, 0, `${mode}: ${output(result)}`);
@@ -924,15 +931,77 @@ if (!bash) {
           assert.deepEqual(claude, []);
         } else {
           assert.equal(claude[0], 'CLAUDE');
-          assert.equal(claude[6], '--dangerously-skip-permissions');
-          if (mode === '--go') assert.equal(claude[7], 'go');
-          else assert.match(claude[7], /You are booting in Super GSD mode/);
+          assert.deepEqual(claude.slice(6, 9), ['--model', 'fable', '--dangerously-skip-permissions']);
+          if (mode === '--go') assert.equal(claude[9], 'go');
+          else assert.match(claude[9], /You are booting in Super GSD mode/);
         }
         assert.equal(nulFields(fixture.loginMarker)[0], 'LOGIN');
         const tmuxLog = fs.readFileSync(fixture.tmuxMarker, 'utf8');
         assert.equal((tmuxLog.match(/split-window/g) || []).length, 3);
         assert.doesNotMatch(tmuxLog, /(?:set-environment|update-environment)/);
         assert.equal(fs.existsSync(fixture.providerMarker), false);
+      } finally {
+        fs.rmSync(fixture.root, { recursive: true, force: true, maxRetries: 3 });
+      }
+    }
+  });
+
+  test('remote tmux binds supported orchestrator overrides and explicit routing to actual Claude argv', {
+    skip: process.platform === 'win32' ? 'native Linux selection contract' : false,
+  }, () => {
+    const cases = ['fable', 'opus', 'sonnet', 'haiku'].map(model => ({ env: { SGSD_MODEL_ORCHESTRATOR: model }, model }));
+    cases.push({ env: { SGSD_MODEL_OVERRIDE: 'haiku', SGSD_MODEL_ORCHESTRATOR: 'opus' }, model: 'haiku' });
+    cases.push({ explicitFile: true, model: 'sonnet' });
+    for (const item of cases) {
+      const fixture = createSelectionFixture();
+      try {
+        const settings = path.join(fixture.home, '.claude', 'settings.json');
+        write(settings, '{"model":"opus[1m]"}\n');
+        const additions = { ...item.env };
+        if (item.explicitFile) {
+          const config = JSON.parse(fs.readFileSync(path.join(fixture.source, 'super-gsd/config/model-routing.json'), 'utf8'));
+          config.model_routing.orchestrator.default = item.model;
+          additions.SGSD_MODEL_ROUTING_FILE = path.join(fixture.root, 'explicit routing.json');
+          write(additions.SGSD_MODEL_ROUTING_FILE, JSON.stringify(config));
+        }
+        const result = run(bash, remoteFixtureArgs(fixture, '--go'), {
+          cwd: fixture.caller, env: selectionEnv(fixture, additions), unsetEnv: SELECTOR_NAMES,
+        });
+        assert.equal(result.status, 0, output(result));
+        assert.deepEqual(nulFields(fixture.claudeMarker).slice(6), ['--model', item.model, '--dangerously-skip-permissions', 'go']);
+        assert.equal(fs.readFileSync(settings, 'utf8'), '{"model":"opus[1m]"}\n');
+        assert.equal(fs.existsSync(fixture.providerMarker), false);
+      } finally {
+        fs.rmSync(fixture.root, { recursive: true, force: true, maxRetries: 3 });
+      }
+    }
+  });
+
+  test('remote tmux rejects invalid or non-Anthropic orchestrators before cockpit, tmux, or Claude', {
+    skip: process.platform === 'win32' ? 'native Linux selection contract' : false,
+  }, () => {
+    for (const mode of ['--greet', '--go']) for (const kind of ['non-anthropic', 'unknown', 'malformed', 'missing', 'invalid-slug']) {
+      const fixture = createSelectionFixture();
+      try {
+        const additions = {};
+        const file = path.join(fixture.source, 'super-gsd/config/model-routing.json');
+        if (kind === 'non-anthropic') additions.SGSD_MODEL_ORCHESTRATOR = 'astral';
+        if (kind === 'unknown') additions.SGSD_MODEL_ORCHESTRATOR = 'not-a-model';
+        if (kind === 'malformed') write(file, '{');
+        if (kind === 'missing') additions.SGSD_MODEL_ROUTING_FILE = path.join(fixture.root, 'missing.json');
+        if (kind === 'invalid-slug') {
+          const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+          config.models.fable.model = 'fable; touch unexpected';
+          write(file, JSON.stringify(config));
+        }
+        const result = run(bash, remoteFixtureArgs(fixture, mode), {
+          cwd: fixture.caller, env: selectionEnv(fixture, additions), unsetEnv: SELECTOR_NAMES,
+        });
+        assert.notEqual(result.status, 0, `${mode} ${kind}: ${output(result)}`);
+        assert.match(output(result), /orchestrator/i);
+        for (const marker of [fixture.cockpitMarker, fixture.tmuxMarker, fixture.claudeMarker, fixture.providerMarker]) {
+          assert.equal(fs.existsSync(marker), false, `${kind}: unexpected ${path.basename(marker)}`);
+        }
       } finally {
         fs.rmSync(fixture.root, { recursive: true, force: true, maxRetries: 3 });
       }

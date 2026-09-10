@@ -3,7 +3,8 @@ gsd_state_version: 1.0
 milestone: v4.1-token-economics-atlas
 current_phase: "170"
 milestone_name: Token Economics Atlas
-current_plan: "170-10"
+current_plan: "170-11"
+corrected_acceptance_status: "170-11 ACTIVE 2026-09-10: operator approved narrow Linux hook-dependency repair, Astra diagnosis and corrected normal-wrapper acceptance. Prior failed reports preserved; no broad restart, guessed models or Windows sign-off."
 overnight_capture_status: "LINUX_CAPTURE_IMPLEMENTATION_COMPLETE 2026-09-10: 59762975 core and50440c65 producer repairs published/deployed normally. Independent SPEC/native suites/registered FULL ATC complete; sole tests-only warning independently closed. Actual MUDA and ATC source-byte/receipt/canonical proofs PASS. Passive historical backfill continues without model calls; old unsafe/malformed/absent-source gaps remain explicit. Phase/milestone closure, weekly baseline, billing completeness and Windows are not claimed."
 repair_status: "effccea deployed. lGioCR/KjTzM5 acceptance FAILED: B0/B1 pass (225 tests,6 Node skips plus1 nested optional); B2 driver persisted challenges before replies; protected Codex config gained2 test-project trust sections. Three real workers completed; no full acceptance. Root verified173 sealed entries20:20Z. No automatic retry; Windows OPEN_REQUIRED."
 legacy_rollout_status_pre_17010: "DEVCP OS-user assets and Clarity pin effccea verified16:37Z:123 comparisons including1 derived agent;7 protected files,20 existing panes,8 protected processes and other pin paths unchanged through update. Fresh16:39Z acceptance adds4 panes; normal-launcher Fable PID2967027 identified. Local shadows,46 other pin-bearing trees and old sessions remain unrefreshed. No all-instance freshness claim. Windows OPEN_REQUIRED."

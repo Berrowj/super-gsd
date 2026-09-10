@@ -194,6 +194,26 @@ select_codex() {
   sgsd_codex_worker_bootstrap --dry-run
 }
 
+select_orchestrator() {
+  node - "$SOURCE_DIR" <<'NODE'
+const path = require('node:path');
+try {
+  const source = process.argv[2];
+  const { loadRouting, resolveModel } = require(path.join(source, 'super-gsd/scripts/lib/model-routing.cjs'));
+  const config = loadRouting(process.env.SGSD_MODEL_ROUTING_FILE || path.join(source, 'super-gsd/config/model-routing.json'));
+  const override = process.env.SGSD_MODEL_OVERRIDE || process.env.SGSD_MODEL_ORCHESTRATOR;
+  const selected = resolveModel({ config, role: 'orchestrator', override });
+  if (selected.provider !== 'anthropic' || !['fable', 'opus', 'sonnet', 'haiku'].includes(selected.model)) {
+    throw new Error('selected orchestrator requires an unsupported Claude model or provider');
+  }
+  process.stdout.write(selected.model);
+} catch (error) {
+  console.error(`SGSD orchestrator selection failed: ${error.message}`);
+  process.exitCode = 1;
+}
+NODE
+}
+
 COCKPIT_SERVER_START="$SCRIPTS_DIR/start-cockpit-server.sh"
 
 if [[ "$SESSION" =~ [^A-Za-z0-9_.:-] ]]; then
@@ -224,6 +244,12 @@ doctor() {
   check_cmd bash || true
   check_cmd node || true
   check_cmd claude || true
+  local model
+  if model="$(select_orchestrator)"; then
+    printf "  [OK]   orchestrator: %s\n" "$model"
+  else
+    printf "  [MISS] orchestrator selection is invalid\n"
+  fi
   if [[ "${SGSD_CODEX_SELECTION_STATUS:-missing}" == ready ]]; then
     printf "  [OK]   codex: %s\n" "$SGSD_CODEX_APP_SERVER_COMMAND"
   else
@@ -269,6 +295,10 @@ if [[ "$DOCTOR" = true ]]; then
 fi
 
 select_codex || die "explicit Codex selector is unavailable"
+ORCHESTRATOR_MODEL=""
+if [[ "$CLAUDE_MODE" != shell ]]; then
+  ORCHESTRATOR_MODEL="$(select_orchestrator)" || die "cannot resolve a supported Claude orchestrator"
+fi
 command -v tmux >/dev/null 2>&1 || die "tmux is not installed"
 command -v claude >/dev/null 2>&1 || warn "Claude CLI not on PATH; operator pane will open a shell"
 [[ "${SGSD_CODEX_SELECTION_STATUS:-missing}" == ready ]] \
@@ -329,10 +359,10 @@ GREET_PROMPT="You are booting in Super GSD mode inside tmux on devcp. Do these f
 if command -v claude >/dev/null 2>&1; then
   case "$CLAUDE_MODE" in
     go)
-      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude auto mode'; $ATLAS_ENV_PREFIX claude --dangerously-skip-permissions 'go'; $ATLAS_EXIT_CMD; exec bash -l"
+      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude auto mode'; $ATLAS_ENV_PREFIX claude --model $(q "$ORCHESTRATOR_MODEL") --dangerously-skip-permissions 'go'; $ATLAS_EXIT_CMD; exec bash -l"
       ;;
     greet)
-      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude SGSD greeting'; $ATLAS_ENV_PREFIX claude --dangerously-skip-permissions $(q "$GREET_PROMPT"); $ATLAS_EXIT_CMD; exec bash -l"
+      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude SGSD greeting'; $ATLAS_ENV_PREFIX claude --model $(q "$ORCHESTRATOR_MODEL") --dangerously-skip-permissions $(q "$GREET_PROMPT"); $ATLAS_EXIT_CMD; exec bash -l"
       ;;
     shell)
       OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator shell]'; echo 'Run: claude --dangerously-skip-permissions'; exec $ATLAS_ENV_PREFIX bash -l"

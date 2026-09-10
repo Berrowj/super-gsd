@@ -115,9 +115,10 @@ node super-gsd/scripts/lib/board-dispatch.cjs \
 For a global install, use the canonical source runtime at
 `~/.claude/super-gsd/source/super-gsd/scripts/lib/board-dispatch.cjs` instead.
 Use that same canonical source for registry/schema/vote helpers and role bodies.
-Do not use the partial flat hook runtime under `~/.claude/scripts/lib`: it does
-not contain the board wrapper or its YAML dependencies. If the canonical source
-or its dependencies are missing, stop and report the installation issue.
+Do not use the partial flat hook runtime under `~/.claude/scripts/lib`, even if its read-only --describe succeeds:
+shared hook YAML dependencies do not make it a supported board runtime; it lacks
+the board wrapper and routing configuration. If the canonical source or its
+dependencies are missing, stop and report the installation issue.
 The command emits a JSON descriptor, not a model response:
 
 - `dispatch: agent`: call Agent with the seat role prompt and the descriptor's

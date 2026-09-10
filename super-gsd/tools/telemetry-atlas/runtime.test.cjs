@@ -296,6 +296,13 @@ test('real launcher bounds a stalled attachment and preserves direct Claude argv
     const projectDir = path.join(root, 'project'); const sourceDir = path.join(root, 'source');
     const scriptsDir = path.join(root, 'scripts'); const agentsDir = path.join(root, 'agents'); const bin = path.join(root, 'bin');
     for (const directory of [path.join(projectDir, '.planning'), path.join(sourceDir, 'super-gsd', 'tools', 'telemetry-atlas'), scriptsDir, agentsDir, bin]) fs.mkdirSync(directory, { recursive: true });
+    for (const relative of ['scripts/lib/model-routing.cjs', 'config/model-routing.json']) {
+      const target = path.join(sourceDir, 'super-gsd', relative);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.join(__dirname, '../..', relative), target);
+    }
+    const launchEnv = { ...process.env, HOME: path.join(root, 'home'), CODEX_HOME: path.join(root, 'home/.codex'),
+      SGSD_MODEL_ROUTING_FILE: '', SGSD_MODEL_OVERRIDE: '', SGSD_MODEL_ORCHESTRATOR: '', PATH: `${bin}:${process.env.PATH}` };
     fs.writeFileSync(path.join(sourceDir, 'super-gsd', 'tools', 'telemetry-atlas', 'lifecycle.cjs'), 'setTimeout(()=>{},5000)');
     fs.writeFileSync(path.join(scriptsDir, 'start-cockpit-server.sh'), '#!/bin/sh\nexit 0\n');
     const nativeGit = fs.existsSync('/usr/bin/git') ? '/usr/bin/git' : 'git';
@@ -313,7 +320,7 @@ test('real launcher bounds a stalled attachment and preserves direct Claude argv
     const started = performance.now();
     const launch = spawnSync('bash', [path.join(__dirname, '../../scripts/sgsd-remote-tmux.sh'), '--project', projectDir,
       '--source-dir', sourceDir, '--scripts-dir', scriptsDir, '--agents-dir', agentsDir, '--go', '--no-attach'], {
-      encoding: 'utf8', timeout: 3000, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ATLAS_TEST_COMMAND: recorded },
+      encoding: 'utf8', timeout: 3000, env: { ...launchEnv, ATLAS_TEST_COMMAND: recorded },
     });
     const elapsed = performance.now() - started;
     assert.equal(launch.status, 0, launch.stderr);
@@ -322,18 +329,18 @@ test('real launcher bounds a stalled attachment and preserves direct Claude argv
     const baselineStarted = performance.now();
     const baseline = spawnSync('bash', [path.join(__dirname, '../../scripts/sgsd-remote-tmux.sh'), '--project', projectDir,
       '--source-dir', sourceDir, '--scripts-dir', scriptsDir, '--agents-dir', agentsDir, '--go', '--no-attach'], {
-      encoding: 'utf8', timeout: 3000, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ATLAS_TEST_COMMAND: recorded },
+      encoding: 'utf8', timeout: 3000, env: { ...launchEnv, ATLAS_TEST_COMMAND: recorded },
     });
     const added = elapsed - (performance.now() - baselineStarted);
     assert.equal(baseline.status, 0, baseline.stderr);
     assert.ok(added < 1000, `stalled attachment added ${added}ms`);
-    assert.match(command, / claude --dangerously-skip-permissions 'go'/);
+    assert.match(command, / claude --model fable --dangerously-skip-permissions 'go'/);
     assert.doesNotMatch(command, /CLAUDE_CODE_ENABLE_TELEMETRY=/);
     const fakeCommand = command.replace(' claude --', ` '${fakeClaude}' --`).replace('exec bash -l', 'true');
     const result = spawnSync('bash', ['-c', fakeCommand], { encoding: 'utf8', timeout: 2000,
       env: { ...process.env, ATLAS_TEST_ARGV: argsFile } });
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(fs.readFileSync(argsFile, 'utf8'), '--dangerously-skip-permissions\ngo\n');
+    assert.equal(fs.readFileSync(argsFile, 'utf8'), '--model\nfable\n--dangerously-skip-permissions\ngo\n');
     console.log(`stalled_attachment_added_ms=${added.toFixed(3)}`);
   } finally { clean(root); }
 });

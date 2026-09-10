@@ -728,7 +728,9 @@ install_global_assets() {
   copy_tree_files "$SCRIPT_DIR/tools/vtp-readiness" "$CLAUDE_DIR/tools/vtp-readiness"
   copy_tree_files "$SCRIPT_DIR/tools/telemetry-atlas" "$CLAUDE_DIR/tools/telemetry-atlas"
   copy_tree_files "$SCRIPT_DIR/tools/codex-worker" "$CLAUDE_DIR/tools/codex-worker"
-  log "  Hook scripts/lib, registry, VTP readiness, and Atlas runtime installed"
+  copy_tree_files "$SCRIPT_DIR/tools/plan-schema/node_modules/js-yaml" "$CLAUDE_DIR/tools/plan-schema/node_modules/js-yaml"
+  copy_tree_files "$SCRIPT_DIR/tools/plan-schema/node_modules/argparse" "$CLAUDE_DIR/tools/plan-schema/node_modules/argparse"
+  log "  Hook scripts/lib, registry, VTP readiness, Atlas runtime, and YAML dependencies installed"
 
   echo ""
   log "Smoke-testing and registering hooks in ~/.claude/settings.json..."
