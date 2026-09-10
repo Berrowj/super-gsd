@@ -16,6 +16,12 @@ headless, remote-tmux, recovery/watchdog, narrator and Codex wrapper launch path
 attach themselves. Standalone provider CLIs, desktop sessions and ad-hoc
 benchmark/probe runners outside those launch paths are not automatically covered.
 
+Every SGSD session start also prints a read-only Atlas Telemetry briefing. It
+reports shared receiver health, whether this exact session run is registered for
+the current project root, and native or operational delivery observed in the
+latest monitor snapshot. The briefing never prepares or attaches a run and does
+not infer delivery from receiver health alone.
+
 The receiver uses ephemeral loopback ports and a private discovery file under
 `~/.local/state/sgsd/telemetry/global`. Project paths are resolved and hashed;
 private registration records map those hashes back to projects. Native events

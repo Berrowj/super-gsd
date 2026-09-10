@@ -9,6 +9,7 @@ const ROOT_HOOKS = path.join(REPO_ROOT, '.codex', 'hooks.json');
 const TEMPLATE = path.join(REPO_ROOT, 'super-gsd', 'config', 'codex-hooks.json');
 const INSTALLER = path.join(REPO_ROOT, 'super-gsd', 'tools', 'codex-hooks', 'install-hooks.cjs');
 const SELF_TEST = path.join(REPO_ROOT, 'super-gsd', 'tools', 'codex-hooks', 'self-test.cjs');
+const HOOK_INSTALL_CONTRACT = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'hook-install-contract.cjs');
 
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -277,6 +278,24 @@ test('install, onboarding, readiness, and propagation audit expose the Codex hoo
   } finally {
     cleanup(project);
   }
+});
+
+test('session-start dependency closure includes the Atlas briefing and project digest contract', () => {
+  const requiredDependencies = [
+    'scripts/lib/atlas-boot-briefing.cjs',
+    'tools/telemetry-atlas/contract.cjs',
+    'tools/telemetry-atlas/accounting.cjs',
+  ];
+  const { computeHookDependencyGraph } = require(HOOK_INSTALL_CONTRACT);
+  const graph = computeHookDependencyGraph({ sgsdRoot: path.join(REPO_ROOT, 'super-gsd') });
+  const entry = graph.entries.find(row => row.source_path === 'hooks/sgsd-session-start.js');
+  assert.ok(entry);
+  for (const dependency of requiredDependencies) assert.ok(entry.dependencies.includes(dependency));
+
+  const manifest = readJson(path.join(REPO_ROOT, 'super-gsd', 'config', 'hook-manifest.json'));
+  const published = manifest.entries.find(row => row.source_path === 'hooks/sgsd-session-start.js');
+  assert.ok(published);
+  for (const dependency of requiredDependencies) assert.ok(published.dependencies.includes(dependency));
 });
 
 test('real-hook self-test is JSON-reporting and leaves source-project evidence unchanged', () => {

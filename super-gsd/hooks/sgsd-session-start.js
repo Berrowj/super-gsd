@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { findSgsdRoot, readState } = require('../scripts/lib/sgsd-state.cjs');
 const { logGateEvidence } = require('../scripts/lib/gate-evidence-log.cjs');
+const { collectAtlasBootBriefing, formatAtlasBriefing } = require('../scripts/lib/atlas-boot-briefing.cjs');
 
 function readPayload() {
   let raw = '';
@@ -142,6 +143,12 @@ function appendMemoryBriefing(ctx, parts) {
   }
 }
 
+function appendAtlasBriefing(ctx, parts) {
+  const lines = formatAtlasBriefing(collectAtlasBootBriefing({ projectRoot: ctx.root }));
+  parts.push('');
+  parts.push(...lines);
+}
+
 function logStatePhaseMissing(ctx, state) {
   logGateEvidence(ctx.root, {
     signal: 'state_phase_missing',
@@ -262,6 +269,7 @@ function emitGovernanceContext(ctx, state) {
 
   emitOptionalBriefing(ctx, appendCheckpointBriefing);
   emitOptionalBriefing(ctx, appendMemoryBriefing);
+  emitOptionalBriefing(ctx, appendAtlasBriefing);
 }
 
 function pairHandoffTarget(ctx) {
