@@ -565,7 +565,8 @@ test('timed-out bootstrap retains ownership until its delayed receiver publishes
   t.after(async () => { cp.spawn = original; await Promise.all(pending); await Promise.all(instances.map(server => server.close())); });
   // Reload an uncached bootstrap closure so its spawn binding sees this isolated delay.
   for (const name of ['global.cjs', 'server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs', 'contract.cjs',
-    'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs']) delete require.cache[require.resolve(`./${name}`)];
+    'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'sgsd-ledger-runtime.cjs',
+    'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs']) delete require.cache[require.resolve(`./${name}`)];
   const bootstrap = require('./global.cjs');
   await assert.rejects(bootstrap.ensureService(f.root, 60), /timeout/);
   const service = await bootstrap.ensureService(f.root, 1500);
@@ -812,7 +813,7 @@ test('dependency replacement during eager loading leaves the runtime unattested 
     const fs = require('node:fs'), Module = require('node:module');
     const entry = process.argv[1], root = process.argv[2], original = Module._extensions['.js'];
     Module._extensions['.cjs'] = function(mod, filename) {
-      if (!filename.endsWith('/codex-otlp.cjs')) return original(mod, filename);
+      if (!filename.endsWith(require('node:path').sep + 'codex-otlp.cjs')) return original(mod, filename);
       const source = fs.readFileSync(filename, 'utf8'); fs.appendFileSync(filename, '\n// replacement B\n');
       delete Module._extensions['.cjs']; mod._compile(source, filename);
     };
@@ -977,19 +978,23 @@ test('completed transition history permits genuine absence but not a still-live 
   }
 });
 
-test('global receiver closes its owned store after server drain and on partial startup failure', async t => {
+test('global receiver closes its collector before listeners and store on normal and partial startup failure', async t => {
   const f = fixture(t), events = [];
   const storeFactory = () => ({ close() { events.push('store'); } });
+  const collectorFactory = () => ({ close() { events.push('collector'); } });
   await assert.rejects(startGlobal({ root: f.root, storeFactory,
+    collectorFactory,
     serverFactory: async () => { throw new Error('bind_fixture'); } }), /bind_fixture/);
-  assert.deepEqual(events, ['store']);
+  assert.deepEqual(events, ['collector','store']);
   events.length = 0;
-  const instance = await startGlobal({ root: f.root, storeFactory, serverFactory: async options => ({
+  const instance = await startGlobal({ root: f.root, storeFactory, collectorFactory, serverFactory: async options => ({
+    operationalCollector: options.operationalCollector,
     instanceId: options.instanceId, urls: { ingest: 'http://127.0.0.1:1', health: 'http://127.0.0.1:2', metrics: 'http://127.0.0.1:3' },
-    close: async () => { assert.deepEqual(events, []); await new Promise(resolve => setTimeout(resolve, 10)); events.push('servers'); },
+    close: async () => { assert.deepEqual(events, ['collector']); await new Promise(resolve => setTimeout(resolve, 10)); events.push('servers'); },
   }) });
+  assert.ok(instance.operationalCollector);
   const first = instance.close(), second = instance.close();
-  assert.equal(first, second); await first; assert.deepEqual(events, ['servers', 'store']);
+  assert.equal(first, second); await first; assert.deepEqual(events, ['collector','servers', 'store']);
 });
 
 test('transition retry reconciles requester failure before and after child lock handoff without a duplicate listener', async t => {

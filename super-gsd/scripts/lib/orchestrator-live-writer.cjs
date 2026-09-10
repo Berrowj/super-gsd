@@ -38,6 +38,11 @@
 const fs = require('fs');
 const path = require('path');
 
+function _observe(row, context) {
+  try { return require('./atlas-observation.cjs').withObservation(row, context); }
+  catch { return row; }
+}
+
 const SCHEMA_VERSION = 1;
 
 const EVENT_TYPES = Object.freeze([
@@ -83,7 +88,7 @@ function appendEvent(opts) {
       return { ok: false, error: 'invalid_input_schema: data missing or not an object' };
     }
 
-    const event = {
+    const event = _observe({
       schema_version: SCHEMA_VERSION,
       ts: new Date().toISOString(),
       type: opts.type,
@@ -91,7 +96,7 @@ function appendEvent(opts) {
       phase: opts.phase || null,
       plan: opts.plan || null,
       data: opts.data
-    };
+    }, opts);
 
     const streamPath = _resolveStreamPath(opts.projectDir);
     const line = JSON.stringify(event) + '\n';

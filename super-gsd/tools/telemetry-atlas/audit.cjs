@@ -6,6 +6,7 @@ const { canonicalize, digest, scan, validate, validConflict, safePath, fileDiges
 const { readJson, readRun, RUN } = require('./global-store.cjs');
 const { rootPath, status } = require('./global.cjs');
 const { NATIVE_SOURCE, classifyAccounting } = require('./accounting.cjs');
+const { operationReport } = require('./operation-report.cjs');
 function names(directory, max = 10000) {
   safePath(path.join(directory, '.atlas-read-check'));
   if (!fs.existsSync(directory)) return [];
@@ -17,7 +18,7 @@ function names(directory, max = 10000) {
 async function audit({ root = rootPath(), now = Date.now() } = {}) {
   root = path.resolve(root);
   const result = { schema_version: 1, generated_at: new Date(now).toISOString(), root,
-    status: 'WARN', service: null, projects: [], findings: [], complete_coverage: false };
+    status: 'WARN', service: null, projects: [], operations: null, findings: [], complete_coverage: false };
   const finding = (severity, reason, evidence) => result.findings.push({ severity, reason, evidence });
   const severity = () => result.findings.some(row => row.severity === 'FAIL') ? 'FAIL'
     : result.findings.some(row => row.severity === 'WARN') ? 'WARN' : 'PASS';
@@ -150,6 +151,18 @@ async function audit({ root = rootPath(), now = Date.now() } = {}) {
   if (!result.projects.length) finding('WARN', 'no_registered_projects', root);
   const globalGaps = path.join(root, 'sgsd-atlas-gaps.jsonl');
   if (fs.existsSync(globalGaps)) finding('WARN', 'global_capture_gaps_recorded', globalGaps);
+  try {
+    result.operations = operationReport({ root, now, verifySources: true });
+    const evidence = { status: result.operations.status, projects: result.operations.projects.length };
+    if (result.operations.status === 'FAIL') finding('FAIL', 'operational_capture_failed', evidence);
+    else if (result.operations.status !== 'PASS') finding('WARN', 'operational_capture_degraded', evidence);
+  } catch {
+    result.operations = { schema_version: 1, generated_at: new Date(now).toISOString(), status: 'FAIL',
+      complete_coverage: false, aggregate_semantics: 'source_observations_not_unique_actions',
+      project_filter: null, projects: [], findings: [{ severity: 'FAIL', reason: 'operation_report_unavailable',
+        project_id: null, family: null }] };
+    finding('FAIL', 'operational_capture_failed', { status: 'FAIL', projects: 0 });
+  }
   result.status = severity();
   result.note = 'Observed request or response-completion events prove partial capture, not exhaustive provider reconciliation. Response IDs are not HTTP request IDs. Cross-project response reuse is unsafe to sum. Account quotas are not summed across projects. Legacy project-stack ledgers are separate.';
   // Expose health metadata, not process arguments or provider content.

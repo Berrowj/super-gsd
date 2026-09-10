@@ -75,6 +75,10 @@ function metricLine(name, labels, value) {
   return `${name}${keys ? `{${keys}}` : ''} ${value}`;
 }
 
+const OPERATIONAL_FAMILIES = new Set(['gate_value','review','commit_review','gate_evidence','muda',
+  'route_decision','edge_guard','orchestrator_live','worker','worker_state','wrapper_result','generic_metric']);
+const OPERATIONAL_DISPOSITIONS = ['accepted','duplicate','conflict','rejected','excluded','gaps','records','bytes_read'];
+
 async function startServer(options = {}) {
   const host = options.host || '127.0.0.1';
   if (host !== '127.0.0.1' && host !== '::1') throw new Error('telemetry_atlas_requires_loopback');
@@ -95,12 +99,18 @@ async function startServer(options = {}) {
     missing_stable_identity: 0, rejected_native_records: 0, quota_spool_rejected: 0 };
   const native = new Map();
   const requestTokens = new Map();
+  const operationalCollector = options.operationalCollector || null;
   let active = 0;
   let ready = false;
   let closed = false;
   let requestSeen = false;
   let responseSeen = false;
   const startedAt = new Date().toISOString();
+  function operationalStatus() {
+    if (!operationalCollector) return { schema_version: 1, status: 'unavailable' };
+    try { return operationalCollector.status(); }
+    catch { return { schema_version: 1, status: 'degraded', reason: 'collector_unavailable' }; }
+  }
   function updateCoverage() {
     coverage.native_requests = coverage.rejected_native_records ? 'partial' : requestSeen ? 'observed' : 'unavailable';
     coverage.native_responses = coverage.rejected_native_responses ? 'partial' : responseSeen ? 'observed' : 'unavailable';
@@ -194,7 +204,8 @@ async function startServer(options = {}) {
       schema_version: 1, pid: process.pid, instance_id: instanceId, project_id: projectId,
       root_id: projectId, runtime_fingerprint: options.runtimeFingerprint || null,
       started_at: startedAt, coverage: { ...coverage, storage: state.coverage },
-      storage: { healthy: state.healthy, reason: state.reason, partition_id: state.partition_id } });
+      storage: { healthy: state.healthy, reason: state.reason, partition_id: state.partition_id },
+      operational: operationalStatus() });
   });
   const metricsServer = http.createServer((request, response) => {
     if (!boundary(request, response)) return;
@@ -208,6 +219,17 @@ async function startServer(options = {}) {
       lines.push(`# HELP sgsd_atlas_native_${kind}_observation Latest bounded native point observation; not request totals or a sum across sessions.`,
         `# TYPE sgsd_atlas_native_${kind}_observation gauge`);
       for (const point of native.values()) if (point.kind === kind) lines.push(metricLine(`sgsd_atlas_native_${kind}_observation`, point.labels, point.amount));
+    }
+    const operational = operationalStatus(), operationalCounters = operational.counters || {};
+    for (const disposition of OPERATIONAL_DISPOSITIONS) if (Number.isSafeInteger(operationalCounters[disposition]))
+      lines.push(metricLine('sgsd_atlas_operational_records_total',{ disposition },operationalCounters[disposition]));
+    lines.push(`sgsd_atlas_operational_pending_bytes ${Number.isSafeInteger(operational.cycle?.pending_bytes) ? operational.cycle.pending_bytes : 0}`,
+      `sgsd_atlas_operational_lag_ms ${Number.isSafeInteger(operational.cycle?.lag_ms) ? operational.cycle.lag_ms : 0}`,
+      `sgsd_atlas_operational_budget_exhausted ${operational.cycle?.budget_exhausted ? 1 : 0}`);
+    for (const [family,row] of Object.entries(operational.families || {})) {
+      if (!OPERATIONAL_FAMILIES.has(family)) continue;
+      for (const disposition of OPERATIONAL_DISPOSITIONS) if (Number.isSafeInteger(row[disposition]))
+        lines.push(metricLine('sgsd_atlas_operational_family_records_total',{ family,disposition },row[disposition]));
     }
     const body = lines.join('\n') + '\n';
     response.writeHead(200, { 'content-type': 'text/plain; version=0.0.4', 'content-length': Buffer.byteLength(body) }); response.end(body);
@@ -225,7 +247,11 @@ async function startServer(options = {}) {
     addresses.health = await listen(healthServer, options.healthPort ?? 13134, host);
     addresses.metrics = await listen(metricsServer, options.metricsPort ?? 9465, host);
     ready = true;
-  } catch (error) { await Promise.all(servers.map(server => closeServer(server, options.closeGraceMs))); throw error; }
+    operationalCollector?.start();
+  } catch (error) {
+    try { await operationalCollector?.close(); } catch {}
+    await Promise.all(servers.map(server => closeServer(server, options.closeGraceMs))); throw error;
+  }
 
   const ignoredSpool = new Set();
   const spoolDir = options.stateDir ? path.join(path.resolve(options.stateDir), 'quota-spool') : null;
@@ -305,7 +331,10 @@ async function startServer(options = {}) {
     close: () => {
       if (closePromise) return closePromise;
       closed = true; ready = false; if (sampler) clearInterval(sampler);
-      closePromise = Promise.all(servers.map(server => closeServer(server, options.closeGraceMs)));
+      let collectorClose;
+      try { collectorClose = operationalCollector?.close(); } catch { collectorClose = undefined; }
+      closePromise = Promise.resolve(collectorClose)
+        .then(() => Promise.all(servers.map(server => closeServer(server, options.closeGraceMs))));
       return closePromise;
     },
   });

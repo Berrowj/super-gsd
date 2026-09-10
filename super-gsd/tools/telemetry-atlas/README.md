@@ -59,6 +59,24 @@ Exit codes: **0** = checked evidence passed; **10** = missing/degraded coverage;
 **1** = integrity failure. The report covers registered projects and runs, checks
 schema, checksums, duplicates/conflicts, closed-file manifests, project/provider
 attribution, spool backlog, stale observations and missing native requests.
+It also embeds the separately validated operational-capture report. To inspect
+that content-free report directly, including every supported family, idle or
+excluded input, pending work, rejected/uncorrelated observations, receipt replay,
+typed MUDA coverage and capture lag, run:
+
+```sh
+node "$HOME/.claude/tools/telemetry-atlas/operation-report.cjs" --verify-sources --json
+# Optional exact registered-project selection; paths are never inferred as production:
+node "$HOME/.claude/tools/telemetry-atlas/operation-report.cjs" --project-id <64-hex-project-id> --verify-sources --json
+```
+
+Its totals count source observations, not inferred distinct actions, and contain
+no token or cost totals. `--verify-sources` reconciles stored byte ranges and
+digests against the current safe source files. Mismatch is a failure; a missing,
+superseded, unsafe, racing or bounded-out source is explicitly incomplete. The
+report validates operational canonical events against their receipts, and an
+accepted receipt alone is not proof of capture. Producer time and collector
+observation time are kept distinct; absent producer time remains unknown.
 It never repairs or deletes evidence. A launcher registration alone is not proof
 of provider capture. Legacy requests without stable provider request IDs remain
 coverage observations without token totals. Linux workers can instead provide
@@ -135,7 +153,9 @@ Offline `codex-exec.sh --self-test --skip-network` diagnostics isolate their fak
 workers from inherited Atlas roots and do not append parent-project metrics.
 
 The automatic service bounds payloads, its working indexes (eight resident
-project stores), per-project canonical capacity (128 MiB), and process memory
+project stores), per-project native canonical capacity (128 MiB), operational
+canonical capacity (256 MiB), operational receipts (256 MiB), private capture
+state (8 MiB), 64 KiB receipt batch lines, and process memory
 (256 MiB V8 heap; shutdown above 512 MiB RSS). Capacity exhaustion stops detail
 capture with a gap; canonical evidence is never pruned. Registrations and
 canonical history accumulate, so monitor disk capacity. Limits in the optional

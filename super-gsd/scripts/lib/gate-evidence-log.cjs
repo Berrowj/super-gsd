@@ -13,6 +13,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { findSgsdRoot, resolveContainedPath } = require('./sgsd-state.cjs');
 
+function _observe(row, context) {
+  try { return require('./atlas-observation.cjs').withObservation(row, context); }
+  catch { return row; }
+}
+
 const STATUSES = Object.freeze([
   'ok', 'warn', 'fail', 'skipped', 'timeout', 'blocked',
 ]);
@@ -161,10 +166,11 @@ function _appendRowInternal(planningDir, row) {
   if (!p) return null;
   const enriched = _normalize(row);
   _assertEnvelopeV1(enriched);
+  const observed = _observe(enriched, row);
   const dir = path.dirname(p);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(p, JSON.stringify(enriched) + '\n', 'utf8');
-  return enriched;
+  fs.appendFileSync(p, JSON.stringify(observed) + '\n', 'utf8');
+  return observed;
 }
 
 function logGateEvidence(planningDir, args) {

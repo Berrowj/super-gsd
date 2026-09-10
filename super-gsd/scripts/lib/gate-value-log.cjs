@@ -60,6 +60,11 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
+function _observe(row, context) {
+  try { return require('./atlas-observation.cjs').withObservation(row, context); }
+  catch { return row; }
+}
+
 // GVAL-03: closed enum of 4 outcomes. Frozen.
 const OUTCOMES = Object.freeze(['pass', 'warn', 'block', 'skip']);
 
@@ -259,11 +264,12 @@ function _appendRowInternal(planningDir, row) {
   if (!planningDir) throw new Error('gate-value-log: planningDir required');
   const enriched = _normalize(row);
   _assertEnvelopeV1(enriched);
+  const observed = _observe(enriched, row);
   const p = ledgerPath(planningDir);
   const dir = path.dirname(p);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(p, JSON.stringify(enriched) + '\n', 'utf8');
-  return enriched;
+  fs.appendFileSync(p, JSON.stringify(observed) + '\n', 'utf8');
+  return observed;
 }
 
 // Public API. NEVER throws upward. Returns the normalized row on append,

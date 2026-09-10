@@ -220,6 +220,11 @@ done <<< "$PROBE_ROWS"
 
 # Tally WARN/FAIL for summary and curation
 QUAL_V="SKIP"
+QUAL_ATTEMPTED=false
+ATLAS_QUAL_REPORT_PARSED=false
+CODEX_QUAL_EXIT=""
+ATLAS_QUAL_CRITICAL=""
+ATLAS_QUAL_WARNINGS=""
 warn_count=$(printf '%s\n' "$PROBE_ROWS" | awk -F '\t' '$2 == "WARN" { c++ } END { print c + 0 }')
 fail_count=$(printf '%s\n' "$PROBE_ROWS" | awk -F '\t' '$2 == "FAIL" { c++ } END { print c + 0 }')
 
@@ -373,6 +378,7 @@ fi
 DIFF_LINES=$(git -C "$PROJECT" diff --stat HEAD~"${COMMITS_IN_PHASE:-1}" HEAD 2>/dev/null | awk '/changed/{sum+=$4+$6}END{print sum+0}')
 
 if [[ "$PROBE_EXIT" == "0" && "${DIFF_LINES:-0}" -ge 200 && "$CODEX_QUAL_ENABLED" == "true" && "$DRY_RUN" != "true" ]]; then
+  QUAL_ATTEMPTED=true
   TMP_CODEX_PROMPT=$(mktemp /tmp/muda-codex-prompt.XXXXXX)
   TMP_CODEX_REPORT=$(mktemp /tmp/muda-codex-report.XXXXXX)
 
@@ -404,14 +410,19 @@ ONE_LINER: <summary>
 PROMPT
   } > "$TMP_CODEX_PROMPT"
 
-  bash "$SCRIPT_DIR/codex-exec.sh" \
-    --prompt-file "$TMP_CODEX_PROMPT" \
-    --timeout 60 \
-    --timeout-tier analysis \
-    --report-out "$TMP_CODEX_REPORT" \
-    --phase "$PHASE_NUM" \
-    --step "muda-qualitative" 2>/dev/null
-  CODEX_QUAL_EXIT=$?
+  # Keep the caller's errexit state unchanged while retaining the documented
+  # non-blocking qualitative failure branch and mechanical exit result.
+  if bash "$SCRIPT_DIR/codex-exec.sh" \
+      --prompt-file "$TMP_CODEX_PROMPT" \
+      --timeout 60 \
+      --timeout-tier analysis \
+      --report-out "$TMP_CODEX_REPORT" \
+      --phase "$PHASE_NUM" \
+      --step "muda-qualitative" 2>/dev/null; then
+    CODEX_QUAL_EXIT=0
+  else
+    CODEX_QUAL_EXIT=$?
+  fi
   rm -f "$TMP_CODEX_PROMPT"
 
   if [[ "$CODEX_QUAL_EXIT" -eq 0 && -f "$TMP_CODEX_REPORT" ]]; then
@@ -420,6 +431,16 @@ PROMPT
     QUAL_CRITICAL=$(grep '^CRITICAL:' "$TMP_CODEX_REPORT" | awk '{print $2+0}')
     QUAL_WARNINGS=$(grep '^WARNINGS:' "$TMP_CODEX_REPORT" | awk '{print $2+0}')
     QUAL_ONE_LINER=$(grep '^ONE_LINER:' "$TMP_CODEX_REPORT" | sed 's/^ONE_LINER: //')
+
+    # Strict parsing is telemetry-only. The original tolerant values above
+    # continue to control verdicts, WASTE.md, counters and curation unchanged.
+    ATLAS_QUAL_CRITICAL_RAW=$(grep -m1 -E '^CRITICAL: [0-9]+$' "$TMP_CODEX_REPORT" 2>/dev/null || true)
+    ATLAS_QUAL_WARNINGS_RAW=$(grep -m1 -E '^WARNINGS: [0-9]+$' "$TMP_CODEX_REPORT" 2>/dev/null || true)
+    if [[ -n "$ATLAS_QUAL_CRITICAL_RAW" && -n "$ATLAS_QUAL_WARNINGS_RAW" ]]; then
+      ATLAS_QUAL_CRITICAL=$(printf '%s' "$ATLAS_QUAL_CRITICAL_RAW" | awk '{print $2}')
+      ATLAS_QUAL_WARNINGS=$(printf '%s' "$ATLAS_QUAL_WARNINGS_RAW" | awk '{print $2}')
+      ATLAS_QUAL_REPORT_PARSED=true
+    fi
 
     # Verdict mapping per CONTEXT D-07, D-08a (MUDA is NEVER a phase blocker — DLB-02)
     if [[ "${QUAL_CRITICAL:-0}" -gt 0 ]]; then
@@ -532,8 +553,43 @@ PROBE_VERDICTS_JSON=$(
         process.stdout.write(JSON.stringify(out));
     '
 )
-printf '{"ts":"%s","phase":"%s","warn":%d,"fail":%d,"exit":%d,"probes":%s}\n' \
-    "$TS" "$PHASE_NUM" "$warn_count" "$fail_count" "$PROBE_EXIT" "$PROBE_VERDICTS_JSON" >> "$METRICS_LOG"
+BASE_METRICS_ROW=$(printf '{"ts":"%s","phase":"%s","warn":%d,"fail":%d,"exit":%d,"probes":%s}' \
+    "$TS" "$PHASE_NUM" "$warn_count" "$fail_count" "$PROBE_EXIT" "$PROBE_VERDICTS_JSON")
+
+# Add passive Atlas evidence at the real append boundary. The helper is
+# optional and fail-open so installed copies that have not yet received it keep
+# the exact legacy writer behavior. Probe evidence prose is consumed only to
+# derive numeric denominators/no-input flags and is never persisted here.
+ATLAS_HELPER="$SCRIPT_DIR/lib/atlas-observation.cjs"
+ATLAS_METRICS_ROW=""
+if [[ -f "$ATLAS_HELPER" ]]; then
+    INVENTORY_NO_INPUT=false
+    [[ ${#SEARCH_ROOTS[@]} -eq 0 ]] && INVENTORY_NO_INPUT=true
+    ATLAS_SYNTHETIC=false
+    [[ "$PROBE_FILTER" == "codex" ]] && ATLAS_SYNTHETIC=true
+    ATLAS_METRICS_ROW=$(
+        printf '%s' "$PROBE_JSON" | \
+        ATLAS_BASE_ROW="$BASE_METRICS_ROW" \
+        ATLAS_MECHANICAL_EXIT="$PROBE_EXIT" \
+        ATLAS_SYNTHETIC="$ATLAS_SYNTHETIC" \
+        ATLAS_INVENTORY_NO_INPUT="$INVENTORY_NO_INPUT" \
+        ATLAS_QUAL_ENABLED="$CODEX_QUAL_ENABLED" \
+        ATLAS_DIFF_LINES="${DIFF_LINES:-0}" \
+        ATLAS_DRY_RUN="$DRY_RUN" \
+        ATLAS_QUAL_ATTEMPTED="$QUAL_ATTEMPTED" \
+        ATLAS_QUAL_EXIT="$CODEX_QUAL_EXIT" \
+        ATLAS_REPORT_PARSED="$ATLAS_QUAL_REPORT_PARSED" \
+        ATLAS_QUAL_CRITICAL="$ATLAS_QUAL_CRITICAL" \
+        ATLAS_QUAL_WARNINGS="$ATLAS_QUAL_WARNINGS" \
+        "$NODE_BIN" "$ATLAS_HELPER" --muda-row 2>/dev/null || true
+    )
+fi
+
+if [[ -n "$ATLAS_METRICS_ROW" ]]; then
+    printf '%s\n' "$ATLAS_METRICS_ROW" >> "$METRICS_LOG"
+else
+    printf '%s\n' "$BASE_METRICS_ROW" >> "$METRICS_LOG"
+fi
 
 echo "sgsd-muda-audit: $WASTE_FILE written — $warn_count WARN, $fail_count FAIL (exit $PROBE_EXIT)"
 exit $PROBE_EXIT

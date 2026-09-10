@@ -7,6 +7,7 @@ const path = require('node:path');
 const { audit } = require('./audit.cjs');
 const { registerRun, createGlobalStore, scopeEvent } = require('./global-store.cjs');
 const { canonicalize } = require('./contract.cjs');
+const { createLedgerRuntime, capturePaths } = require('./sgsd-ledger-runtime.cjs');
 function fixture(t) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-audit-'));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
@@ -131,4 +132,32 @@ test('audit flags cross-project native provider response reuse as unsafe instead
   assert.ok(result.findings.some(row => row.reason === 'cross_project_native_response_reuse'));
   assert.ok(result.projects.every(project => project.invalid > 0));
   assert.equal(result.complete_coverage, false); assert.deepEqual(snapshot(f.root), before);
+});
+
+test('audit includes separately validated operational capture and fails closed on operational tamper', async t => {
+  const f = fixture(t), source = path.join(f.run.project_dir, '.planning', 'metrics', 'gate-value-log.jsonl');
+  fs.mkdirSync(path.dirname(source), { recursive: true });
+  fs.writeFileSync(source, JSON.stringify({ envelope_version: 1, ts: '2026-09-08T12:00:00Z',
+    gate: 'phase-level-ATC', outcome: 'pass', atlas_observation: { schema_version: 1,
+      observation_id: '01a08882-20f6-7b23-96d0-c995aaa419f9', sgsd_run_id: f.run.run_id,
+      gate_invocation_id: null } }) + '\n');
+  const runtime = createLedgerRuntime({ root: f.root, now: () => '2026-09-08T12:00:01.000Z' });
+  runtime.cycle(); runtime.close();
+
+  let before = snapshot(f.root), result = await audit({ root: f.root, now: Date.parse('2026-09-08T12:01:00Z') });
+  assert.equal(result.operations.projects[0].canonical.matched_receipts, 1);
+  assert.equal(result.operations.projects[0].verification.matched, 1);
+  assert.equal(result.projects[0].runs[0].coverage, 'unavailable');
+  assert.ok(result.findings.some(row => row.reason === 'operational_capture_degraded'));
+  assert.deepEqual(snapshot(f.root), before);
+
+  const operational = capturePaths(f.root, f.run.project_id);
+  const eventFile = fs.readdirSync(operational.directory).find(name => /^sgsd-atlas-events-.*\.jsonl$/.test(name));
+  const target = path.join(operational.directory, eventFile);
+  fs.writeFileSync(target, fs.readFileSync(target, 'utf8').replace('"purpose":"gate_value"', '"purpose":"review"'));
+  before = snapshot(f.root); result = await audit({ root: f.root, now: Date.parse('2026-09-08T12:01:00Z') });
+  assert.equal(result.status, 'FAIL');
+  assert.equal(result.operations.status, 'FAIL');
+  assert.ok(result.findings.some(row => row.reason === 'operational_capture_failed'));
+  assert.deepEqual(snapshot(f.root), before);
 });

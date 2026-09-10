@@ -15,6 +15,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { findSgsdRoot, readState, resolveContainedPath } = require('./sgsd-state.cjs');
 
+function _observe(row, context) {
+  try { return require('./atlas-observation.cjs').withObservation(row, context); }
+  catch { return row; }
+}
+
 const STATUSES = Object.freeze(['ok', 'warn', 'fail', 'skipped', 'timeout', 'blocked']);
 const RISKS = Object.freeze(['low', 'medium', 'high']);
 const COMMAND_NAME = 'appendCommitGateShadowRow';
@@ -340,8 +345,9 @@ function appendShadowRow(root, row) {
     try {
       const dir = path.dirname(resolved.ledger);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.appendFileSync(resolved.ledger, JSON.stringify(normalized.row) + '\n', 'utf8');
-      return normalized.row;
+      const observed = _observe(normalized.row, row);
+      fs.appendFileSync(resolved.ledger, JSON.stringify(observed) + '\n', 'utf8');
+      return observed;
     } catch (error) {
       const failedRow = _withReason(normalized.row, 'shadow_ledger_append_failed');
       _breadcrumb('shadow_ledger_append_failed', error && (error.code || error.message));

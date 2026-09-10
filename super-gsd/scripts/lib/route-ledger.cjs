@@ -54,6 +54,11 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
+function _observe(row, context) {
+  try { return require('./atlas-observation.cjs').withObservation(row, context); }
+  catch { return row; }
+}
+
 // ROUTE-02: closed enum of route boundary types. Frozen.
 // Phase 38 (SAMPLE-04): added 'gate_override' for --force-gates /
 // --skip-gates with --override-reason. Mass-discuss line 187 names
@@ -200,11 +205,12 @@ function appendRow(planningDir, row) {
   if (!planningDir) throw new Error('route-ledger: planningDir required');
   const enriched = _normalize(row);
   _assertEnvelopeV1(enriched);
+  const observed = _observe(enriched, row);
   const p = jsonlPath(planningDir);
   const dir = path.dirname(p);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(p, JSON.stringify(enriched) + '\n', 'utf8');
-  return enriched;
+  fs.appendFileSync(p, JSON.stringify(observed) + '\n', 'utf8');
+  return observed;
 }
 
 // Defensive read: skip malformed lines (mirror crit-backlog.cjs:120-122).
@@ -330,8 +336,8 @@ function selfTest() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rl-'));
   try {
     // 1. Module exports + frozen constants. Double-agent executor: 10 entries.
-    assert('1. BOUNDARIES is array of 10',
-      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 10);
+    assert('1. BOUNDARIES is array of 11',
+      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 11);
     assert('2. STATUSES is array of 6 envelope-v1 states',
       Array.isArray(STATUSES) && STATUSES.length === 6 &&
       STATUSES.includes('ok') && STATUSES.includes('warn') &&

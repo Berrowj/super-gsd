@@ -387,6 +387,47 @@ test('receiver close is one idempotent bounded drain and does not close its call
   await first; fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('operational collector starts after bind, stays low-cardinality in health and metrics, and closes before listeners', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-operational-lifecycle-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const boundaries = [];
+  const operationalCollector = {
+    start() { boundaries.push('start'); return true; },
+    status() { return { schema_version: 1, status: 'degraded', cycle: { pending_bytes: 17,
+      lag_ms: 23, budget_exhausted: true, reason: 'processing_budget' }, counters: {
+      accepted: 2, duplicate: 1, conflict: 0, rejected: 3, excluded: 4, gaps: 3, records: 10, bytes_read: 99 },
+      families: { gate_value: { accepted: 2, duplicate: 0, conflict: 0, rejected: 0,
+        excluded: 0, gaps: 0, records: 2, bytes_read: 50 } }, cached_stores: 1, cached_rows: 2 }; },
+    close() { boundaries.push('collector'); return true; },
+  };
+  const instance = await startServer({ projectDir: root, operationalCollector,
+    ingestPort: 0, healthPort: 0, metricsPort: 0, closeGraceMs: 100 });
+  assert.deepEqual(boundaries,['start']);
+  const healthResponse = await fetch(instance.urls.health + '/health'), health = await healthResponse.json();
+  assert.equal(healthResponse.status,200,'operational degradation does not misstate canonical receiver storage');
+  assert.equal(health.operational.status,'degraded');
+  assert.equal(JSON.stringify(health).includes(root),false);
+  const metricsText = await (await fetch(instance.urls.metrics + '/metrics')).text();
+  assert.match(metricsText,/sgsd_atlas_operational_records_total\{disposition="accepted"\} 2/);
+  assert.match(metricsText,/sgsd_atlas_operational_pending_bytes 17/);
+  const closing = instance.close();
+  assert.equal(boundaries[1],'collector','collector timer stops synchronously before listener drain');
+  await closing;
+});
+
+test('bind failure closes the operational collector without starting its timer', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-operational-bind-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const occupied = net.createServer(); await new Promise(resolve => occupied.listen(0,'127.0.0.1',resolve));
+  const calls = [], collector = { start() { calls.push('start'); }, status() { return {}; },
+    close() { calls.push('close'); } };
+  try {
+    await assert.rejects(startServer({ projectDir: root, operationalCollector: collector,
+      ingestPort: 0, healthPort: occupied.address().port, metricsPort: 0 }), { code: 'EADDRINUSE' });
+    assert.deepEqual(calls,['close']);
+  } finally { await new Promise(resolve => occupied.close(resolve)); }
+});
+
 test('receiver close forcibly bounds a client that never finishes its request', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-forced-drain-'));
   const instance = await startServer({ projectDir: root, ingestPort: 0, healthPort: 0, metricsPort: 0, closeGraceMs: 40 });

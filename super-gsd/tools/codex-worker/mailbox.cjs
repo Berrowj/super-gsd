@@ -10,6 +10,12 @@ const ACTIVE = new Set(['starting', 'running', 'waiting_input']);
 const MAX_JSON = 128 * 1024;
 const renameBackoff = new Int32Array(new SharedArrayBuffer(4));
 const uid = () => crypto.randomUUID();
+function observe(record, boundary, action = null, resultStatus = null) {
+  try {
+    require('../../scripts/lib/atlas-observation.cjs')
+      .appendWorkerEvent(record.project, record, boundary, action, resultStatus);
+  } catch { /* observational IO and optional instrumentation are fail-open */ }
+}
 function projectRoot(project) {
   const root = fs.realpathSync(path.resolve(project));
   const planning = resolveContainedPath(root, '.planning');
@@ -85,12 +91,15 @@ function create(project, metadata = {}) {
   // Inventory discovers UUID directories only after their initial record is
   // complete. Never hide missing/corrupt state in an already published worker.
   fs.renameSync(staging, dir);
+  observe(record, 'create');
   return record;
 }
-function save(record) {
+function saveInternal(record, emitObservation) {
   record.updated_at = new Date().toISOString();
   atomic(path.join(folder(record.project, record.worker_id), 'state.json'), record);
+  if (emitObservation) observe(record, 'save');
 }
+function save(record) { saveInternal(record, true); }
 function list(project) {
   project = projectRoot(project); const dir = target(project, '');
   if (!fs.existsSync(dir)) return [];
@@ -136,11 +145,13 @@ function submit(project, worker, action, { requestId, text, answers, owner } = {
   const message = { id, action, worker_id: worker, instance: record.instance, thread_id: record.thread_id,
     turn_id: record.turn_id, request_id: requestId || null, ...payload, created_at: new Date().toISOString() };
   atomic(path.join(dir, `${id}.json`), message, true);
+  observe(record, 'submit', action);
   return { queued: true, command_id: id, worker_id: worker };
 }
 function result(record, command, status, reason = null) {
   record.control_results = [...(record.control_results || []).slice(-127), { id: command.id, action: command.action, status, reason, at: new Date().toISOString() }];
-  save(record);
+  saveInternal(record, false);
+  observe(record, 'result', command.action, status);
 }
 function receipt(project, worker, command) {
   if (!ID.test(command || '')) throw new Error('invalid_worker_command');

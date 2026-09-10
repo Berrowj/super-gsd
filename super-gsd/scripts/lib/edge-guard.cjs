@@ -26,6 +26,11 @@ const fs   = require('fs');
 const os   = require('os');
 const path = require('path');
 
+function _observe(row, context) {
+  try { return require('./atlas-observation.cjs').withObservation(row, context); }
+  catch { return row; }
+}
+
 // Loaded lazily to avoid hard-fail when running --self-test with a fixture yaml
 let _getGate = null;
 function getGate(name, gatesYamlPath) {
@@ -64,6 +69,8 @@ function recordTransition({
   ctx,
   gatesYamlPath,
   projectDir,
+  sgsd_run_id,
+  gate_invocation_id,
 }) {
   // D-11c: token-log step (11) is exempt from emit-check
   if (fromStep === 11) {
@@ -92,7 +99,7 @@ function recordTransition({
     escalation === 'halt' ? 'halt'     :
     /* default */           'log-only' ;
 
-  const row = {
+  const row = _observe({
     ts:             new Date().toISOString(),
     phase:          phase,
     plan:           plan,
@@ -104,7 +111,7 @@ function recordTransition({
     missing_emits:  missing,
     context:        ctx || {},
     resolution:     resolution,
-  };
+  }, { sgsd_run_id, gate_invocation_id });
 
   // Append JSONL row (D-11: always write the row)
   const logPath = path.resolve(projectDir, RELATIVE_LOG);

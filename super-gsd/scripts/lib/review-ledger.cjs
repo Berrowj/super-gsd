@@ -55,6 +55,21 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
+function _atlas() {
+  try { return require('./atlas-observation.cjs'); }
+  catch { return null; }
+}
+
+function _observe(row, context) {
+  const atlas = _atlas();
+  return atlas ? atlas.withObservation(row, context) : row;
+}
+
+function _preserveObservation(row, source) {
+  const atlas = _atlas();
+  return atlas ? atlas.preserveObservation(row, source) : row;
+}
+
 // envelope-v1 status enum (frozen). Mirrors route-ledger.cjs.
 const STATUSES = Object.freeze([
   'ok', 'warn', 'fail', 'skipped', 'timeout', 'blocked',
@@ -126,7 +141,7 @@ function _normalize(row) {
   delete legacy._source_milestone;
   delete legacy._report_path;
 
-  return {
+  return _preserveObservation({
     envelope_version: ENVELOPE_VERSION,
     ts,
     command: COMMAND_NAME,
@@ -145,7 +160,7 @@ function _normalize(row) {
     _source_phase: row._source_phase ?? null,
     _source_milestone: row._source_milestone ?? null,
     _legacy: legacy,
-  };
+  }, row);
 }
 
 // Manual envelope-v1 schema check (no ajv dep). Mirrors route-ledger.cjs:141-171.
@@ -185,11 +200,12 @@ function _appendRowInternal(planningDir, row) {
   if (!planningDir) throw new Error('review-ledger: planningDir required');
   const enriched = _normalize(row);
   _assertEnvelopeV1(enriched);
+  const observed = _observe(enriched, row);
   const p = ledgerPath(planningDir);
   const dir = path.dirname(p);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(p, JSON.stringify(enriched) + '\n', 'utf8');
-  return enriched;
+  fs.appendFileSync(p, JSON.stringify(observed) + '\n', 'utf8');
+  return observed;
 }
 
 // PUBLIC: atomic append. NEVER throws upward. Returns enriched row on success,

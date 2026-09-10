@@ -232,6 +232,7 @@
       ],
       "dependencies": [
         "schemas/vtp-mcp-input-schemas.v2.json",
+        "scripts/lib/atlas-observation.cjs",
         "scripts/lib/commit-gate-shadow-log.cjs",
         "scripts/lib/commit-gate-shadow-report.cjs",
         "scripts/lib/decision-state.cjs",
@@ -298,6 +299,7 @@
       ],
       "dependencies": [
         "schemas/vtp-mcp-input-schemas.v2.json",
+        "scripts/lib/atlas-observation.cjs",
         "scripts/lib/decision-state.cjs",
         "scripts/lib/demand-baseline-ledger.cjs",
         "scripts/lib/gate-evidence-log.cjs",
@@ -379,6 +381,7 @@
       "dependencies": [
         "hooks/sgsd-intent-classifier.cjs",
         "schemas/vtp-mcp-input-schemas.v2.json",
+        "scripts/lib/atlas-observation.cjs",
         "scripts/lib/decision-state.cjs",
         "scripts/lib/demand-baseline-ledger.cjs",
         "scripts/lib/gate-evidence-log.cjs",
@@ -459,6 +462,7 @@
       ],
       "dependencies": [
         "schemas/vtp-mcp-input-schemas.v2.json",
+        "scripts/lib/atlas-observation.cjs",
         "scripts/lib/decision-state.cjs",
         "scripts/lib/gate-evidence-log.cjs",
         "scripts/lib/phase-name.cjs",

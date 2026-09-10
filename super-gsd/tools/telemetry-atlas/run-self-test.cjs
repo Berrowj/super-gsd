@@ -9,8 +9,12 @@ const suites = {
   store: 'store.test.cjs', receiver: 'receiver.test.cjs',
   runtime: 'runtime.test.cjs', stack: 'stack.test.cjs',
   install: 'install.test.cjs', global: 'global.test.cjs', audit: 'audit.test.cjs', launch: 'launch.test.cjs',
+  ledger: 'sgsd-ledger.test.cjs', producer: 'sgsd-producer-contract.test.cjs',
+  ledgerRuntime: 'sgsd-ledger-runtime.test.cjs', operation: 'operation-report.test.cjs',
 };
-const tasks = { T1: ['store'], T2: ['store','receiver','runtime'], T3: ['runtime','stack','install'], T4: ['global','audit','launch','install'] };
+const tasks = { T1: ['store','ledger'], T2: ['store','receiver','runtime','producer'],
+  T3: ['runtime','stack','install','ledgerRuntime','global','receiver'],
+  T4: ['global','audit','launch','install','ledger','producer','ledgerRuntime','operation'] };
 const cases = {
   'ingestion-dedup-conflict': ['store'], 'privacy-canary': ['store','receiver','stack'],
   'malformed-tail': ['store'], 'receiver-health-metrics': ['receiver'],
@@ -19,6 +23,8 @@ const cases = {
   'launcher-equivalence': ['runtime'], 'statusline-quota-equivalence': ['runtime','receiver'],
   'install-delivery': ['install'],
   'automatic-capture': ['global','launch'], 'integrity-audit': ['audit'],
+  'operational-projection': ['ledger','producer'], 'operational-runtime': ['ledgerRuntime'],
+  'operational-report': ['operation','audit'],
 };
 const args = process.argv.slice(2);
 let selected = Object.keys(suites);

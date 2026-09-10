@@ -43,7 +43,7 @@ test('real global install delivers self-contained Atlas and installed statusline
     assert.ok(fs.existsSync(path.join(targetRoot, name)), `global Atlas file delivered: ${name}`);
     assert.equal(hash(path.join(targetRoot, name)), hash(path.join(__dirname, name)), `global Atlas hash matches: ${name}`);
   }
-  for (const name of ['atlas-shell.sh', 'atlas-powershell.ps1']) {
+  for (const name of ['atlas-shell.sh', 'atlas-powershell.ps1', 'atlas-observation.cjs']) {
     assert.equal(hash(path.join(fixtureHome, '.claude', 'scripts', 'lib', name)),
       hash(path.join(sourceRoot, 'super-gsd', 'scripts', 'lib', name)), `global bootstrap helper delivered: ${name}`);
   }

@@ -8,7 +8,8 @@ const crypto = require('node:crypto');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const DEPENDENCY_FILES = ['server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs',
-  'contract.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs'];
+  'contract.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs',
+  'sgsd-ledger-runtime.cjs', 'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs'];
 function dependencySnapshot() {
   return DEPENDENCY_FILES.map(name => {
     const bytes = fs.readFileSync(path.join(__dirname, name));
@@ -22,6 +23,7 @@ const { digest, appendGap, safePath } = require('./contract.cjs');
 const { privateDirectory, queueEvent } = require('./quota-sampler.cjs');
 const { telemetryEnvironment, processIdentity, owned, ownsPort } = require('./lifecycle.cjs');
 const { startServer } = require('./server.cjs');
+const { createLedgerRuntime } = require('./sgsd-ledger-runtime.cjs');
 const PROTOCOL = 1;
 const dependencyAfter = dependencySnapshot();
 const dependencyCoherent = cachedDependencies.length === 0
@@ -239,19 +241,21 @@ function transitionChildClaim(root, token, instanceId) {
     replacement_identity: identity, child_owned_at: new Date().toISOString(), updated_at: new Date().toISOString() });
 }
 async function startGlobal({ root = rootPath(), spoolPollMs = 1000, startupToken, transitionToken, ports = {}, instanceId,
-  storeFactory = createGlobalStore, serverFactory = startServer } = {}) {
+  storeFactory = createGlobalStore, serverFactory = startServer, collectorFactory = createLedgerRuntime } = {}) {
   requireAttestedRuntime();
   root = path.resolve(root); privateDirectory(root);
   if (startupToken && !ownsStartup(root, startupToken)) throw new Error('startup_ownership_lost');
   instanceId ||= crypto.randomUUID();
   transitionChildClaim(root, transitionToken, instanceId);
   const store = storeFactory(root);
-  let instance;
+  let instance, collector;
   try {
+    collector = collectorFactory({ root });
     instance = await serverFactory({ projectDir: root, store, instanceId, runtimeFingerprint: RUNTIME_FINGERPRINT,
       resolveRoute: store.resolveRoute, scopeEvent: store.scopeEvent, spoolSources: store.spoolSources,
+      operationalCollector: collector,
       ingestPort: ports.ingest ?? 0, healthPort: ports.health ?? 0, metricsPort: ports.metrics ?? 0, spoolPollMs });
-  } catch (error) { store.close(); throw error; }
+  } catch (error) { try { await collector?.close(); } catch {} store.close(); throw error; }
   const record = { schema_version: PROTOCOL, mode: 'global', root_id: digest(root), pid: process.pid,
     instance_id: instance.instanceId, started_at: new Date().toISOString(), urls: instance.urls,
     runtime_fingerprint: RUNTIME_FINGERPRINT, process_identity: processIdentity(process.pid), entry: fs.realpathSync(__filename),
@@ -266,17 +270,17 @@ async function startGlobal({ root = rootPath(), spoolPollMs = 1000, startupToken
         replacement_instance_id: record.instance_id, service_ready_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     }
     if (startupToken) releaseStartup(root, startupToken);
-  } catch (error) { await instance.close(); store.close(); throw error; }
+  } catch (error) { try { await collector.close(); } catch {} await instance.close(); store.close(); throw error; }
   let closePromise;
   const close = () => {
     if (closePromise) return closePromise;
     closePromise = (async () => {
-      await instance.close(); store.close();
+      await collector.close(); await instance.close(); store.close();
       try { if (readJson(servicePath(root)).instance_id === record.instance_id) fs.unlinkSync(servicePath(root)); } catch {}
     })();
     return closePromise;
   };
-  return { ...instance, record, close };
+  return { ...instance, operationalCollector: collector, record, close };
 }
 async function ensureService(root, timeoutMs = 2000) {
   requireAttestedRuntime();
