@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-status: ACTIVE
+status: COMPLETE
 phase: 170
 plan: "170-10"
 source_revision: effccead303145f7330f83fb7676761cfd8c999f
@@ -251,15 +251,15 @@ labels. Native usage counters remain unchanged by semantic collection.
 - [x] T4: write failing report/source-verification tests; integrate existing
   audit and all test discovery/install checks; verify no token double counting;
   spec then quality/registered ATC review before publication.
-- [ ] T5: repair the demonstrated namespaced-phase MUDA producer abort, with
+- [x] T5: repair the demonstrated namespaced-phase MUDA producer abort, with
   regression, independent SPEC, registered FULL ATC and guarded incremental update.
-- [ ] T6: coalesce measured identical worker-save observations without suppressing
+- [x] T6: coalesce measured identical worker-save observations without suppressing
   real state/control changes; verify independently and publish normally.
-- [ ] Publish reviewed source through the existing normal DEVCP update path;
+- [x] Publish reviewed source through the existing normal DEVCP update path;
   compare installed hashes and protected config/session state before/after.
-- [ ] Observe actual source rows and automatic capture, with source-digest
+- [x] Observe actual source rows and automatic capture, with source-digest
   reconciliation for MUDA/ATC, low-overhead sampling and explicit idle/gap status.
-- [ ] Hand off the Linux result with source revision, capture evidence, measured
+- [x] Hand off the Linux result with source revision, capture evidence, measured
   overhead and any genuinely remaining limitations; preserve all failure history.
 
 Concrete private commands after their files exist:
@@ -378,3 +378,19 @@ submit, result and actual selected state/identity/pending changes stay emitted.
 T5's test author is frozen; T6 owns the shared producer test file only after
 independently reviewing T5, preventing concurrent edits. T5/T6 may share one
 FULL registered follow-up ATC after independent SPEC and native verification.
+
+## Implementation outcome
+
+Linux capture increment complete: core `59762975`, producer repairs `50440c65`.
+Both were published and installed through the ordinary guarded update. Actual
+ATC review/gate records and actual Clarity MUDA observation are source-byte,
+receipt and canonical verified. MUDA's genuine stale-narrative FAIL and its
+qualitative skip were retained, not changed to passing results. Details and
+exact review/test/deployment/resource evidence are in the companion report.
+
+This completes the implementation and observed-capture slice, not a completed
+weekly trial, exhaustive provider-billing reconciliation, historical backfill,
+formal phase/milestone closure, old-session/pin refresh, or Windows delivery.
+Historical collection continues automatically with bounded resources and zero
+model calls; absent/unsafe/malformed sources and unexecuted families remain
+explicit. No operator action or additional agent run is required to drain it.

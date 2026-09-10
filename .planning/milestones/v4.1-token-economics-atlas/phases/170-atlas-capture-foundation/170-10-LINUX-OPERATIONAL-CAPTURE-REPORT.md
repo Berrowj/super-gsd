@@ -1,8 +1,24 @@
 # Linux operational capture — overnight evidence
 
-Status: DEPLOYED Linux `5976297` at 02:17Z; live producer verification in progress. This report is
-not a passing phase gate, completed weekly baseline or replacement for any
-previous failed acceptance evidence.
+Status: LINUX IMPLEMENTATION DEPLOYED AND OBSERVED. Core `59762975` was installed
+at 02:17Z; reviewed MUDA/save-efficiency repairs `50440c65` at 02:49Z. Actual
+MUDA and ATC source-byte/receipt/canonical proofs pass. Automatic historical
+backfill continues; historical gaps and unexecuted families remain explicit.
+This is not a passing phase gate, completed weekly baseline, exhaustive billing
+reconciliation, Windows delivery or replacement for earlier failed evidence.
+
+Read-only weekly check on DEVCP, across registered projects:
+
+```sh
+node ~/.claude/tools/telemetry-atlas/audit.cjs --json
+```
+
+It includes operational source-digest verification and native-accounting checks.
+Exit 0 means checked PASS, 10 means WARN/partial or missing coverage, and 1 means
+FAIL. Inspect the named findings: a genuine MUDA failure is captured evidence,
+not necessarily a telemetry failure. Idle/nonexecuted families are not invented
+activity. Original source records are retained; no weekly analysis model is
+called by collection or this audit.
 
 Operator-authorized window: 2026-09-09 22:42:46 UTC to approximately
 2026-09-10 07:42:46 UTC. Governing active plan: 170-10.
@@ -34,7 +50,7 @@ Operator-authorized window: 2026-09-09 22:42:46 UTC to approximately
   native responses. These historical counters are not operational-capture
   evidence and are not silently reset or represented as resolved here.
 
-## Implementation progress
+## Initial implementation progress (historical)
 
 - T1: content-free source projection and incremental reader in progress.
 - T2: additive producer observations and structured MUDA detail in progress.
@@ -584,3 +600,95 @@ four requested mutations, focused 1/1 PASS, production helper/README unchanged.
 T5/T6 are accepted for normal incremental publication. Existing plan validation,
 hook-manifest dependency check, Bash syntax and `git diff --check` all passed.
 Original FULL ATC remains WARN with its sole tests-only warning now closed.
+
+## Incremental Linux deployment and actual MUDA, 02:49-02:52 UTC
+
+Published `50440c65f05dadb62754d5afac8464a069a74865` with exactly four reviewed
+source/doc files plus this plan/report/state. All four staged Git blob hashes
+matched `T56-final-manifest.json`. Normal non-force push and ordinary Clarity
+`sgsd-update.sh` completed successfully at 02:49:22Z. Canonical source is clean
+at that revision; the Clarity pin matches. Eleven follow-up canonical/install
+hash checks all match. The owned receiver correctly reported `already_current`:
+its runtime closure is unchanged, so PID/start/instance/fingerprint and all
+three ports remain identical. No gratuitous restart was performed.
+
+Before/after guard again found zero changes to seven protected files and all
+28 prior panes; only the intended Clarity pin changed among 53 paths. Evidence:
+`guard-t56-preupdate.json`, `guard-t56-postupdate.json`,
+`guard-t56-update-comparison.json`, `t56-installed-hash-checks.json`, and
+`t56-linux-update.stdout`/`.stderr`. Full update output was read.
+
+The actual installed MUDA audit now completed normally on `v30-07` at
+02:50:06Z, 1087 ms, exit 2: zero WARN, one FAIL. It wrote the previously absent
+WASTE.md and exactly one new MUDA row under observer run
+`sgsd-550320d8-4095-4e47-96f3-026ec86d4304`, observation
+`0a5d26c6-618a-42ef-9fcf-4b234bdeee9a`. The real failing measurement was
+`narrative_age_sec=25504` versus fail threshold 3600; the policy was not changed
+to make the gate pass. Mechanical execution is true, synthetic false, coverage
+partial because some probes have no input. Qualitative execution was correctly
+skipped for mechanical findings (also disabled by the existing configuration);
+no provider call or memory curation occurred.
+
+Evidence: `actual-muda-after-t5.stdout`/`.stderr` and
+`actual-muda-producer-evidence.json`. The original silent-failure artifacts
+remain unchanged. The first source-receipt proof at 02:50:28Z found the new
+receipt not yet present while the automatic source cycle caught up; that
+first result is preserved, not overwritten. Independent selected-observation
+verification is in progress. A second read-only five-minute resource sample
+started in `live-receiver-sample-j9eaD6/` with the unchanged receiver identity.
+
+## Actual MUDA capture proof, 02:52 UTC
+
+Independent read-only verification completed at 02:52:53Z: exactly one original
+source row, accepted receipt and canonical event match. Original byte offset
+723, length 1334, SHA
+`9769900a4c3db38c21fa44af442a14284c4b3c4a52dd3d250554bc488ff25eb1`.
+Receipt `40acf1cbfec1d39d006a68b9cbba85cd580b185d025534b2632f200dce3ef1dc`
+has exact run correlation and producer-observation provenance. Canonical event
+`cbc2b5bbf6ae5d37a93c9ef31364e496c1bbe29cc0f2b3e900eef147ad763668`,
+payload SHA `14273c541139382f671579fc629dbcc98a97ec93d03350873725a6d1ccbf967c`,
+retains that same observer run and the typed real measurements/skip reason.
+The source/receipt/canonical chain does not infer a session from a timestamp.
+
+Selected-only proof `actual-muda-selected-proof-final.json`, SHA
+`6afae9844d5c04bf3bae22a9f39f942884bc57bb7328f7ecd40164adb5ddf2de`, is retained
+in both the Windows private evidence folder and native private base. Root read
+the complete proof and checked its file hash. The first pending proof is still
+retained separately. MUDA and ATC live capture requirements are now met.
+
+## Final read-only Linux handoff checks, 02:57-02:59 UTC
+
+The second live receiver sample completed at 02:57:19.729Z: stable exact
+PID/start/instance/fingerprint, 61 samples over 300183 ms, 0.922770% of one CPU
+core, peak RSS 83,955,712 bytes (80.066 MiB). Sampler and passive collection make
+zero model calls. This is measured initial-backfill operation, not a completed
+weekly soak or the footprint of all SGSD processes. Evidence:
+`live-receiver-sample-j9eaD6/result.json`.
+
+Independent installed audit/report at 02:56Z both returned WARN/exit 10 with
+empty stderr, a healthy service and no integrity FAIL. Root then saved a final
+existing-audit snapshot at 02:59:07Z for durable handoff evidence:
+`final-linux-audit.json` and selected `final-linux-audit-summary.json`.
+Seventeen registered projects, ten existing capture states; all native invalid,
+duplicate and conflict counts are zero. Operational receipt/state counts match
+for all ten states, every scanned canonical join is checked, and there are zero
+missing/mismatched/orphan/conflicting/duplicate canonical records at this snapshot.
+
+Operational observations: 22,361 total. Source verification checked and matched
+22,352, with zero mismatches and nine explicitly unverifiable observations (one
+in Clarity and eight in the private review project), not silently counted PASS.
+Clarity has 20,873 observations, 781 matched canonical proofs, and 20,025,536
+pending source bytes; the private review project has 1435 observations, 1429
+matched canonical proofs, and 2,951,031 pending bytes. Eight smaller existing
+projects are fully caught up. Seven absent historical test roots remain
+registered and explicitly missing capture state. Original pre-window exclusions,
+unsafe/malformed-source gaps, unknown HTTP identity and incomplete quota/idle
+coverage are retained; the audit correctly does not claim exhaustive coverage.
+
+The implementation and actual-capture work is complete. Historical backfill is
+ordinary background data collection, not further coding or another model task;
+the already-running bounded receiver continues it automatically. Future weekly
+checks must inspect lag/capacity/gap findings rather than assume permanent full
+coverage. Existing evidence is not pruned or rewritten. Windows, formal phase
+and milestone gates, the old failed bridge benchmark, all-session freshness and
+a full week of observed data remain separate work, not falsely closed here.
