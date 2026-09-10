@@ -57,6 +57,12 @@ $callerPid = $PID; sg -NoCockpit -Go -ProjectDir ${psQuote(f.project)};
   assert.equal(output.restored, 'old-wrong-project'); assert.equal(output.exitCode, 23);
 });
 
+test('Bash managed orchestrator refuses disabled capture before any provider', { skip: process.platform !== 'linux' }, async t => {
+  const f = fixture(t);
+  const script = `source ${shQuote(path.join(scripts, 'lib/atlas-shell.sh'))}\nexport SGSD_ATLAS_DISABLED=1\nsgsd_atlas_attach orchestrator anthropic ${shQuote(f.project)}\nrc=$?\nprintf 'attach_exit=%s' "$rc"`;
+  const result = await exec('bash', ['-c', script], { env: baseEnv(f.root), timeout: 10000 });
+  assert.equal(result.stdout, 'attach_exit=1');
+});
 test('Bash child attachment preserves model argv and creates fresh scoped telemetry', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), server = await startGlobal({ root: f.root }); t.after(() => server.close());
   const code = 'process.stdout.write(JSON.stringify({run:process.env.SGSD_RUN_ID,raw:process.env.OTEL_LOG_RAW_API_BODIES,headers:process.env.OTEL_EXPORTER_OTLP_HEADERS,args:process.argv.slice(1)}))';

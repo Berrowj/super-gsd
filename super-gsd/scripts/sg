@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Installed at ~/.local/bin/sg. Keep Claude in the terminal where sg was typed.
+set -u
+
+die() { printf 'sg: %s\n' "$*" >&2; exit 1; }
+require_path() { [[ $# -ge 2 && -n "$2" ]] || die "$1 requires a path"; }
+
+SELF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)" \
+  || die "cannot resolve launcher directory"
+SCRIPTS_DIR="${SGSD_SCRIPTS_DIR:-}"
+AGENTS_DIR="${SGSD_AGENTS_DIR:-}"
+SOURCE_DIR="${SGSD_SOURCE_DIR:-}"
+ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scripts-dir) require_path "$@"; SCRIPTS_DIR="$2"; shift 2 ;;
+    --agents-dir) require_path "$@"; AGENTS_DIR="$2"; shift 2 ;;
+    --source-dir) require_path "$@"; SOURCE_DIR="$2"; shift 2 ;;
+    -ProjectDir|--project)
+      require_path "$@"; ARGS+=(--project "$2"); shift 2 ;;
+    --session)
+      [[ $# -ge 2 && -n "$2" ]] || die "--session requires a name"
+      ARGS+=("$1" "$2"); shift 2 ;;
+    -Go|--go) ARGS+=(--go); shift ;;
+    -NoCockpit|--no-cockpit) ARGS+=(--no-cockpit); shift ;;
+    -NoClaude|--no-claude) ARGS+=(--shell); shift ;;
+    -FullPreflight|--full-preflight)
+      die "--full-preflight is not supported by this shortcut. Normal sg already runs the shared launcher's required provenance and ownership checks. Run sgsd separately for full cockpit preflight, then sg." ;;
+    --current-terminal) shift ;;
+    -h|--help|-Help)
+      printf '%s\n' \
+        'Usage: sg [--project PATH] [--go] [--no-cockpit] [--no-claude]' \
+        'Launch the shared owned SGSD session in this terminal; project defaults to the current worktree.' \
+        'Legacy -Go, -ProjectDir, -NoCockpit and -NoClaude are accepted.' \
+        '--no-claude selects the shared launcher shell mode. --full-preflight is unsupported.' \
+        'Directory overrides: --scripts-dir PATH --agents-dir PATH --source-dir PATH.'
+      exit 0 ;;
+    *) ARGS+=("$1"); shift ;;
+  esac
+done
+
+# Match sgsd's authoritative resolution: explicit CLI, environment, colocated
+# installed scripts, then the per-user global installation. Never use project vendors.
+if [[ -z "$SCRIPTS_DIR" ]]; then
+  if [[ -f "$SELF_DIR/sgsd-remote-tmux.sh" ]]; then
+    SCRIPTS_DIR="$SELF_DIR"
+  else
+    SCRIPTS_DIR="$HOME/.claude/super-gsd/scripts"
+  fi
+fi
+[[ -n "$AGENTS_DIR" ]] || AGENTS_DIR="$HOME/.claude/agents"
+[[ -n "$SOURCE_DIR" ]] || SOURCE_DIR="$HOME/.claude/super-gsd/source"
+[[ -d "$SCRIPTS_DIR" ]] || die "missing SGSD scripts dir: $SCRIPTS_DIR"
+[[ -d "$AGENTS_DIR" ]] || die "missing SGSD agents dir: $AGENTS_DIR"
+[[ -d "$SOURCE_DIR" ]] || die "missing SGSD source dir: $SOURCE_DIR"
+SCRIPTS_DIR="$(cd "$SCRIPTS_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve scripts dir: $SCRIPTS_DIR"
+AGENTS_DIR="$(cd "$AGENTS_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve agents dir: $AGENTS_DIR"
+SOURCE_DIR="$(cd "$SOURCE_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve source dir: $SOURCE_DIR"
+LAUNCHER="$SCRIPTS_DIR/sgsd-remote-tmux.sh"
+[[ -f "$LAUNCHER" ]] || die "missing SGSD shared launcher: $LAUNCHER"
+
+exec bash "$LAUNCHER" --current-terminal \
+  --scripts-dir "$SCRIPTS_DIR" \
+  --agents-dir "$AGENTS_DIR" \
+  --source-dir "$SOURCE_DIR" \
+  "${ARGS[@]}"

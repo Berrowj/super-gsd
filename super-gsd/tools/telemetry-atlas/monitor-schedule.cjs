@@ -78,7 +78,25 @@ async function cli(argv=process.argv.slice(2)){
   const command=argv.shift(),options={};for(let i=0;i<argv.length;i+=2){if(!['--root','--project-dir'].includes(argv[i])||!argv[i+1])throw new Error('invalid_arguments');if(argv[i]==='--project-dir')(options.projects||=[]).push(argv[i+1]);else options.root=argv[i+1];}
   const root=path.resolve(options.root||rootPath());
   if(command==='install'||command==='disable')return install(root,command==='disable');
-  if(command==='configure'){if(!options.projects?.length)throw new Error('project_required');const project_dirs=options.projects.map(p=>{const real=fs.realpathSync(p);if(!fs.statSync(path.join(real,'.planning')).isDirectory())throw new Error('not_sgsd_project');return real;});const config={schema_version:1,project_dirs};writeJson(path.join(root,'monitor/config.json'),config);return config;}
+  if(command==='configure'||command==='include'){
+    if(!options.projects?.length)throw new Error('project_required');
+    const additions=options.projects.map(p=>{const real=fs.realpathSync(p);if(!fs.statSync(path.join(real,'.planning')).isDirectory())throw new Error('not_sgsd_project');return real;});
+    const result=locked(root,'configure',()=>{
+      const file=path.join(root,'monitor/config.json');let existing=[];
+      if(command==='include'&&fs.existsSync(file)){
+        const config=readJson(file,65536);
+        if(config.schema_version!==1||!Array.isArray(config.project_dirs)||config.project_dirs.some(p=>typeof p!=='string'||!path.isAbsolute(p)))throw new Error('monitor_config_invalid');
+        existing=config.project_dirs;
+      }
+      const project_dirs=[...new Set([...existing,...additions])];
+      if(project_dirs.length>32)throw new Error('monitor_project_limit');
+      const config={schema_version:1,project_dirs};
+      if(command==='configure'||JSON.stringify(existing)!==JSON.stringify(project_dirs))writeJson(file,config);
+      return config;
+    });
+    if(result.status==='already_running')throw new Error('monitor_config_busy');
+    return result;
+  }
   if(command==='tick')return tick(root);
   if(command==='daily')return daily(root);
   if(command==='snapshot')return readOptional(path.join(root,'monitor/latest.json'))||{schema_version:1,status:'WARN',findings:[{severity:'WARN',reason:'monitor_unavailable'}]};

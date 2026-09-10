@@ -21,8 +21,8 @@ set -u
 SGSD_CALLER_CWD="$(pwd -P)"
 SGSD_CALLER_PATH="$PATH"
 
-PROJECT_DIR="${SGSD_PROJECT_DIR:-/opt/clarity/project-clarity-erp}"
-SESSION="${SGSD_TMUX_SESSION:-clarity-sgsd}"
+PROJECT_DIR="$SGSD_CALLER_CWD"
+SESSION="${SGSD_TMUX_SESSION:-}"
 SCRIPTS_DIR="${SGSD_SCRIPTS_DIR:-}"
 AGENTS_DIR="${SGSD_AGENTS_DIR:-}"
 SOURCE_DIR="${SGSD_SOURCE_DIR:-}"
@@ -30,6 +30,8 @@ CLAUDE_MODE="greet"
 ATTACH=true
 RESET=false
 DOCTOR=false
+CURRENT_TERMINAL=false
+OPEN_COCKPIT=true
 
 usage() {
   cat <<'EOF'
@@ -39,16 +41,18 @@ Usage:
   sgsd-remote-tmux.sh [options]
 
 Options:
-  --project PATH       SGSD project root. Default: /opt/clarity/project-clarity-erp
-  --session NAME       tmux session name. Default: clarity-sgsd
+  --project PATH       SGSD project root. Default: nearest .planning in caller CWD.
+  --session NAME       tmux session name. Default: project name plus path digest.
+  --current-terminal   Launch Claude here, without creating or nesting tmux.
+  --no-cockpit         Do not start the separate cockpit server.
   --scripts-dir PATH   Authoritative SGSD scripts path.
   --agents-dir PATH    Authoritative SGSD agents path.
   --source-dir PATH    Authoritative canonical source checkout.
   --greet              Start Claude with the SGSD greeting prompt. Default.
-  --go                 Start Claude and immediately send "go" for auto mode.
+  --go                 Refused for fresh owners; greet, verify handover, then send go.
   --shell              Do not start Claude; leave operator pane at a shell.
   --no-attach          Create/reuse the tmux session but do not attach.
-  --reset              Kill the existing tmux session first.
+  --reset              Refused; existing owners require an acknowledged handover.
   --doctor             Print environment checks only.
   --help               Show this help.
 
@@ -121,6 +125,14 @@ while [[ $# -gt 0 ]]; do
       DOCTOR=true
       shift
       ;;
+    --current-terminal)
+      CURRENT_TERMINAL=true
+      shift
+      ;;
+    --no-cockpit)
+      OPEN_COCKPIT=false
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -135,6 +147,7 @@ SGSD_LAUNCHER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" \
   || die "cannot resolve launcher directory"
 
 PROJECT_DIR="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" || die "project not found: $PROJECT_DIR"
+while [[ ! -d "$PROJECT_DIR/.planning" && "$PROJECT_DIR" != / ]]; do PROJECT_DIR="$(dirname "$PROJECT_DIR")"; done
 [[ -d "$PROJECT_DIR/.planning" ]] || die "missing .planning/ under $PROJECT_DIR"
 if [[ -z "$SCRIPTS_DIR" ]]; then
   if [[ -d "$PROJECT_DIR/super-gsd/scripts" ]]; then
@@ -216,7 +229,12 @@ NODE
 
 COCKPIT_SERVER_START="$SCRIPTS_DIR/start-cockpit-server.sh"
 
-if [[ "$SESSION" =~ [^A-Za-z0-9_.:-] ]]; then
+if [[ -z "$SESSION" ]]; then
+  PROJECT_SLUG="$(basename "$PROJECT_DIR" | tr -c 'A-Za-z0-9_-' '-' | cut -c1-40)"
+  PROJECT_DIGEST="$(printf '%s' "$PROJECT_DIR" | sha256sum)" || die "cannot derive project identity"
+  SESSION="sgsd-${PROJECT_SLUG}-${PROJECT_DIGEST:0:12}"
+fi
+if [[ "$SESSION" =~ [^A-Za-z0-9_-] ]]; then
   die "session name contains unsupported characters: $SESSION"
 fi
 
@@ -299,8 +317,8 @@ ORCHESTRATOR_MODEL=""
 if [[ "$CLAUDE_MODE" != shell ]]; then
   ORCHESTRATOR_MODEL="$(select_orchestrator)" || die "cannot resolve a supported Claude orchestrator"
 fi
-command -v tmux >/dev/null 2>&1 || die "tmux is not installed"
-command -v claude >/dev/null 2>&1 || warn "Claude CLI not on PATH; operator pane will open a shell"
+if [[ "$CURRENT_TERMINAL" != true ]]; then command -v tmux >/dev/null 2>&1 || die "tmux is not installed"; fi
+if [[ "$CLAUDE_MODE" != shell ]]; then command -v claude >/dev/null 2>&1 || die "Claude CLI not on PATH"; fi
 [[ "${SGSD_CODEX_SELECTION_STATUS:-missing}" == ready ]] \
   || warn "Codex CLI not on incoming PATH or native fallback locations; Codex execution will fail until fixed"
 
@@ -309,52 +327,73 @@ touch "$PROJECT_DIR/.planning/metrics/codex-live-output.txt" 2>/dev/null || true
 touch "$PROJECT_DIR/.planning/metrics/narrative.md" 2>/dev/null || true
 touch "$PROJECT_DIR/.planning/ORCHESTRATOR-LIVE.jsonl" 2>/dev/null || true
 
-if [[ "$RESET" = true ]] && tmux has-session -t "$SESSION" 2>/dev/null; then
-  tmux kill-session -t "$SESSION"
-fi
+if [[ "$RESET" = true ]]; then die "managed sessions require an acknowledged handover; --reset does not establish safe ownership"; fi
 
-start_localhost_cockpit
-
-if tmux has-session -t "$SESSION" 2>/dev/null; then
-  echo "SGSD tmux session already running: $SESSION"
+ATLAS_GLOBAL="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/global.cjs"
+ATLAS_FLEET="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/fleet.cjs"
+if [[ "$CURRENT_TERMINAL" != true ]] && tmux has-session -t "$SESSION" 2>/dev/null; then
+  REUSE_PANE="$(tmux display-message -p -t "$SESSION:0.0" '#{pane_id}')" || die "cannot inspect existing session"
+  REUSE_PID="$(tmux display-message -p -t "$SESSION:0.0" '#{pane_pid}')" || die "cannot inspect existing session process"
+  node - "$ATLAS_FLEET" "$PROJECT_DIR" "$REUSE_PANE" "$REUSE_PID" <<'NODE' || die "existing session ownership is unverified; preserve it and use /sgsd-sessions for handover"
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
+try {
+  const [file, projectDir, pane, parent] = process.argv.slice(2);
+  const root = process.env.SGSD_ATLAS_GLOBAL_ROOT || path.join(os.homedir(), '.local/state/sgsd/telemetry/global');
+  const claims = require(file).status({root,projectDir}).claims;
+  const claim = claims.find(row => row.status === 'bound' && row.active === true && row.tmux?.pane_id === pane);
+  if (!claim || process.platform !== 'linux') throw Error('unverified');
+  let pid = claim.identity.pid, related = false;
+  for (let n=0; n<16 && pid>1; n++) {
+    if (pid === Number(parent)) { related=true; break; }
+    const stat=fs.readFileSync(`/proc/${pid}/stat`,'utf8');
+    pid=Number(stat.slice(stat.lastIndexOf(')')+2).split(' ')[1]);
+  }
+  if (!related) throw Error('unverified');
+} catch { process.exitCode=1; }
+NODE
+  echo "SGSD verified owned tmux session: $SESSION"
   if [[ "$ATTACH" = true ]]; then
     exec tmux attach-session -t "$SESSION"
   fi
   exit 0
 fi
 
-# Shared Atlas starts or attaches for every new SGSD session.
+# Shared Atlas prepares an exclusive registered run before any new provider.
 ATLAS_ENV_PREFIX=""
 ATLAS_EXIT_CMD=":"
-ATLAS_LIFECYCLE="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/lifecycle.cjs"
-ATLAS_GLOBAL="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/global.cjs"
-SGSD_RUN_ID="sgsd-${FRAMEWORK_HEAD:0:12}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-if [[ -f "$ATLAS_GLOBAL" ]]; then
-  ATLAS_ENV_PREFIX="$(node "$ATLAS_GLOBAL" prepare --project-dir "$PROJECT_DIR" --format prefix || true)"
-  if [[ "$ATLAS_ENV_PREFIX" != env\ * ]]; then
-    ATLAS_ENV_PREFIX="env CLAUDE_CODE_ENABLE_TELEMETRY=0 OTEL_LOGS_EXPORTER=none OTEL_METRICS_EXPORTER=none SGSD_ATLAS_STATE_DIR= SGSD_RUN_ID="
-  else
-    ATLAS_EXIT_CMD="$ATLAS_ENV_PREFIX node $(q "$ATLAS_GLOBAL") finish >/dev/null 2>&1"
-  fi
-elif [[ "$CLAUDE_MODE" != shell && -f "$ATLAS_LIFECYCLE" ]] && command -v timeout >/dev/null 2>&1; then
-  ATLAS_STATE_ARGS=()
-  if [[ -n "${SGSD_ATLAS_STATE_DIR:-}" ]]; then ATLAS_STATE_ARGS=(--state-dir "$SGSD_ATLAS_STATE_DIR"); fi
-  ATLAS_ENV_PREFIX="$(timeout --signal=TERM --kill-after=0.05s 0.7s node "$ATLAS_LIFECYCLE" attach \
-    --project-dir "$PROJECT_DIR" --run-id "$SGSD_RUN_ID" "${ATLAS_STATE_ARGS[@]}" --shell 2>/dev/null || true)"
-  if [[ "$ATLAS_ENV_PREFIX" == env\ * ]]; then
-    ATLAS_EXIT_CMD="timeout --signal=TERM --kill-after=0.05s 0.7s node $(q "$ATLAS_LIFECYCLE") session-exit --project-dir $(q "$PROJECT_DIR") --run-id $(q "$SGSD_RUN_ID")"
-    if [[ -n "${SGSD_ATLAS_STATE_DIR:-}" ]]; then ATLAS_EXIT_CMD+=" --state-dir $(q "$SGSD_ATLAS_STATE_DIR")"; fi
-    ATLAS_EXIT_CMD+=" >/dev/null 2>&1"
-    echo "SGSD Atlas telemetry healthy (run $SGSD_RUN_ID)"
-  else
-    ATLAS_ENV_PREFIX=""
+ATLAS_ABORT_CMD=":"
+if [[ "$CLAUDE_MODE" != shell ]]; then
+  [[ "$PROJECT_PIN" != not-pinned ]] || die "project is not installed/pinned; run the normal sgsd-update before launch"
+  [[ "$CLAUDE_MODE" != go ]] || die "fresh owned sessions start with a briefing; use --greet, verify identity/handover, then say go"
+  [[ -f "$ATLAS_GLOBAL" ]] || die "shared Atlas runtime missing; run the normal sgsd-update"
+  ATLAS_ENV_PREFIX="$(node "$ATLAS_GLOBAL" prepare --project-dir "$PROJECT_DIR" --require-managed --format prefix)" \
+    || die "Atlas/ownership preparation refused; no provider started"
+  [[ "$ATLAS_ENV_PREFIX" == env\ * && "$ATLAS_ENV_PREFIX" == *"SGSD_FLEET_MANAGED='1'"* ]] \
+    || die "managed Atlas environment unavailable; no provider started"
+  ATLAS_EXIT_CMD="$ATLAS_ENV_PREFIX node $(q "$ATLAS_GLOBAL") finish"
+  ATLAS_ABORT_CMD="$ATLAS_ENV_PREFIX node $(q "$ATLAS_GLOBAL") abort"
+  ATLAS_MONITOR="$(dirname "$ATLAS_GLOBAL")/monitor-schedule.cjs"
+  if ! eval "$ATLAS_ENV_PREFIX node $(q "$ATLAS_MONITOR") include --project-dir $(q "$PROJECT_DIR") >/dev/null"; then
+    eval "$ATLAS_ABORT_CMD" || warn "pending owner retained for explicit recovery"
+    die "monitor enrollment failed; no provider started"
   fi
 fi
 
 PROJECT_Q="$(q "$PROJECT_DIR")"
 SCRIPTS_Q="$(q "$SCRIPTS_DIR")"
 
-GREET_PROMPT="You are booting in Super GSD mode inside tmux on devcp. Do these four things in your first response: (1) read .planning/STATE.md frontmatter and report current milestone status in one line, (2) report active agent count grouped by model from .planning/resource-registry/agents.jsonl, (3) confirm Codex is the coding executor and Sonnet/Haiku are not active SGSD routes, (4) ask the operator what they want to build. Do not enter auto mode unless the operator says go."
+GREET_PROMPT="You are the SGSD orchestrator. Use /sgsd-sessions for workspace/session health. Read this exact worktree's state and handover without resuming work. Report the original task, current hold, actual project/run ownership, shared receiver health, native delivery timestamp or pending, and operational delivery/gaps separately. Registry definitions are not running agents. Never claim registration is observed delivery. If state/checkpoint describes another worktree, mark context unresolved and ask before resuming. Keep the briefing short; no model probes or repeated full audits. Do not enter auto mode until ownership is bound, the handover is acknowledged and the operator says go."
+
+if [[ "$OPEN_COCKPIT" == true ]]; then start_localhost_cockpit; fi
+if [[ "$CURRENT_TERMINAL" == true ]]; then
+  [[ "$CLAUDE_MODE" != shell ]] || { echo "SGSD preflight only; no provider or Atlas run started"; exit 0; }
+  cd "$PROJECT_DIR" || die "project disappeared before launch"
+  # Run in the calling terminal, with a finish receipt after the provider exits.
+  eval "$ATLAS_ENV_PREFIX claude --model $(q "$ORCHESTRATOR_MODEL") --dangerously-skip-permissions $(q "$GREET_PROMPT")"
+  PROVIDER_EXIT=$?
+  eval "$ATLAS_EXIT_CMD" || warn "owner release unverified; inspect fleet status before relaunch"
+  exit "$PROVIDER_EXIT"
+fi
 
 if command -v claude >/dev/null 2>&1; then
   case "$CLAUDE_MODE" in
@@ -365,7 +404,7 @@ if command -v claude >/dev/null 2>&1; then
       OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator] starting Claude SGSD greeting'; $ATLAS_ENV_PREFIX claude --model $(q "$ORCHESTRATOR_MODEL") --dangerously-skip-permissions $(q "$GREET_PROMPT"); $ATLAS_EXIT_CMD; exec bash -l"
       ;;
     shell)
-      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator shell]'; echo 'Run: claude --dangerously-skip-permissions'; exec $ATLAS_ENV_PREFIX bash -l"
+      OPERATOR_CMD="cd $PROJECT_Q; echo '[SGSD operator shell: unregistered]'; echo 'Run sg for a managed session'; exec bash -l"
       ;;
     *)
       die "unsupported Claude mode: $CLAUDE_MODE"
@@ -387,7 +426,15 @@ tmux new-session \
   -e "SGSD_CODEX_COMMAND=${SGSD_CODEX_COMMAND-}" \
   -e "SGSD_CODEX_APP_SERVER_ARGS=${SGSD_CODEX_APP_SERVER_ARGS-}" \
   -e "SGSD_CODEX_FORCE_LAUNCHER=${SGSD_CODEX_FORCE_LAUNCHER-}" \
-  -d -s "$SESSION" -n SGSD -c "$PROJECT_DIR" "$OPERATOR_CMD"
+  -d -s "$SESSION" -n SGSD -c "$PROJECT_DIR" "$OPERATOR_CMD" || {
+    # No provider was created by this failed launch; release only its pending claim.
+    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+      eval "$ATLAS_ABORT_CMD" || warn "pending owner retained for explicit recovery"
+    else
+      warn "session exists after failed creation response; owner retained for inspection"
+    fi
+    die "tmux session creation failed"
+  }
 OPERATOR_PANE="$(tmux display-message -p -t "$SESSION:0" "#{pane_id}")"
 tmux set-window-option -t "$SESSION:0" remain-on-exit on >/dev/null
 tmux set-option -t "$SESSION" status on >/dev/null

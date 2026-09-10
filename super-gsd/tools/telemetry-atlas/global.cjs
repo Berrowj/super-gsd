@@ -8,7 +8,7 @@ const crypto = require('node:crypto');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const DEPENDENCY_FILES = ['server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs',
-  'contract.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs',
+  'contract.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs',
   'sgsd-ledger-runtime.cjs', 'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs'];
 function dependencySnapshot() {
   return DEPENDENCY_FILES.map(name => {
@@ -24,6 +24,7 @@ const { privateDirectory, queueEvent } = require('./quota-sampler.cjs');
 const { telemetryEnvironment, processIdentity, owned, ownsPort } = require('./lifecycle.cjs');
 const { startServer } = require('./server.cjs');
 const { createLedgerRuntime } = require('./sgsd-ledger-runtime.cjs');
+const fleet = require('./fleet.cjs');
 const PROTOCOL = 1;
 const dependencyAfter = dependencySnapshot();
 const dependencyCoherent = cachedDependencies.length === 0
@@ -466,7 +467,8 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
 }
 function disabledEnvironment() {
   return { CLAUDE_CODE_ENABLE_TELEMETRY: '0', OTEL_LOGS_EXPORTER: 'none', OTEL_METRICS_EXPORTER: 'none', OTEL_TRACES_EXPORTER: 'none',
-    SGSD_ATLAS_ENDPOINT: '', SGSD_ATLAS_STATE_DIR: '', SGSD_ATLAS_RUN_ENDPOINT: '', SGSD_ATLAS_PROJECT_ID: '', SGSD_RUN_ID: '', SGSD_ATLAS_CODEX_EXPORTER: '' };
+    SGSD_ATLAS_ENDPOINT: '', SGSD_ATLAS_STATE_DIR: '', SGSD_ATLAS_RUN_ENDPOINT: '', SGSD_ATLAS_PROJECT_ID: '', SGSD_RUN_ID: '', SGSD_ATLAS_CODEX_EXPORTER: '',
+    SGSD_FLEET_MANAGED: '', SGSD_FLEET_COORDINATOR_ID: '' };
 }
 function unsetKeys() {
   return [...new Set([...Object.keys(process.env).filter(key => /^OTEL_[A-Z0-9_]+$/.test(key)),
@@ -477,16 +479,21 @@ async function prepare({ root = rootPath(), projectDir = process.cwd(), provider
   root = path.resolve(root);
   const off = reason => ({ enabled: false, reason, unset: unsetKeys(), environment: disabledEnvironment(), codex_args: [] });
   if (disabled || process.env.SGSD_ATLAS_DISABLED === '1' || fs.existsSync(path.join(root, 'disabled'))) return off('disabled');
+  let claim;
   try {
     const run = registerRun({ root, projectDir, provider, role, accountingSource });
     const service = await ensureService(root);
+    // Reservation follows the awaited bootstrap: a bootstrap timeout cannot leave
+    // a pending owner. No provider is launched by prepare or by the fleet store.
+    if (role === 'orchestrator' && provider === 'anthropic' && process.platform === 'linux') claim = fleet.reserve({ root, run });
     const endpoint = `${service.urls.ingest}/runs/${run.run_id}`;
     const environment = { ...telemetryEnvironment({ healthy: true, runId: run.run_id, stateDir: run.state_dir,
       projectId: run.project_id, endpoint: service.urls.ingest }),
       OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: `${endpoint}/v1/logs`,
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: `${endpoint}/v1/metrics`,
       OTEL_LOG_RAW_API_BODIES: '0', SGSD_ATLAS_RUN_ENDPOINT: endpoint,
-      SGSD_ATLAS_PROJECT_ID: run.project_id, SGSD_ATLAS_GLOBAL_ROOT: root };
+      SGSD_ATLAS_PROJECT_ID: run.project_id, SGSD_ATLAS_GLOBAL_ROOT: root,
+      SGSD_FLEET_MANAGED: claim ? '1' : '', SGSD_FLEET_COORDINATOR_ID: claim?.coordinator_id || '' };
     // Only telemetry configuration is added; no model, auth, sandbox or output setting.
     const exporter = `{ otlp-http = { endpoint = "${endpoint}/v1/logs", protocol = "json", headers = {} } }`;
     environment.SGSD_ATLAS_CODEX_EXPORTER = provider === 'openai' ? `otel.exporter=${exporter}` : '';
@@ -497,11 +504,19 @@ async function prepare({ root = rootPath(), projectDir = process.cwd(), provider
       source: { kind: 'atlas_lifecycle', instance: 'local', provenance: 'client_observed', confidence: 'exact', completeness_reason: 'launcher_session_start' },
       identity: { sgsd_run_id: run.run_id }, runtime: { provider }, execution: { success: true } }, run.state_dir)) gap(root, 'launch_spool_full');
     return { enabled: true, unset: unsetKeys(), environment, codex_args: codexArgs, run };
-  } catch (error) { gap(root, 'automatic_capture_unavailable'); return off('automatic_capture_unavailable'); }
+  } catch (error) {
+    if (claim) { try { fleet.release({ root, runId: claim.run_id, allowPending: true }); } catch {} }
+    gap(root, 'automatic_capture_unavailable');
+    return off(/^fleet_[a-z_]+$/.test(error.message) ? error.message : 'automatic_capture_unavailable');
+  }
 }
-function finish({ root = rootPath(), runId = process.env.SGSD_RUN_ID } = {}) {
+function finish({ root = rootPath(), runId = process.env.SGSD_RUN_ID, abortPending = false } = {}) {
   try {
     const run = readRun(root, runId); if (!run) return false;
+    if (run.role === 'orchestrator' && process.platform === 'linux') {
+      const owner = fleet.status({ root, projectDir: run.project_dir }).claims.find(row => row.run_id === runId);
+      if (owner) fleet.release({ root, runId, allowPending: abortPending });
+    }
     const file = path.join(run.state_dir, 'exit.json');
     let ended;
     try { ended = readJson(file); }
@@ -554,8 +569,8 @@ if (require.main === module) {
       .then(result => { process.stdout.write(JSON.stringify({ status: result.status,
         runtime_fingerprint: result.service?.runtime_fingerprint || null }) + '\n'); })
       .catch(error => { process.stderr.write(`[Atlas] receiver transition failed: ${error.message}\n`); process.exitCode = 1; });
-  } else if (process.argv[2] === 'finish') {
-    process.exitCode = finish({ root, runId: value('--run-id', process.env.SGSD_RUN_ID) }) ? 0 : 1;
+  } else if (process.argv[2] === 'finish' || process.argv[2] === 'abort') {
+    process.exitCode = finish({ root, runId: value('--run-id', process.env.SGSD_RUN_ID), abortPending: process.argv[2] === 'abort' }) ? 0 : 1;
   } else if (process.argv[2] === 'status') {
     status(root).then(result => { process.stdout.write(JSON.stringify(result || { healthy: false, reason: 'service_unavailable' }) + '\n'); if (!result) process.exitCode = 1; });
   } else {
@@ -564,14 +579,19 @@ if (require.main === module) {
       const format = value('--format', 'json');
       process.stdout.write((format === 'shell' ? shell(result) : format === 'prefix' ? shell(result, true) : JSON.stringify(result)) + '\n');
     };
-    const timer = setTimeout(() => { gap(root, 'bootstrap_timeout'); process.stderr.write('[Atlas] capture unavailable: startup timeout\n'); emitOff(); process.exit(0); }, 3000);
+    const requireManaged = process.argv.includes('--require-managed');
+    const timer = setTimeout(() => { gap(root, 'bootstrap_timeout'); process.stderr.write('[Atlas] capture unavailable: startup timeout\n'); emitOff(); process.exit(requireManaged ? 1 : 0); }, 3000);
     prepare({ root, projectDir: value('--project-dir', process.cwd()), provider: value('--provider', 'anthropic'), role: value('--role', 'orchestrator'), accountingSource: value('--accounting-source') })
       .then(result => {
         clearTimeout(timer);
         if (!result.enabled && result.reason !== 'disabled') process.stderr.write('[Atlas] capture unavailable; run the Atlas audit\n');
         const format = value('--format', 'json');
         process.stdout.write((format === 'shell' ? shell(result) : format === 'prefix' ? shell(result, true) : JSON.stringify(result)) + '\n');
-      }).catch(() => { clearTimeout(timer); gap(root, 'bootstrap_failed'); emitOff(); process.exitCode = 0; });
+        if (requireManaged && (!result.enabled || result.environment.SGSD_FLEET_MANAGED !== '1')) {
+          process.stderr.write(`[Atlas] managed launch refused: ${result.reason || 'ownership_unavailable'}\n`);
+          process.exitCode = 1;
+        }
+      }).catch(() => { clearTimeout(timer); gap(root, 'bootstrap_failed'); emitOff(); process.exitCode = requireManaged ? 1 : 0; });
   }
 }
 module.exports = { prepare, finish, startGlobal, status, ensureService, restartService, rootPath, registerRun, getJson, shell, RUNTIME_FINGERPRINT };

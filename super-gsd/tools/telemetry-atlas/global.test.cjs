@@ -8,7 +8,7 @@ const crypto = require('node:crypto');
 const net = require('node:net');
 const http = require('node:http');
 const { spawn, spawnSync } = require('node:child_process');
-const { registerRun, startGlobal, prepare, restartService, status, ensureService, RUNTIME_FINGERPRINT } = require('./global.cjs');
+const { registerRun, startGlobal, prepare, finish, restartService, status, ensureService, RUNTIME_FINGERPRINT } = require('./global.cjs');
 const { owned, ownsPort, processIdentity } = require('./lifecycle.cjs');
 const { readLedger, digest } = require('./contract.cjs');
 const { record } = require('./quota-sampler.cjs');
@@ -22,6 +22,25 @@ function fixture(t) {
   });
   return { root: receiverRoot, projects };
 }
+test('disabled preparation clears inherited managed-owner identity', async () => {
+  const result = await prepare({ disabled: true });
+  assert.equal(result.environment.SGSD_FLEET_MANAGED, '');
+  assert.equal(result.environment.SGSD_FLEET_COORDINATOR_ID, '');
+});
+test('managed orchestrator preparation admits only one exact-project owner', { skip: process.platform !== 'linux' }, async t => {
+  const f = fixture(t);
+  const first = await prepare({ root: f.root, projectDir: f.projects[0] });
+  assert.equal(first.enabled, true);
+  assert.equal(first.environment.SGSD_FLEET_MANAGED, '1');
+  assert.equal(first.environment.SGSD_RUN_ID, first.run.run_id);
+  const second = await prepare({ root: f.root, projectDir: f.projects[0] });
+  assert.equal(second.enabled, false);
+  const worker = await prepare({ root: f.root, projectDir: f.projects[0], role: 'board', provider: 'openai' });
+  assert.equal(worker.enabled, true);
+  assert.notEqual(worker.environment.SGSD_FLEET_MANAGED, '1');
+  assert.equal(finish({ root: f.root, runId: first.run.run_id }), false, 'ordinary finish cannot abort an unidentified pending owner');
+  assert.equal(finish({ root: f.root, runId: first.run.run_id, abortPending: true }), true);
+});
 function payload(session, request, tokens = 5) {
   const attrs = { 'event.name': 'api_request', 'session.id': session, request_id: request,
     'event.timestamp': '2026-09-08T09:00:00Z', model: 'claude-opus-4-7', input_tokens: tokens,
@@ -540,9 +559,36 @@ test('end-of-session marker is registered and idempotent', async t => {
   const f = fixture(t), instance = await startGlobal({ root: f.root, spoolPollMs: 20 });
   t.after(() => instance.close());
   const prepared = await prepare({ root: f.root, projectDir: f.projects[0] });
-  const { finish } = require('./global.cjs');
+  assert.equal(prepared.enabled, true);
+  const exitFile = path.join(prepared.run.state_dir, 'exit.json');
+  if (process.platform === 'linux') {
+    const fleet = require('./fleet.cjs');
+    assert.equal(finish({ root: f.root, runId: prepared.run.run_id }), false, 'pending ownership is not a completed session');
+    assert.equal(fs.existsSync(exitFile), false);
+    // A real child supplies the owned run's process evidence without a model call.
+    const child = spawn(process.execPath, ['-e', 'process.stdout.write("ready\\n");process.stdin.resume()'], {
+      env: { ...process.env, SGSD_RUN_ID: prepared.run.run_id, SGSD_ATLAS_PROJECT_ID: prepared.run.project_id },
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    const closed = new Promise(resolve => child.once('close', resolve));
+    t.after(async () => { child.stdin.end(); await closed; });
+    await new Promise((resolve, reject) => { child.stdout.once('data', resolve); child.once('error', reject); });
+    fleet.bind({ root: f.root, runId: prepared.run.run_id, projectDir: prepared.run.project_dir,
+      pid: child.pid, sessionId: 'session-exit-fixture' });
+    assert.equal(finish({ root: f.root, runId: prepared.run.run_id }), false, 'a live owned process cannot be finished');
+    assert.equal(fs.existsSync(exitFile), false);
+    child.stdin.end(); await closed;
+  }
   assert.equal(finish({ root: f.root, runId: prepared.run.run_id }), true);
-  finish({ root: f.root, runId: prepared.run.run_id });
+  const firstExit = fs.readFileSync(exitFile);
+  assert.equal(finish({ root: f.root, runId: prepared.run.run_id }), true);
+  assert.deepEqual(fs.readFileSync(exitFile), firstExit, 'repeated finish retains the original exit timestamp');
+  if (process.platform === 'linux') {
+    assert.equal(require('./fleet.cjs').status({ root: f.root, projectDir: prepared.run.project_dir }).claims.length, 0);
+    const receipt = JSON.parse(fs.readFileSync(path.join(f.root, 'fleet/receipts', `${prepared.run.run_id}.json`), 'utf8'));
+    assert.equal(receipt.reason, 'bound_process_dead');
+    assert.equal(receipt.run_id, prepared.run.run_id);
+  }
   const deadline = Date.now() + 2000;
   while (Date.now() < deadline && (!fs.existsSync(prepared.run.metrics_dir) || !rows(prepared.run).some(row => row.source.completeness_reason === 'launcher_session_exit')))
     await new Promise(resolve => setTimeout(resolve, 20));
@@ -565,9 +611,10 @@ test('timed-out bootstrap retains ownership until its delayed receiver publishes
   t.after(async () => { cp.spawn = original; await Promise.all(pending); await Promise.all(instances.map(server => server.close())); });
   // Reload an uncached bootstrap closure so its spawn binding sees this isolated delay.
   for (const name of ['global.cjs', 'server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs', 'contract.cjs',
-    'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'sgsd-ledger-runtime.cjs',
+    'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs', 'sgsd-ledger-runtime.cjs',
     'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs']) delete require.cache[require.resolve(`./${name}`)];
   const bootstrap = require('./global.cjs');
+  assert.match(bootstrap.RUNTIME_FINGERPRINT, /^[a-f0-9]{64}$/, 'the delayed fixture must begin with an attested runtime closure');
   await assert.rejects(bootstrap.ensureService(f.root, 60), /timeout/);
   const service = await bootstrap.ensureService(f.root, 1500);
   assert.equal(starts, 1);

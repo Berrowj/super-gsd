@@ -149,10 +149,16 @@ while [ $RUN -lt $MAX_RUNS ]; do
   cd "$PROJECT_DIR"
   if [[ -f "$(dirname "${BASH_SOURCE[0]}")/lib/atlas-shell.sh" ]]; then
     source "$(dirname "${BASH_SOURCE[0]}")/lib/atlas-shell.sh"
-    sgsd_atlas_attach orchestrator anthropic "$PROJECT_DIR"
+    sgsd_atlas_attach orchestrator anthropic "$PROJECT_DIR" || { log "Atlas/ownership preparation refused; no provider started"; exit 1; }
+  else
+    log "Atlas attachment helper missing; no provider started"
+    exit 1
   fi
-  claude --print --dangerously-skip-permissions -p "$PROMPT" >> "$LOGFILE" 2>&1
-  EXIT_CODE=$?
+  if claude --print --dangerously-skip-permissions -p "$PROMPT" >> "$LOGFILE" 2>&1; then
+    EXIT_CODE=0
+  else
+    EXIT_CODE=$?
+  fi
   if declare -F sgsd_atlas_finish >/dev/null; then sgsd_atlas_finish; fi
 
   END_TIME=$(date +%s)

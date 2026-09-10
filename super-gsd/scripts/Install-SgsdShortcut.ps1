@@ -218,6 +218,8 @@ function sg {
     if (`$atlasHelper -and (Test-Path -LiteralPath `$atlasHelper)) {
         . `$atlasHelper
         `$atlasSaved = Start-SgsdAtlas -ProjectDir (Get-Location).Path
+    } elseif (`$IsLinux) {
+        throw 'Managed SGSD launch refused: Atlas attachment helper missing'
     }
     try {
     if (`$Go) {

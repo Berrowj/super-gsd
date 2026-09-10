@@ -22,6 +22,7 @@ const expectedTargets = Object.freeze([
   ".claude/get-shit-done/config/model-routing.json",
   ".claude/super-gsd/scripts",
   ".local/bin/sgsd",
+  ".local/bin/sg",
 ]);
 
 function text(filePath) {
@@ -146,6 +147,7 @@ test("snapshot round trip preserves exact pre-install manifest and quarantines c
     ".claude/super-gsd/scripts/custom-extra.sh": "#!/bin/sh\necho extra\n",
     ".claude/super-gsd/scripts/lib/custom-extra.cjs": "module.exports = 43;\n",
     ".local/bin/sgsd": "#!/bin/sh\necho legacy\n",
+    ".local/bin/sg": "#!/bin/sh\necho legacy-sg\n",
     ".claude/commands/sgsd-brv-setup/legacy.txt": "legacy BRV command\n",
     ".claude/hooks/brv-query-local.js": "legacy BRV hook\n",
     ".claude/hooks/brv-curate-local.js": "legacy BRV hook 2\n",

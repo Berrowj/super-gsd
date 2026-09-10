@@ -107,6 +107,7 @@ while ($run -lt $MaxRuns) {
     try {
         $atlasHelper = Join-Path $PSScriptRoot 'lib/atlas-powershell.ps1'
         if (Test-Path -LiteralPath $atlasHelper) { . $atlasHelper; $atlasSaved = Start-SgsdAtlas -ProjectDir $ProjectDir }
+        elseif ($IsLinux) { throw 'Managed SGSD launch refused: Atlas attachment helper missing' }
         claude --print --dangerously-skip-permissions -p $Prompt 2>&1 | Add-Content -Path $LogFile
         $exitCode = $LASTEXITCODE
     } catch {

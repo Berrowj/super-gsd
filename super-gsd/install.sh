@@ -681,9 +681,17 @@ install_global_assets() {
     global_executable_targets+=("$GLOBAL_SCRIPTS_DIR/sgsd" "$LOCAL_BIN_DIR/sgsd")
     SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
   fi
+  if [[ -f "$SCRIPT_DIR/scripts/sg" ]]; then
+    script_sources+=("$SCRIPT_DIR/scripts/sg")
+    global_executable_targets+=("$GLOBAL_SCRIPTS_DIR/sg" "$LOCAL_BIN_DIR/sg")
+    SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
+  fi
   copy_files_to_root "$GLOBAL_SCRIPTS_DIR" "${script_sources[@]}"
   if [[ -f "$SCRIPT_DIR/scripts/sgsd" ]]; then
     copy_file "$SCRIPT_DIR/scripts/sgsd" "$LOCAL_BIN_DIR/sgsd"
+  fi
+  if [[ -f "$SCRIPT_DIR/scripts/sg" ]]; then
+    copy_file "$SCRIPT_DIR/scripts/sg" "$LOCAL_BIN_DIR/sg"
   fi
   local -a script_lib_sources=()
   if [[ -d "$SCRIPT_DIR/scripts/lib" ]]; then

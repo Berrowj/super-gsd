@@ -354,5 +354,5 @@ echo "On Windows with Windows Terminal installed, prefer the PowerShell version:
 echo "  powershell -File super-gsd/scripts/sgsd-boot.ps1"
 echo "It opens a single cockpit window with all three panes."
 echo ""
-echo "Next: in a separate terminal, run  claude  then say  go"
+echo "Next: in the project terminal, run sg for an owned session and Atlas briefing; review it before saying go."
 echo ""

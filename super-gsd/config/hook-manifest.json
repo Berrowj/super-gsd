@@ -462,14 +462,21 @@
       ],
       "dependencies": [
         "schemas/vtp-mcp-input-schemas.v2.json",
+        "scripts/lib/atlas-boot-briefing.cjs",
         "scripts/lib/atlas-observation.cjs",
+        "scripts/lib/atlas-session-owner.cjs",
         "scripts/lib/decision-state.cjs",
         "scripts/lib/gate-evidence-log.cjs",
         "scripts/lib/phase-name.cjs",
         "scripts/lib/sgsd-state.cjs",
-        "tools/state-resolver/resolve.cjs"
+        "tools/state-resolver/resolve.cjs",
+        "tools/telemetry-atlas/accounting.cjs",
+        "tools/telemetry-atlas/contract.cjs",
+        "tools/telemetry-atlas/fleet.cjs",
+        "tools/telemetry-atlas/global-store.cjs",
+        "tools/telemetry-atlas/quota-sampler.cjs"
       ],
-      "sha256": "9163a649cb5598e41a4e6365b7626af40c12e1feab5002e9398bc91890268782"
+      "sha256": "05dea5a932a7eac2135710aac9622f361464d528f0da30050a063876e3c6752a"
     },
     {
       "source_path": "hooks/sgsd-substrate-invocation-witness.cjs",

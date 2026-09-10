@@ -14,6 +14,7 @@ TARGETS=(
   ".claude/get-shit-done/config/model-routing.json"
   ".claude/super-gsd/scripts"
   ".local/bin/sgsd"
+  ".local/bin/sg"
 )
 
 usage() {
@@ -111,6 +112,7 @@ validate_contract() {
     '"$GSD_DIR/config/model-routing.json"'
     'GLOBAL_SCRIPTS_DIR="$CLAUDE_DIR/super-gsd/scripts"'
     '"$LOCAL_BIN_DIR/sgsd"'
+    '"$LOCAL_BIN_DIR/sg"'
   )
   local marker
   for marker in "${markers[@]}"; do

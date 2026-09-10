@@ -5,6 +5,18 @@ const fs=require('node:fs'),path=require('node:path');
 const os=require('node:os'),crypto=require('node:crypto');
 const file=path.join(__dirname,'monitor-schedule.cjs');
 const api=fs.existsSync(file)?require(file):{};
+test('include adds arbitrary projects without dropping existing monitor coverage',async t=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'atlas-monitor-include-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const a=path.join(root,'a'),b=path.join(root,'b');
+  for(const p of [a,b])fs.mkdirSync(path.join(p,'.planning'),{recursive:true});
+  await api.cli(['configure','--root',root,'--project-dir',a]);
+  await api.cli(['include','--root',root,'--project-dir',b]);
+  await api.cli(['include','--root',root,'--project-dir',b]);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root,'monitor/config.json'))).project_dirs,[fs.realpathSync(a),fs.realpathSync(b)]);
+  fs.writeFileSync(path.join(root,'monitor/config.json'),'bad');
+  await assert.rejects(api.cli(['include','--root',root,'--project-dir',a]));
+  assert.equal(fs.readFileSync(path.join(root,'monitor/config.json'),'utf8'),'bad');
+});
 test('marked cron install preserves unrelated jobs and is idempotent',()=>{
   assert.equal(typeof api.mergeCrontab,'function');
   const old='MAILTO=\"\"\n0 4 * * * /existing/job\n';

@@ -16,6 +16,12 @@ headless, remote-tmux, recovery/watchdog, narrator and Codex wrapper launch path
 attach themselves. Standalone provider CLIs, desktop sessions and ad-hoc
 benchmark/probe runners outside those launch paths are not automatically covered.
 
+Every SGSD session start also prints a read-only Atlas Telemetry briefing. It
+reports shared receiver health, whether this exact session run is registered for
+the current project root, and native or operational delivery observed in the
+latest monitor snapshot. The briefing never prepares or attaches a run and does
+not infer delivery from receiver health alone.
+
 The receiver uses ephemeral loopback ports and a private discovery file under
 `~/.local/state/sgsd/telemetry/global`. Project paths are resolved and hashed;
 private registration records map those hashes back to projects. Native events
@@ -414,3 +420,39 @@ Configuration behavior follows the pinned [transform processor](https://github.c
 [file storage extension](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.160.0/extension/storage/filestorage),
 and [Prometheus exporter](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.160.0/exporter/prometheusexporter).
 Provider upgrades and new attributes require a reviewed allowlist change.
+# Owned Linux session entrypoints (170-14)
+
+`sg` starts the configured orchestrator in the **current terminal**; it does not
+create nested tmux. `sgsd-remote-tmux.sh --project /absolute/worktree --greet`
+creates or verifies a separate workspace. Both use the same project/pin check,
+exclusive fleet reservation, Atlas preparation and additive monitor enrollment.
+The default project is the caller's worktree, not a hard-coded main checkout.
+Fresh managed sessions start with a briefing; review ownership and the handover
+before saying `go`. A bare `claude`/`codex` remains outside this launch guarantee.
+
+The `/sgsd-sessions` skill handles arbitrary worktrees and handover. Private
+ownership records live in the existing global Atlas root's `fleet/` directory.
+`node .../telemetry-atlas/fleet.cjs status --project-dir /absolute/worktree`
+reports claims; `release --run-id RUN` releases only a proved-dead matching owner.
+Pending/unknown claims and abandoned locks are not automatically reclaimed.
+No fleet operation signals a process. Ownership is **not** delivery evidence.
+
+The optional private `~/.config/sgsd/codex-command` file pins one absolute native
+Codex executable. Explicit `SGSD_CODEX_APP_SERVER_COMMAND` or `SGSD_CODEX_COMMAND`
+still takes precedence. An invalid pin refuses selection rather than falling
+back. Record the selected executable's actual `--version`; a model label is not
+proof of request-level accounting. On DEVCP, 0.144.3 was observed emitting only
+aggregate token snapshots, whereas 0.153.4 emitted exact `token_usage_record`
+identities. This is observed compatibility, not a universal version threshold.
+
+`monitor-schedule.cjs include --project-dir PATH` adds monitor scope without
+dropping existing projects; `configure` explicitly replaces the list. Neither
+operation proves delivery or changes schedules. Native timestamps, operational
+gaps/backlog, worker control receipts, actual gate evidence and backup receipts
+remain separate facts. Routine boot does not launch model probes or full audits.
+
+Rollout must preserve the pre-existing custom DEVCP `~/.local/bin/sg` before its
+first replacement. The legacy global-snapshot script currently refuses its stale
+installer contract; normal `sgsd-update` does not supply a shortcut preimage.
+Do not claim transactional rollback from that script. Windows capture is not
+verified by this Linux workflow.

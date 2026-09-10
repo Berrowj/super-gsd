@@ -289,7 +289,7 @@ test('installed statusline preserves stdout with quota capture enabled or unavai
   } finally { clean(root); }
 });
 
-test('real launcher bounds a stalled attachment and preserves direct Claude argv', () => {
+test('real launcher refuses missing shared capture without invoking a stalled legacy attachment', () => {
   if (process.platform !== 'linux') return;
   const root = fixture();
   try {
@@ -301,47 +301,46 @@ test('real launcher bounds a stalled attachment and preserves direct Claude argv
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(path.join(__dirname, '../..', relative), target);
     }
+    const legacyMarker = path.join(root, 'legacy-called');
     const launchEnv = { ...process.env, HOME: path.join(root, 'home'), CODEX_HOME: path.join(root, 'home/.codex'),
-      SGSD_MODEL_ROUTING_FILE: '', SGSD_MODEL_OVERRIDE: '', SGSD_MODEL_ORCHESTRATOR: '', PATH: `${bin}:${process.env.PATH}` };
-    fs.writeFileSync(path.join(sourceDir, 'super-gsd', 'tools', 'telemetry-atlas', 'lifecycle.cjs'), 'setTimeout(()=>{},5000)');
+      SGSD_CODEX_APP_SERVER_COMMAND: path.join(bin, 'codex'), SGSD_CODEX_COMMAND: '', SGSD_CODEX_APP_SERVER_ARGS: '',
+      SGSD_CODEX_FORCE_LAUNCHER: '', SGSD_MODEL_ROUTING_FILE: '', SGSD_MODEL_OVERRIDE: '', SGSD_MODEL_ORCHESTRATOR: '',
+      PATH: `${bin}:${path.dirname(process.execPath)}:${process.env.PATH}` };
+    fs.writeFileSync(path.join(bin, 'codex'), '#!/bin/sh\nexit 97\n', { mode: 0o700 });
+    fs.writeFileSync(path.join(sourceDir, 'super-gsd', 'tools', 'telemetry-atlas', 'lifecycle.cjs'),
+      `require('node:fs').writeFileSync(${JSON.stringify(legacyMarker)}, 'invoked');setTimeout(()=>{},5000)`);
     fs.writeFileSync(path.join(scriptsDir, 'start-cockpit-server.sh'), '#!/bin/sh\nexit 0\n');
     const nativeGit = fs.existsSync('/usr/bin/git') ? '/usr/bin/git' : 'git';
     fs.symlinkSync(nativeGit, path.join(bin, 'git'));
     const git = args => spawnSync(nativeGit, ['-C', sourceDir, ...args], { encoding: 'utf8' });
     assert.equal(git(['init','--quiet']).status, 0);
     assert.equal(git(['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','-c','core.hooksPath=/dev/null','commit','--allow-empty','--quiet','-m','fixture']).status, 0);
+    const sourceHead = git(['rev-parse', 'HEAD']);
+    assert.equal(sourceHead.status, 0, sourceHead.stderr);
+    fs.writeFileSync(path.join(projectDir, '.super-gsd-version'), sourceHead.stdout.trim() + '\n');
     const recorded = path.join(root, 'operator-command');
     fs.writeFileSync(path.join(bin, 'tmux'), '#!/bin/bash\ncase "$1" in\n has-session) exit 1;;\n new-session) printf "%s" "${@: -1}" > "$ATLAS_TEST_COMMAND";;\n display-message|split-window) printf "%%1\\n";;\nesac\n', { mode: 0o700 });
     const argsFile = path.join(root, 'claude-argv');
-    // Discovery is part of the launcher contract; do not depend on a host CLI
-    // being installed merely to exercise the recorded command with this fake.
+    // Discovery must resolve a fake provider, while failure must prevent invoking it.
     const fakeClaude = path.join(bin, 'claude');
     fs.writeFileSync(fakeClaude, '#!/bin/bash\nprintf "%s\\n" "$@" > "$ATLAS_TEST_ARGV"\n', { mode: 0o700 });
-    const started = performance.now();
-    const launch = spawnSync('bash', [path.join(__dirname, '../../scripts/sgsd-remote-tmux.sh'), '--project', projectDir,
-      '--source-dir', sourceDir, '--scripts-dir', scriptsDir, '--agents-dir', agentsDir, '--go', '--no-attach'], {
-      encoding: 'utf8', timeout: 3000, env: { ...launchEnv, ATLAS_TEST_COMMAND: recorded },
-    });
-    const elapsed = performance.now() - started;
-    assert.equal(launch.status, 0, launch.stderr);
-    const command = fs.readFileSync(recorded, 'utf8');
-    fs.writeFileSync(path.join(sourceDir, 'super-gsd', 'tools', 'telemetry-atlas', 'lifecycle.cjs'), 'process.stdout.write("\\n")');
-    const baselineStarted = performance.now();
-    const baseline = spawnSync('bash', [path.join(__dirname, '../../scripts/sgsd-remote-tmux.sh'), '--project', projectDir,
-      '--source-dir', sourceDir, '--scripts-dir', scriptsDir, '--agents-dir', agentsDir, '--go', '--no-attach'], {
-      encoding: 'utf8', timeout: 3000, env: { ...launchEnv, ATLAS_TEST_COMMAND: recorded },
-    });
-    const added = elapsed - (performance.now() - baselineStarted);
-    assert.equal(baseline.status, 0, baseline.stderr);
-    assert.ok(added < 1000, `stalled attachment added ${added}ms`);
-    assert.match(command, / claude --model fable --dangerously-skip-permissions 'go'/);
-    assert.doesNotMatch(command, /CLAUDE_CODE_ENABLE_TELEMETRY=/);
-    const fakeCommand = command.replace(' claude --', ` '${fakeClaude}' --`).replace('exec bash -l', 'true');
-    const result = spawnSync('bash', ['-c', fakeCommand], { encoding: 'utf8', timeout: 2000,
-      env: { ...process.env, ATLAS_TEST_ARGV: argsFile } });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(fs.readFileSync(argsFile, 'utf8'), '--model\nfable\n--dangerously-skip-permissions\ngo\n');
-    console.log(`stalled_attachment_added_ms=${added.toFixed(3)}`);
+    for (const topology of [[], ['--current-terminal']]) {
+      const started = performance.now();
+      const launch = spawnSync('bash', [path.join(__dirname, '../../scripts/sgsd-remote-tmux.sh'), '--project', projectDir,
+        '--source-dir', sourceDir, '--scripts-dir', scriptsDir, '--agents-dir', agentsDir,
+        '--greet', '--no-cockpit', '--no-attach', ...topology], {
+        encoding: 'utf8', timeout: 3000,
+        env: { ...launchEnv, ATLAS_TEST_COMMAND: recorded, ATLAS_TEST_ARGV: argsFile },
+      });
+      const elapsed = performance.now() - started;
+      assert.equal(launch.error, undefined, launch.error?.message);
+      assert.notEqual(launch.status, 0, launch.stderr);
+      assert.match(launch.stderr, /shared Atlas runtime missing/);
+      assert.ok(elapsed < 2000, `missing capture refusal took ${elapsed}ms`);
+      assert.equal(fs.existsSync(recorded), false, 'no tmux provider command may be created');
+      assert.equal(fs.existsSync(argsFile), false, 'no provider may be invoked');
+      assert.equal(fs.existsSync(legacyMarker), false, 'shared capture must not fall back to legacy lifecycle attachment');
+    }
   } finally { clean(root); }
 });
 
@@ -350,7 +349,7 @@ test('real launcher bounds a stalled attachment and preserves direct Claude argv
   const linuxCases = new Set(['environment removes raw logging and signal overrides without changing argv',
     'process identity rejects PID reuse and path-prefix lookalikes', 'readiness rejects a healthy imposter and the wrong project',
     'lifecycle lock excludes concurrent starts without removing live ownership', 'resource checks expose pressure without signalling an unrelated process',
-    'quota sampler refuses symlink ancestors without changing their target', 'real launcher bounds a stalled attachment and preserves direct Claude argv']);
+    'quota sampler refuses symlink ancestors without changing their target', 'real launcher refuses missing shared capture without invoking a stalled legacy attachment']);
   for (const [name, fn] of cases) {
     if ((linuxCases.has(name) && process.platform !== 'linux') || (name.startsWith('real installed stack')
       && (process.platform !== 'linux' || process.env.SGSD_ATLAS_REAL_RUNTIME_TEST !== '1'))) {

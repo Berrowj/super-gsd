@@ -9,9 +9,11 @@
 'use strict';
 
 const fs = require('fs');
+const { bindSessionOwner } = require('../scripts/lib/atlas-session-owner.cjs');
 const path = require('path');
 const { findSgsdRoot, readState } = require('../scripts/lib/sgsd-state.cjs');
 const { logGateEvidence } = require('../scripts/lib/gate-evidence-log.cjs');
+const { collectAtlasBootBriefing, formatAtlasBriefing } = require('../scripts/lib/atlas-boot-briefing.cjs');
 
 function readPayload() {
   let raw = '';
@@ -142,6 +144,12 @@ function appendMemoryBriefing(ctx, parts) {
   }
 }
 
+function appendAtlasBriefing(ctx, parts) {
+  const lines = formatAtlasBriefing(collectAtlasBootBriefing({ projectRoot: ctx.root }));
+  parts.push('');
+  parts.push(...lines);
+}
+
 function logStatePhaseMissing(ctx, state) {
   logGateEvidence(ctx.root, {
     signal: 'state_phase_missing',
@@ -262,6 +270,7 @@ function emitGovernanceContext(ctx, state) {
 
   emitOptionalBriefing(ctx, appendCheckpointBriefing);
   emitOptionalBriefing(ctx, appendMemoryBriefing);
+  emitOptionalBriefing(ctx, appendAtlasBriefing);
 }
 
 function pairHandoffTarget(ctx) {
@@ -295,6 +304,14 @@ function main() {
   let state = null;
   try {
     payload = readPayload();
+    if (process.env.SGSD_FLEET_MANAGED === '1') {
+      const owner = bindSessionOwner({ projectDir: payload && payload.cwd, sessionId: payload && payload.session_id });
+      if (owner.status === 'bound') {
+        console.log(`[SGSD ownership] bound: ${owner.run_id}. Delivery is reported separately by Atlas.`);
+      } else {
+        console.log(`[SGSD ownership] BLOCKED: ${owner.reason || 'identity_unverified'}. Do not resume work; inspect /sgsd-sessions. No capture readiness claim.`);
+      }
+    }
     try {
       ctx = resolveContext(payload);
     } catch (err) {

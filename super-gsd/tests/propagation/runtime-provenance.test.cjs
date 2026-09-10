@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -89,6 +89,7 @@ function createRuntimeFixture() {
   const cockpitMarker = path.join(root, 'cockpit.log');
   const tmuxMarker = path.join(root, 'tmux.log');
   const vendoredMarker = path.join(root, 'vendored.log');
+  const atlasMarker = path.join(root, 'atlas.jsonl');
 
   fs.mkdirSync(source, { recursive: true });
   let result = run('git', ['init'], { cwd: source });
@@ -103,6 +104,29 @@ function createRuntimeFixture() {
     path.join(source, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs'),
     'process.stdout.write(JSON.stringify({ok:true,issues:[]}));\n',
   );
+  // Transport fixture only: exercise the launcher's required managed envelope
+  // without starting the shared receiver. Real fleet/capture tests own that proof.
+  write(path.join(source, 'super-gsd/tools/telemetry-atlas/global.cjs'), `
+const assert = require('node:assert/strict'), fs = require('node:fs');
+const args = process.argv.slice(2), command = args[0];
+fs.appendFileSync(${JSON.stringify(atlasMarker)}, JSON.stringify({ command, args }) + '\\n');
+if (command === 'prepare') {
+  assert.ok(args.includes('--require-managed'));
+  assert.equal(args[args.indexOf('--format') + 1], 'prefix');
+  assert.equal(fs.realpathSync(args[args.indexOf('--project-dir') + 1]), fs.realpathSync(${JSON.stringify(project)}));
+  console.log("env SGSD_RUN_ID='sgsd-11111111-1111-4111-8111-111111111111' SGSD_FLEET_MANAGED='1' CLAUDE_CODE_ENABLE_TELEMETRY='1'");
+} else {
+  assert.ok(['finish', 'abort'].includes(command));
+  assert.equal(process.env.SGSD_RUN_ID, 'sgsd-11111111-1111-4111-8111-111111111111');
+}
+`);
+  write(path.join(source, 'super-gsd/tools/telemetry-atlas/monitor-schedule.cjs'), `
+const assert = require('node:assert/strict'), fs = require('node:fs');
+assert.deepEqual(process.argv.slice(2, 4), ['include', '--project-dir']);
+assert.equal(fs.realpathSync(process.argv[4]), fs.realpathSync(${JSON.stringify(project)}));
+assert.equal(process.env.SGSD_FLEET_MANAGED, '1');
+fs.appendFileSync(${JSON.stringify(atlasMarker)}, JSON.stringify({ command: 'include' }) + '\\n');
+`);
   result = run('git', ['add', '.'], { cwd: source });
   assert.equal(result.status, 0, output(result));
   result = run('git', ['commit', '-m', 'fixture source'], { cwd: source });
@@ -193,6 +217,7 @@ function createRuntimeFixture() {
     cockpitMarker,
     tmuxMarker,
     vendoredMarker,
+    atlasMarker,
   };
 }
 
@@ -287,7 +312,9 @@ function createSelectionFixture() {
       '    (cd "$cwd" && /bin/bash -c "$operator")',
       '    exit $?',
       '    ;;',
-      '  display-message) printf "%%0" ;;',
+      '  display-message)',
+      '    if [[ "${@: -1}" == "#{pane_pid}" ]]; then printf "%s" "${SGSD_TEST_TMUX_PANE_PID:?}"; else printf "%%0"; fi',
+      '    ;;',
       '  split-window) printf "%%1" ;;',
       'esac',
       'exit 0',
@@ -614,10 +641,10 @@ if (!bash) {
       fs.chmodSync(path.join(fixture.localBin, 'tmux'), 0o755);
       fs.rmSync(path.join(fixture.fakeBin, 'tmux'));
       exposeNativeCommands(fixture.fakeBin, [
-        'date', 'dirname', 'find', 'git', 'head', 'mkdir', 'sed', 'sort', 'tail', 'touch', 'tr',
+        'date', 'dirname', 'env', 'find', 'git', 'head', 'mkdir', 'sed', 'sort', 'tail', 'touch', 'tr',
       ]);
 
-      const result = run(bash, remoteFixtureArgs(fixture, '--go'), {
+      const result = run(bash, remoteFixtureArgs(fixture, '--greet'), {
         cwd: fixture.caller,
         env: selectionEnv(fixture, { PATH: `incoming-bin:${shellPath(fixture.fakeBin)}` }),
         unsetEnv: SELECTOR_NAMES,
@@ -628,7 +655,10 @@ if (!bash) {
       assert.equal(result.status, 0, output(result));
       const session = nulFields(fixture.sessionMarker);
       assert.equal(session[1], path.join(fixture.incomingBin, 'codex'));
-      assert.deepEqual(nulFields(fixture.claudeMarker).slice(6), ['--model', 'fable', '--dangerously-skip-permissions', 'go']);
+      const claudeArgs = nulFields(fixture.claudeMarker).slice(6);
+      assert.equal(claudeArgs.length, 4);
+      assert.deepEqual(claudeArgs.slice(0, 3), ['--model', 'fable', '--dangerously-skip-permissions']);
+      assert.match(claudeArgs[3], /You are the SGSD orchestrator/);
       assert.equal(nulFields(fixture.loginMarker)[0], 'LOGIN');
     } finally {
       fs.rmSync(fixture.root, { recursive: true, force: true, maxRetries: 3 });
@@ -737,7 +767,7 @@ if (!bash) {
       const claude = nulFields(fixture.claudeMarker);
       assert.deepEqual(claude.slice(0, 5), ['CLAUDE', selected, legacy, prefixArgs, 'direct']);
       assert.deepEqual(claude.slice(6, 9), ['--model', 'fable', '--dangerously-skip-permissions']);
-      assert.match(claude[9], /You are booting in Super GSD mode/);
+      assert.match(claude[9], /You are the SGSD orchestrator/);
 
       const login = nulFields(fixture.loginMarker);
       assert.deepEqual(login.slice(0, 5), ['LOGIN', selected, legacy, prefixArgs, 'direct']);
@@ -913,7 +943,7 @@ if (!bash) {
     }
   });
 
-  test('remote tmux executes greet, go, and shell directly before the login-shell handoff', {
+  test('remote tmux executes greet and shell directly but refuses fresh auto mode', {
     skip: process.platform === 'win32' ? 'native Linux selection contract' : false,
   }, () => {
     for (const mode of ['--greet', '--go', '--shell']) {
@@ -925,15 +955,28 @@ if (!bash) {
           env: selectionEnv(fixture, { SGSD_TEST_CLAUDE_EXIT: '23', ...(mode === '--shell' ? { SGSD_MODEL_ORCHESTRATOR: 'astral' } : {}) }),
           unsetEnv: SELECTOR_NAMES,
         });
-        assert.equal(result.status, 0, `${mode}: ${output(result)}`);
         const claude = nulFields(fixture.claudeMarker);
+        if (mode === '--go') {
+          assert.notEqual(result.status, 0, output(result));
+          assert.match(output(result), /fresh owned sessions start with a briefing/);
+          assert.deepEqual(claude, []);
+          for (const marker of [fixture.atlasMarker, fixture.sessionMarker, fixture.loginMarker, fixture.cockpitMarker, fixture.providerMarker]) {
+            assert.equal(fs.existsSync(marker), false, `${mode}: unexpected ${path.basename(marker)}`);
+          }
+          assert.doesNotMatch(fs.readFileSync(fixture.tmuxMarker, 'utf8'), /new-session|split-window|attach-session/);
+          continue;
+        }
+        assert.equal(result.status, 0, `${mode}: ${output(result)}`);
         if (mode === '--shell') {
           assert.deepEqual(claude, []);
+          assert.equal(fs.existsSync(fixture.atlasMarker), false);
         } else {
           assert.equal(claude[0], 'CLAUDE');
           assert.deepEqual(claude.slice(6, 9), ['--model', 'fable', '--dangerously-skip-permissions']);
-          if (mode === '--go') assert.equal(claude[9], 'go');
-          else assert.match(claude[9], /You are booting in Super GSD mode/);
+          assert.equal(claude.length, 10);
+          assert.match(claude[9], /You are the SGSD orchestrator/);
+          assert.deepEqual(fs.readFileSync(fixture.atlasMarker, 'utf8').trim().split('\n').map(row => JSON.parse(row).command),
+            ['prepare', 'include', 'finish']);
         }
         assert.equal(nulFields(fixture.loginMarker)[0], 'LOGIN');
         const tmuxLog = fs.readFileSync(fixture.tmuxMarker, 'utf8');
@@ -964,11 +1007,14 @@ if (!bash) {
           additions.SGSD_MODEL_ROUTING_FILE = path.join(fixture.root, 'explicit routing.json');
           write(additions.SGSD_MODEL_ROUTING_FILE, JSON.stringify(config));
         }
-        const result = run(bash, remoteFixtureArgs(fixture, '--go'), {
+        const result = run(bash, remoteFixtureArgs(fixture, '--greet'), {
           cwd: fixture.caller, env: selectionEnv(fixture, additions), unsetEnv: SELECTOR_NAMES,
         });
         assert.equal(result.status, 0, output(result));
-        assert.deepEqual(nulFields(fixture.claudeMarker).slice(6), ['--model', item.model, '--dangerously-skip-permissions', 'go']);
+        const claudeArgs = nulFields(fixture.claudeMarker).slice(6);
+        assert.equal(claudeArgs.length, 4);
+        assert.deepEqual(claudeArgs.slice(0, 3), ['--model', item.model, '--dangerously-skip-permissions']);
+        assert.match(claudeArgs[3], /You are the SGSD orchestrator/);
         assert.equal(fs.readFileSync(settings, 'utf8'), '{"model":"opus[1m]"}\n');
         assert.equal(fs.existsSync(fixture.providerMarker), false);
       } finally {
@@ -1008,27 +1054,58 @@ if (!bash) {
     }
   });
 
-  test('remote tmux reuses an existing session without environment or pane mutation', {
+  test('remote tmux verifies a live owned session before read-only reuse', {
     skip: process.platform === 'win32' ? 'native Linux selection contract' : false,
-  }, () => {
+  }, async () => {
     const fixture = createSelectionFixture();
+    let child;
     try {
       fixture.writeCodex(path.join(fixture.incomingBin, 'codex'), 'incoming');
+      const atlasDir = path.join(fixture.source, 'super-gsd/tools/telemetry-atlas');
+      for (const name of ['fleet.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'contract.cjs', 'accounting.cjs']) {
+        fs.copyFileSync(path.join(REPO_ROOT, 'super-gsd/tools/telemetry-atlas', name), path.join(atlasDir, name));
+      }
+      const fleet = require(path.join(atlasDir, 'fleet.cjs'));
+      const fleetRoot = path.join(fixture.root, 'atlas');
+      const registration = require(path.join(atlasDir, 'global-store.cjs')).registerRun({ root: fleetRoot, projectDir: fixture.project });
+      fleet.reserve({ root: fleetRoot, run: registration });
+      // A real, non-model child supplies PID/start/env evidence. The test runner
+      // is the pane ancestor, so reuse must actually traverse /proc ancestry.
+      child = spawn(process.execPath, ['-e', 'process.stdout.write("ready\\n");process.stdin.resume()'], {
+        env: { ...process.env, SGSD_RUN_ID: registration.run_id, SGSD_ATLAS_PROJECT_ID: registration.project_id },
+        stdio: ['pipe', 'pipe', 'ignore'],
+      });
+      await new Promise((resolve, reject) => { child.stdout.once('data', resolve); child.once('error', reject); });
+      fleet.bind({ root: fleetRoot, runId: registration.run_id, projectDir: fixture.project, pid: child.pid,
+        sessionId: 'fixture-existing-session', tmux: { pane_id: '%0' } });
+      const claimFile = path.join(fleetRoot, 'fleet/claims', `${registration.project_id}.json`);
+      const before = fs.readFileSync(claimFile);
+      assert.equal(fleet.status({ root: fleetRoot, projectDir: fixture.project }).claims[0].active, true);
       const result = run(bash, remoteFixtureArgs(fixture).slice(0, -1), {
         cwd: fixture.caller,
-        env: selectionEnv(fixture, { SGSD_TEST_TMUX_EXISTING: 'true' }),
+        env: selectionEnv(fixture, { SGSD_TEST_TMUX_EXISTING: 'true', SGSD_TEST_TMUX_PANE_PID: String(process.pid),
+          SGSD_ATLAS_GLOBAL_ROOT: fleetRoot }),
         unsetEnv: SELECTOR_NAMES,
       });
       assert.equal(result.status, 0, output(result));
+      assert.match(result.stdout, /verified owned tmux session/);
+      assert.deepEqual(fs.readFileSync(claimFile), before);
+      assert.equal(fs.existsSync(fixture.atlasMarker), false, 'reuse must not prepare or finish another run');
       assert.equal(fs.existsSync(fixture.sessionMarker), false);
       assert.equal(fs.existsSync(fixture.claudeMarker), false);
       assert.equal(fs.existsSync(fixture.loginMarker), false);
       const tmuxLog = fs.readFileSync(fixture.tmuxMarker, 'utf8');
       assert.match(tmuxLog, /has-session/);
+      assert.equal((tmuxLog.match(/display-message/g) || []).length, 2);
       assert.match(tmuxLog, /attach-session/);
       assert.doesNotMatch(tmuxLog, /(?:new-session|split-window|set-environment|update-environment)/);
       assert.equal(fs.existsSync(fixture.providerMarker), false);
     } finally {
+      if (child) {
+        const ended = new Promise(resolve => child.once('close', resolve));
+        child.stdin.end();
+        await ended;
+      }
       fs.rmSync(fixture.root, { recursive: true, force: true, maxRetries: 3 });
     }
   });

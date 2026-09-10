@@ -31,12 +31,43 @@ sgsd_codex_worker_is_interop() {
     [[ "${proc_version,,}" == *microsoft* && "$executable" == /mnt/* ]]
 }
 
-# Pin the caller-visible native Codex before adding user-local Node paths. The
+# Optional operator-approved OS-user pin. Return 1 for absent, 2 for invalid.
+# Read at most 4097 bytes with Bash builtins, never source/eval/probe the contents.
+sgsd_codex_worker_runtime_pin() {
+    local pin_file="$HOME/.config/sgsd/codex-command" pin_value="" ancestor
+    local LC_ALL=C
+    [[ -e "$pin_file" || -L "$pin_file" ]] || return 1
+    ancestor="$pin_file"
+    while [[ "$ancestor" != / ]]; do
+        [[ ! -L "$ancestor" ]] || return 2
+        ancestor="${ancestor%/*}"
+        [[ -n "$ancestor" ]] || ancestor=/
+    done
+    [[ -f "$pin_file" && -r "$pin_file" ]] || return 2
+    # Success means a NUL delimiter or the byte limit was reached: both refuse.
+    # EOF is the only accepted read termination. Redirect errors before opening.
+    if IFS= read -r -d '' -n 4097 pin_value 2>/dev/null < "$pin_file"; then return 2; fi
+    pin_value="${pin_value%$'\n'}"
+    [[ "$pin_value" == /* && "$pin_value" != *[[:cntrl:]]* ]] || return 2
+    [[ -f "$pin_value" && -x "$pin_value" ]] || return 2
+    ! sgsd_codex_worker_is_interop "$pin_value" || return 2
+    printf '%s' "$pin_value"
+}
+
+sgsd_codex_worker_invalid_pin() {
+    CODEX_COMMAND="" CODEX_BIN=""
+    export SGSD_CODEX_SELECTION_STATUS=invalid_pin
+    echo "SGSD_WORKER: invalid configured Codex runtime pin" >&2
+    return 3
+}
+
+# Pin the explicitly selected, operator-pinned, or caller-visible native Codex
+# before adding user-local Node paths. The
 # adapter reads its selector from the environment, so exporting the absolute
 # result is part of selection rather than a later availability check.
 sgsd_codex_worker_bootstrap() {
     local argument expect_value=false self_test=false dry_run=false offline_only=false explicit=false
-    local selected candidate="" incoming="" nvm_bin=""
+    local selected candidate="" incoming="" nvm_bin="" configured_pin=false pin_status
     for argument in "$@"; do
         if [[ "$expect_value" == true ]]; then expect_value=false; continue; fi
         case "$argument" in
@@ -57,6 +88,16 @@ sgsd_codex_worker_bootstrap() {
         explicit=true
     else
         selected="codex"
+        if [[ "$offline_only" != true ]]; then
+            if selected="$(sgsd_codex_worker_runtime_pin)"; then
+                explicit=true
+                configured_pin=true
+            else
+                pin_status=$?
+                if [[ "$pin_status" != 1 ]]; then sgsd_codex_worker_invalid_pin; return 3; fi
+                selected="codex"
+            fi
+        fi
     fi
     CODEX_COMMAND="$selected"
     SGSD_CODEX_SELECTION_STATUS="offline"
@@ -70,6 +111,10 @@ sgsd_codex_worker_bootstrap() {
         else
             candidate="$incoming"
             SGSD_CODEX_SELECTION_STATUS="ready"
+        fi
+        if [[ -z "$candidate" && "$configured_pin" == true ]]; then
+            sgsd_codex_worker_invalid_pin
+            return 3
         fi
         if [[ -z "$candidate" && "$explicit" == true ]]; then
             if [[ "$self_test" != true ]]; then
