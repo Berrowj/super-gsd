@@ -26,6 +26,105 @@ test('disabled preparation clears inherited managed-owner identity', async () =>
   const result = await prepare({ disabled: true });
   assert.equal(result.environment.SGSD_FLEET_MANAGED, '');
   assert.equal(result.environment.SGSD_FLEET_COORDINATOR_ID, '');
+  assert.equal(result.environment.SGSD_RESTORE_ID, '');
+});
+test('unknown recovery ticket refuses preparation before registering a run', async t => {
+  const f = fixture(t);
+  const result = await prepare({ root: f.root, projectDir: f.projects[0], restoreId: 'recovery-11111111-1111-4111-8111-111111111111' });
+  assert.equal(result.enabled, false);
+  assert.ok(!fs.existsSync(path.join(f.root, 'runs')) || fs.readdirSync(path.join(f.root, 'runs')).length === 0);
+});
+test('recovery preparation publishes exact lineage and ticket run ID before fleet reservation', { skip: process.platform !== 'linux' }, async t => {
+  const f = fixture(t), recovery = require('./workspace-recovery.cjs'), fleet = require('./fleet.cjs');
+  const old = registerRun({ root: f.root, projectDir: f.projects[0] });
+  const oldDeps = { bootId: () => '11111111-1111-4111-8111-111111111111', processLookup: () => ({ state: 'alive',
+    pid: 2147483646, start_time: '1', executable: '/fixture/claude', environment: { SGSD_RUN_ID: old.run_id, SGSD_ATLAS_PROJECT_ID: old.project_id } }) };
+  fleet.reserve({ root: f.root, run: old }, oldDeps);
+  fleet.bind({ root: f.root, runId: old.run_id, projectDir: old.project_dir, pid: 2147483646, tmux: { pane_id: '%1' } }, oldDeps);
+  const sourceDir = path.join(path.dirname(f.root), 'source'), scriptsDir = path.join(path.dirname(f.root), 'scripts'), agentsDir = path.join(path.dirname(f.root), 'agents');
+  for (const dir of [sourceDir, scriptsDir, agentsDir]) fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(scriptsDir, 'sgsd-remote-tmux.sh'), '# fixture');
+  const git = args => { const r = spawnSync('git', args, { encoding: 'utf8' }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); };
+  git(['init', '-q', sourceDir]); git(['-C', sourceDir, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', 'fixture']);
+  fs.writeFileSync(path.join(old.project_dir, '.super-gsd-version'), git(['-C', sourceDir, 'rev-parse', 'HEAD']));
+  let prepared;
+  const result = await recovery.restore({ root: f.root, projectIds: [old.project_id], sourceDir, scriptsDir, agentsDir }, {
+    sessionExists: () => false, bindingWaitMs: 0, launch: async ({ args }) => {
+      const restoreId = args[args.indexOf('--restore-id') + 1];
+      prepared = await prepare({ root: f.root, projectDir: old.project_dir, restoreId });
+      assert.equal(prepared.enabled, true);
+      const ticket = JSON.parse(fs.readFileSync(path.join(f.root, 'fleet/workspaces/tickets', restoreId + '.json')));
+      assert.equal(ticket.new_run_id, prepared.run.run_id); assert.equal(ticket.stage, 'prepared');
+      assert.equal(fleet.status({ root: f.root }).claims[0].run_id, prepared.run.run_id);
+      assert.equal(prepared.environment.SGSD_RESTORE_ID, restoreId);
+      return { code: 0 };
+    }
+  });
+  assert.equal(result.results[0].status, 'pending');
+  assert.equal(prepared.run.recovery.previous_run_id, old.run_id);
+  const spool = fs.readdirSync(path.join(prepared.run.state_dir, 'quota-spool')).map(name => JSON.parse(fs.readFileSync(path.join(prepared.run.state_dir, 'quota-spool', name))));
+  assert.ok(spool.some(row => row.event_type === 'handoff' && row.identity.parent_handoff_id === old.run_id && row.identity.sgsd_run_id === prepared.run.run_id));
+  assert.equal(finish({ root: f.root, runId: prepared.run.run_id, abortPending: true }), true);
+});
+test('recovery launcher failure after actual prepare and terminal exit is failed, not pending', { skip: process.platform !== 'linux' }, async t => {
+  const f = fixture(t), recovery = require('./workspace-recovery.cjs'), fleet = require('./fleet.cjs');
+  const old = registerRun({ root: f.root, projectDir: f.projects[0] });
+  const oldDeps = { bootId: () => '11111111-1111-4111-8111-111111111111', processLookup: () => ({ state: 'alive',
+    pid: 2147483646, start_time: '1', executable: '/fixture/claude', environment: { SGSD_RUN_ID: old.run_id, SGSD_ATLAS_PROJECT_ID: old.project_id } }) };
+  fleet.reserve({ root: f.root, run: old }, oldDeps);
+  fleet.bind({ root: f.root, runId: old.run_id, projectDir: old.project_dir, pid: 2147483646, tmux: { pane_id: '%1' } }, oldDeps);
+  const sourceDir = path.join(path.dirname(f.root), 'source'), scriptsDir = path.join(path.dirname(f.root), 'scripts'), agentsDir = path.join(path.dirname(f.root), 'agents');
+  for (const dir of [sourceDir, scriptsDir, agentsDir]) fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(scriptsDir, 'sgsd-remote-tmux.sh'), '# fixture');
+  const git = args => { const result = spawnSync('git', args, { encoding: 'utf8' }); assert.equal(result.status, 0, result.stderr); return result.stdout.trim(); };
+  git(['init', '-q', sourceDir]); git(['-C', sourceDir, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', 'fixture']);
+  fs.writeFileSync(path.join(old.project_dir, '.super-gsd-version'), git(['-C', sourceDir, 'rev-parse', 'HEAD']));
+  let prepared;
+  const result = await recovery.restore({ root: f.root, projectIds: [old.project_id], sourceDir, scriptsDir, agentsDir }, {
+    sessionExists: () => false, bindingWaitMs: 0, launch: async ({ args }) => {
+      prepared = await prepare({ root: f.root, projectDir: old.project_dir, restoreId: args[args.indexOf('--restore-id') + 1] });
+      assert.equal(prepared.enabled, true); assert.equal(finish({ root: f.root, runId: prepared.run.run_id, abortPending: true }), true);
+      return { code: 1 };
+    }
+  });
+  assert.equal(result.results[0].status, 'failed', JSON.stringify(result));
+  assert.equal(result.results[0].reason, 'recovery_launch_terminated');
+  assert.equal(result.results[0].attach_command, null);
+  assert.ok(fs.existsSync(path.join(prepared.run.state_dir, 'exit.json')));
+  assert.ok(fs.existsSync(path.join(f.root, 'fleet/receipts', prepared.run.run_id + '.json')));
+});
+test('reboot recovery ignores reused PIDs in prior-boot startup and service records', { skip: process.platform !== 'linux' }, async t => {
+  const f = fixture(t), oldBoot = '11111111-1111-4111-8111-111111111111';
+  fs.mkdirSync(f.root, { recursive: true, mode: 0o700 });
+  const identity = processIdentity(process.pid), token = crypto.randomUUID();
+  const old = { schema_version: 1, mode: 'global', root_id: digest(f.root), pid: process.pid,
+    boot_id: oldBoot, process_identity: identity, instance_id: crypto.randomUUID(), urls: {} };
+  const oldBytes = JSON.stringify(old);
+  fs.writeFileSync(path.join(f.root, 'service.json'), oldBytes, { mode: 0o600 });
+  fs.writeFileSync(path.join(f.root, 'startup.lock'), JSON.stringify({ pid: process.pid, token, identity, boot_id: oldBoot }), { mode: 0o600 });
+  const ready = await ensureService(f.root, 4000);
+  assert.notEqual(ready.pid, process.pid);
+  assert.match(ready.boot_id, /^[a-f0-9-]{36}$/); assert.notEqual(ready.boot_id, oldBoot);
+  const receipts = fs.readdirSync(path.join(f.root, 'boot-receipts')).map(name => JSON.parse(fs.readFileSync(path.join(f.root, 'boot-receipts', name))));
+  assert.ok(receipts.some(row => row.source_bytes === oldBytes && row.reason === 'prior_boot'));
+});
+test('if-running update safely reports absent for a proved-dead legacy receiver and preserves evidence', { skip: process.platform !== 'linux' }, async t => {
+  const f = fixture(t); fs.mkdirSync(f.root, { recursive: true, mode: 0o700 });
+  const old = { schema_version: 1, mode: 'global', root_id: digest(f.root), pid: 2147483647,
+    process_identity: stoppedFixtureIdentity(), instance_id: crypto.randomUUID(), urls: {} };
+  const bytes = JSON.stringify(old); fs.writeFileSync(path.join(f.root, 'service.json'), bytes, { mode: 0o600 });
+  assert.equal((await restartService({ root: f.root })).status, 'absent');
+  assert.equal(fs.readFileSync(path.join(f.root, 'service.json'), 'utf8'), bytes);
+  assert.equal(fs.readdirSync(path.join(f.root, 'boot-receipts')).length, 1);
+});
+test('dead service metadata cannot hide a still-live replacement in completed history', { skip: process.platform !== 'linux' }, async t => {
+  const f = fixture(t); fs.mkdirSync(f.root, { recursive: true, mode: 0o700 });
+  const old = { schema_version: 1, mode: 'global', root_id: digest(f.root), pid: 2147483647,
+    process_identity: stoppedFixtureIdentity(), instance_id: crypto.randomUUID(), urls: {} };
+  fs.writeFileSync(path.join(f.root, 'service.json'), JSON.stringify(old));
+  fs.writeFileSync(path.join(f.root, 'receiver-transition.json'), JSON.stringify({ schema_version: 1,
+    root_id: digest(f.root), token: crypto.randomUUID(), phase: 'complete', replacement_identity: processIdentity(process.pid) }));
+  await assert.rejects(restartService({ root: f.root }), /service_health_unverified/);
 });
 test('managed orchestrator preparation admits only one exact-project owner', { skip: process.platform !== 'linux' }, async t => {
   const f = fixture(t);
@@ -611,7 +710,7 @@ test('timed-out bootstrap retains ownership until its delayed receiver publishes
   t.after(async () => { cp.spawn = original; await Promise.all(pending); await Promise.all(instances.map(server => server.close())); });
   // Reload an uncached bootstrap closure so its spawn binding sees this isolated delay.
   for (const name of ['global.cjs', 'server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs', 'contract.cjs',
-    'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs', 'sgsd-ledger-runtime.cjs',
+    'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs', 'boot-identity.cjs', 'workspace-recovery.cjs', 'sgsd-ledger-runtime.cjs',
     'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs']) delete require.cache[require.resolve(`./${name}`)];
   const bootstrap = require('./global.cjs');
   assert.match(bootstrap.RUNTIME_FINGERPRINT, /^[a-f0-9]{64}$/, 'the delayed fixture must begin with an attested runtime closure');

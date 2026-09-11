@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { safePath, digest } = require('./contract.cjs');
 const { privateDirectory } = require('./quota-sampler.cjs');
 const { readRun, readJson, writeJson, RUN } = require('./global-store.cjs');
+const { currentBootId, validBootId, bootState, reclaimLock } = require('./boot-identity.cjs');
 const MAX_CLAIMS = 256, MAX_METADATA = 8192;
 const HEX = /^[a-f0-9]{64}$/, COORDINATOR = /^fleet-[a-f0-9-]{36}$/;
 const fail = reason => { throw new Error(reason); };
@@ -50,19 +51,20 @@ function durableJson(file, value) {
   try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   syncDirectory(path.dirname(file));
 }
-function withLock(root, action) {
+function withLock(root, action, dependencies) {
   const p = locations(root); privateDirectory(p.base);
   let fd;
   try { safePath(p.lock); fd = fs.openSync(p.lock, 'wx', 0o600); }
   catch (error) {
-    // Windows can report EPERM while another process's deleted lock is closing.
-    // All these cases refuse acquisition; none permits recovery or takeover.
+    if (error.code === 'EEXIST' && reclaimLock({ file: p.lock, receiptDirectory: path.join(p.base, 'lock-receipts') }, dependencies)) {
+      return withLock(root, action, dependencies);
+    }
     if (error.code === 'EEXIST' || (process.platform === 'win32' && ['EPERM', 'EACCES', 'ENOENT'].includes(error.code))) fail('fleet_busy');
     throw error;
   }
   const token = crypto.randomUUID();
   try {
-    fs.writeFileSync(fd, JSON.stringify({ token, pid: process.pid }) + '\n'); fs.fsyncSync(fd);
+    fs.writeFileSync(fd, JSON.stringify({ token, pid: process.pid, boot_id: currentBootId(dependencies) }) + '\n'); fs.fsyncSync(fd);
     return action(p);
   } finally {
     fs.closeSync(fd);
@@ -123,9 +125,10 @@ function readClaim(root, p, projectId, coordinatorId) {
   try {
     c = readJson(file);
     if (!only(c, ['schema_version', 'coordinator_id', 'project_id', 'project_dir', 'run_id', 'status', 'identity',
-      'session_id', 'tmux', 'created_at', 'bound_at']) || c.schema_version !== 1 || c.coordinator_id !== coordinatorId
+      'session_id', 'tmux', 'created_at', 'bound_at', 'boot_id']) || c.schema_version !== 1 || c.coordinator_id !== coordinatorId
       || c.project_id !== projectId || !HEX.test(projectId) || !RUN.test(c.run_id || '')
-      || !['pending', 'bound'].includes(c.status) || !timestamp(c.created_at)) throw new Error();
+      || !['pending', 'bound'].includes(c.status) || !timestamp(c.created_at)
+      || (c.boot_id !== undefined && c.boot_id !== null && !validBootId(c.boot_id))) throw new Error();
     const run = registration(root, c.run_id);
     if (run.project_id !== projectId || run.project_dir !== c.project_dir) throw new Error();
     if (c.status === 'pending') {
@@ -137,7 +140,7 @@ function readClaim(root, p, projectId, coordinatorId) {
   } catch { fail('fleet_claim_invalid'); }
   return c;
 }
-function reserve({ root, run } = {}) {
+function reserve({ root, run } = {}, dependencies) {
   root = rootDirectory(root);
   const registered = registration(root, run?.run_id);
   if (run.project_id !== registered.project_id || run.project_dir !== registered.project_dir
@@ -148,11 +151,11 @@ function reserve({ root, run } = {}) {
     const previous = readClaim(root, p, registered.project_id, id);
     if (previous) { if (previous.run_id !== registered.run_id) fail('fleet_project_owned'); return previous; }
     const claim = { schema_version: 1, coordinator_id: id, project_id: registered.project_id, project_dir: registered.project_dir,
-      run_id: registered.run_id, status: 'pending', identity: null, session_id: null, tmux: null,
+      run_id: registered.run_id, boot_id: currentBootId(dependencies), status: 'pending', identity: null, session_id: null, tmux: null,
       created_at: new Date().toISOString(), bound_at: null };
     durableJson(path.join(p.claims, `${claim.project_id}.json`), claim);
     return claim;
-  });
+  }, dependencies);
 }
 
 // Linux proc is the production authority. Missing PID is dead; inaccessible or
@@ -199,6 +202,7 @@ function scopeMatches(actual, run) {
   return actual.environment?.SGSD_RUN_ID === run.run_id && actual.environment?.SGSD_ATLAS_PROJECT_ID === run.project_id;
 }
 function processState(claim, dependencies) {
+  if (bootState(claim.boot_id, dependencies) === 'prior') return 'prior_boot';
   if (claim.status === 'pending') return 'pending';
   const actual = lookup(claim.identity.pid, dependencies);
   if (actual.state === 'dead') return 'dead';
@@ -226,6 +230,7 @@ function bind({ root, runId, projectDir, pid, sessionId = null, tmux = null } = 
     const receipt = path.join(p.receipts, `${run.run_id}.json`);
     safePath(receipt); if (fs.existsSync(receipt)) fail('fleet_run_released');
     const claim = ownedClaim(root, p, run), actual = lookup(pid, dependencies);
+    if (bootState(claim.boot_id, dependencies) === 'prior') fail('fleet_prior_boot_claim');
     if (actual.state !== 'alive' || actual.pid !== pid) fail('fleet_process_unverified');
     const identity = processIdentity(actual);
     if (!scopeMatches(actual, run)) fail('fleet_process_scope_mismatch');
@@ -236,7 +241,7 @@ function bind({ root, runId, projectDir, pid, sessionId = null, tmux = null } = 
     const bound = { ...claim, status: 'bound', identity, session_id: sessionId, tmux: selectedTmux, bound_at: new Date().toISOString() };
     durableJson(path.join(p.claims, `${run.project_id}.json`), bound);
     return bound;
-  });
+  }, dependencies);
 }
 function release({ root, runId, allowPending = false } = {}, dependencies) {
   root = rootDirectory(root); const run = registration(root, runId);
@@ -244,7 +249,8 @@ function release({ root, runId, allowPending = false } = {}, dependencies) {
   return withLock(root, p => {
     const claim = ownedClaim(root, p, run);
     let reason;
-    if (claim.status === 'pending') {
+    if (processState(claim, dependencies) === 'prior_boot') reason = 'prior_boot_interrupted';
+    else if (claim.status === 'pending') {
       if (!allowPending) fail('fleet_pending_abort_required');
       reason = 'pending_launch_aborted';
     } else {
@@ -259,8 +265,8 @@ function release({ root, runId, allowPending = false } = {}, dependencies) {
       if (!only(receipt, ['schema_version', 'coordinator_id', 'project_id', 'project_dir', 'run_id', 'status', 'reason', 'identity', 'released_at', 'claim'])
           || receipt.schema_version !== 1 || receipt.status !== 'released' || receipt.run_id !== runId
           || receipt.coordinator_id !== claim.coordinator_id || receipt.project_id !== claim.project_id || receipt.project_dir !== claim.project_dir
-          || !timestamp(receipt.released_at) || !['pending_launch_aborted', 'bound_process_dead', 'bound_process_replaced'].includes(receipt.reason)
-          || (claim.status === 'pending') !== (receipt.reason === 'pending_launch_aborted')
+          || !timestamp(receipt.released_at) || !['pending_launch_aborted', 'bound_process_dead', 'bound_process_replaced', 'prior_boot_interrupted'].includes(receipt.reason)
+          || (receipt.reason !== 'prior_boot_interrupted' && (claim.status === 'pending') !== (receipt.reason === 'pending_launch_aborted'))
           || digest(receipt.identity) !== digest(claim.identity) || digest(receipt.claim) !== digest(claim)) fail('fleet_receipt_conflict');
     } else {
       receipt = { schema_version: 1, coordinator_id: claim.coordinator_id, project_id: claim.project_id,
@@ -274,7 +280,7 @@ function release({ root, runId, allowPending = false } = {}, dependencies) {
     if (digest(readClaim(root, p, run.project_id, claim.coordinator_id)) !== digest(claim)) fail('fleet_owner_mismatch');
     safePath(claimFile); fs.unlinkSync(claimFile); syncDirectory(p.claims);
     return receipt;
-  });
+  }, dependencies);
 }
 function status({ root, projectDir } = {}, dependencies) {
   root = rootDirectory(root, true);

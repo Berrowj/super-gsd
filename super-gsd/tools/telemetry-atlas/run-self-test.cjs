@@ -12,6 +12,7 @@ const suites = {
   ledger: 'sgsd-ledger.test.cjs', producer: 'sgsd-producer-contract.test.cjs',
   ledgerRuntime: 'sgsd-ledger-runtime.test.cjs', operation: 'operation-report.test.cjs',
   monitor:'monitor.test.cjs', evidence:'monitor-evidence.test.cjs', client:'monitor-client.test.cjs', schedule:'monitor-schedule.test.cjs', fleet:'fleet.test.cjs',
+  boot:'boot-identity.test.cjs', recovery:'workspace-recovery.test.cjs', globalStore:'global-store.test.cjs',
 };
 const tasks = { T1: ['store','ledger'], T2: ['store','receiver','runtime','producer'],
   T3: ['runtime','stack','install','ledgerRuntime','global','receiver'],
@@ -26,6 +27,7 @@ const cases = {
   'automatic-capture': ['global','launch'], 'integrity-audit': ['audit'],
   'operational-projection': ['ledger','producer'], 'operational-runtime': ['ledgerRuntime'],
   'operational-report': ['operation','audit'],
+  'workspace-recovery': ['boot','fleet','globalStore','recovery','global'],
 };
 const args = process.argv.slice(2);
 let selected = Object.keys(suites);

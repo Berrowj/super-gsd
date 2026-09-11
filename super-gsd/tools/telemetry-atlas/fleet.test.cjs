@@ -37,6 +37,37 @@ function inventory(directory) {
     return s.isDirectory() ? inventory(file) : [{ file, body: fs.readFileSync(file, 'utf8'), mtime: s.mtimeMs }];
   });
 }
+const BOOT_A = '11111111-1111-4111-8111-111111111111';
+const BOOT_B = '22222222-2222-4222-8222-222222222222';
+test('prior-boot owner cannot survive identical PID and start-time reuse', t => {
+  const f = fixture(t), fleet = api();
+  const old = { bootId: () => BOOT_A, processLookup: () => processFixture(f.run) };
+  fleet.reserve({ root: f.root, run: f.run }, old);
+  fleet.bind(options(f), old);
+  const now = { bootId: () => BOOT_B, processLookup: () => processFixture(f.run) };
+  const row = fleet.status({ root: f.root }, now).claims[0];
+  assert.equal(row.active, false);
+  assert.equal(row.process_state, 'prior_boot');
+  const receipt = fleet.release({ root: f.root, runId: f.run.run_id }, now);
+  assert.equal(receipt.reason, 'prior_boot_interrupted');
+  assert.equal(receipt.claim.boot_id, BOOT_A);
+});
+test('prior-boot pending claim releases as interrupted, not a same-boot launch abort', t => {
+  const f = fixture(t), fleet = api();
+  fleet.reserve({ root: f.root, run: f.run }, { bootId: () => BOOT_A });
+  const receipt = fleet.release({ root: f.root, runId: f.run.run_id }, { bootId: () => BOOT_B });
+  assert.equal(receipt.reason, 'prior_boot_interrupted');
+});
+test('legacy owner has unknown boot and still requires actual dead-process evidence', t => {
+  const f = fixture(t), fleet = api();
+  fleet.reserve({ root: f.root, run: f.run }); fleet.bind(options(f), { processLookup: () => processFixture(f.run) });
+  const file = path.join(f.root, 'fleet', 'claims', `${f.run.project_id}.json`);
+  const claim = JSON.parse(fs.readFileSync(file)); delete claim.boot_id;
+  fs.writeFileSync(file, JSON.stringify(claim));
+  const deps = { bootId: () => BOOT_B, processLookup: () => ({ state: 'unknown' }) };
+  assert.equal(fleet.status({ root: f.root }, deps).claims[0].process_state, 'unknown');
+  assert.throws(() => fleet.release({ root: f.root, runId: f.run.run_id }, deps), /fleet_process_not_dead/);
+});
 
 test('registered projects share one durable coordinator and same-run reserve is idempotent', t => {
   const f = fixture(t), fleet = api();

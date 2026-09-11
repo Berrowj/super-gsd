@@ -1062,7 +1062,7 @@ if (!bash) {
     try {
       fixture.writeCodex(path.join(fixture.incomingBin, 'codex'), 'incoming');
       const atlasDir = path.join(fixture.source, 'super-gsd/tools/telemetry-atlas');
-      for (const name of ['fleet.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'contract.cjs', 'accounting.cjs']) {
+      for (const name of ['fleet.cjs', 'boot-identity.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'contract.cjs', 'accounting.cjs']) {
         fs.copyFileSync(path.join(REPO_ROOT, 'super-gsd/tools/telemetry-atlas', name), path.join(atlasDir, name));
       }
       const fleet = require(path.join(atlasDir, 'fleet.cjs'));

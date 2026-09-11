@@ -11,9 +11,24 @@ SCRIPTS_DIR="${SGSD_SCRIPTS_DIR:-}"
 AGENTS_DIR="${SGSD_AGENTS_DIR:-}"
 SOURCE_DIR="${SGSD_SOURCE_DIR:-}"
 ARGS=()
+RECOVERY_MODE=""
+SELECTION=""
+BOOT_MENU=true
+set_recovery_mode() {
+  [[ -z "$RECOVERY_MODE" ]] || die "choose only one of --sessions, --restore or --forget"
+  RECOVERY_MODE="$1"
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --sessions) set_recovery_mode list; shift ;;
+    --restore)
+      set_recovery_mode restore; shift
+      if [[ $# -gt 0 && "$1" != -* ]]; then SELECTION="$1"; shift; fi ;;
+    --forget)
+      set_recovery_mode forget
+      [[ $# -ge 2 && "$2" =~ ^[a-f0-9]{64}$ ]] || die "--forget requires a full project ID from sg --sessions"
+      SELECTION="$2"; shift 2 ;;
     --scripts-dir) require_path "$@"; SCRIPTS_DIR="$2"; shift 2 ;;
     --agents-dir) require_path "$@"; AGENTS_DIR="$2"; shift 2 ;;
     --source-dir) require_path "$@"; SOURCE_DIR="$2"; shift 2 ;;
@@ -22,23 +37,28 @@ while [[ $# -gt 0 ]]; do
     --session)
       [[ $# -ge 2 && -n "$2" ]] || die "--session requires a name"
       ARGS+=("$1" "$2"); shift 2 ;;
-    -Go|--go) ARGS+=(--go); shift ;;
+    -Go|--go) BOOT_MENU=false; ARGS+=(--go); shift ;;
     -NoCockpit|--no-cockpit) ARGS+=(--no-cockpit); shift ;;
-    -NoClaude|--no-claude) ARGS+=(--shell); shift ;;
+    -NoClaude|--no-claude) BOOT_MENU=false; ARGS+=(--shell); shift ;;
     -FullPreflight|--full-preflight)
       die "--full-preflight is not supported by this shortcut. Normal sg already runs the shared launcher's required provenance and ownership checks. Run sgsd separately for full cockpit preflight, then sg." ;;
     --current-terminal) shift ;;
     -h|--help|-Help)
       printf '%s\n' \
         'Usage: sg [--project PATH] [--go] [--no-cockpit] [--no-claude]' \
+        '       sg --sessions | --restore [all|ID,ID] | --forget ID' \
+        'Recovery starts detached, paused owners. --restore without selection requires a TTY.' \
+        'After reboot, interactive sg offers all / selected / not now; no implicit restore.' \
         'Launch the shared owned SGSD session in this terminal; project defaults to the current worktree.' \
         'Legacy -Go, -ProjectDir, -NoCockpit and -NoClaude are accepted.' \
         '--no-claude selects the shared launcher shell mode. --full-preflight is unsupported.' \
         'Directory overrides: --scripts-dir PATH --agents-dir PATH --source-dir PATH.'
       exit 0 ;;
-    *) ARGS+=("$1"); shift ;;
+    *) BOOT_MENU=false; ARGS+=("$1"); shift ;;
   esac
 done
+[[ -z "$RECOVERY_MODE" || ${#ARGS[@]} -eq 0 ]] \
+  || die "recovery commands cannot be combined with project/session launch options"
 
 # Match sgsd's authoritative resolution: explicit CLI, environment, colocated
 # installed scripts, then the per-user global installation. Never use project vendors.
@@ -59,6 +79,85 @@ AGENTS_DIR="$(cd "$AGENTS_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve ag
 SOURCE_DIR="$(cd "$SOURCE_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve source dir: $SOURCE_DIR"
 LAUNCHER="$SCRIPTS_DIR/sgsd-remote-tmux.sh"
 [[ -f "$LAUNCHER" ]] || die "missing SGSD shared launcher: $LAUNCHER"
+
+# Only this UI layer is new; the coordinator uses the existing managed launcher.
+# Ordinary non-interactive sg takes the unchanged current-terminal exec below.
+RECOVERY="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/workspace-recovery.cjs"
+recovery_ready() {
+  command -v node >/dev/null 2>&1 || die "Node must be on PATH for workspace recovery; open your normal SGSD login shell"
+  [[ -f "$RECOVERY" ]] || die "workspace recovery runtime missing; run the normal sgsd-update"
+}
+inventory_display() {
+  node -e '
+    let text=""; process.stdin.on("data",b=>text+=b).on("end",()=>{
+      const x=JSON.parse(text);
+      for(const [i,r] of (x.entries||[]).entries()) {
+        console.log(`${i+1}. ${JSON.stringify(r.display_name)}  ${r.project_id}`);
+        console.log(`   ${JSON.stringify(r.project_dir)}  ${r.availability||"status unknown"}`);
+        if(r.context_status)console.log(`   references: ${JSON.stringify(r.context_status)}`);
+      }
+      for(const r of x.blockers||[])console.log(`BLOCKED ${r.project_id}: ${r.reason}`);
+      if(!(x.entries||[]).length)console.log("No remembered workspaces available for selection.");
+    });' || die "invalid recovery inventory"
+}
+restore_selected() {
+  local ids=() id
+  if [[ "$SELECTION" == all ]]; then
+    ids=(--all)
+  else
+    [[ "$SELECTION" =~ ^[a-f0-9]{64}(,[a-f0-9]{64})*$ ]] || die "invalid restore selection; use all or full project IDs separated by commas"
+    IFS=, read -r -a selected_ids <<< "$SELECTION"
+    for id in "${selected_ids[@]}"; do ids+=(--project-id "$id"); done
+  fi
+  # Always return the coordinator result, including partial failures. Never
+  # fall through to a second local owner or interpret a receipt as telemetry.
+  exec node "$RECOVERY" restore "${ids[@]}" --scripts-dir "$SCRIPTS_DIR" \
+    --agents-dir "$AGENTS_DIR" --source-dir "$SOURCE_DIR"
+}
+restore_menu() {
+  local inventory="$1" choice=""
+  printf '%s\n' "$inventory" | inventory_display
+  printf 'Restore paused sessions: all / numbers separated by commas / n (not now) [n]: '
+  IFS= read -r choice || choice="n"
+  case "$choice" in
+    ''|n|N) SELECTION="" ;;
+    all) SELECTION=all ;;
+    *)
+      SELECTION="$(printf '%s\n' "$inventory" | node -e '
+        let text=""; process.stdin.on("data",b=>text+=b).on("end",()=>{
+          const x=JSON.parse(text), choice=process.argv[1];
+          if(!/^[1-9][0-9]*(,[1-9][0-9]*)*$/.test(choice))process.exit(2);
+          const ids=choice.split(",").map(n=>x.entries?.[Number(n)-1]?.project_id);
+          if(ids.some(id=>!id)||new Set(ids).size!==ids.length)process.exit(2);
+          process.stdout.write(ids.join(","));
+        });' "$choice")" || die "invalid selection; nothing restored" ;;
+  esac
+}
+if [[ -n "$RECOVERY_MODE" ]]; then
+  recovery_ready
+  case "$RECOVERY_MODE" in
+    list) node "$RECOVERY" list; exit $? ;;
+    forget) exec node "$RECOVERY" forget --project-id "$SELECTION" ;;
+    restore)
+      if [[ -z "$SELECTION" ]]; then
+        [[ -t 0 && -t 1 ]] || die "--restore requires an explicit selection outside an interactive TTY"
+        INVENTORY="$(node "$RECOVERY" list)" || exit $?
+        restore_menu "$INVENTORY"
+        [[ -n "$SELECTION" ]] || exit 0
+      fi
+      restore_selected ;;
+  esac
+elif [[ -t 0 && -t 1 && "$BOOT_MENU" == true ]]; then
+  recovery_ready
+  INVENTORY="$(node "$RECOVERY" offer)" || exit $?
+  OFFER_NEEDED="$(printf '%s\n' "$INVENTORY" | node -e 'let s="";process.stdin.on("data",b=>s+=b).on("end",()=>process.stdout.write(JSON.parse(s).needed===true?"yes":"no"))')" \
+    || die "invalid recovery offer"
+  if [[ "$OFFER_NEEDED" == yes ]]; then
+    restore_menu "$INVENTORY"
+    node "$RECOVERY" offer --acknowledge >/dev/null || exit $?
+    [[ -z "$SELECTION" ]] || restore_selected
+  fi
+fi
 
 exec bash "$LAUNCHER" --current-terminal \
   --scripts-dir "$SCRIPTS_DIR" \

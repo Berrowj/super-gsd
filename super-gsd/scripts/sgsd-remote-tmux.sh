@@ -32,6 +32,7 @@ RESET=false
 DOCTOR=false
 CURRENT_TERMINAL=false
 OPEN_COCKPIT=true
+RESTORE_ID=""
 
 usage() {
   cat <<'EOF'
@@ -48,6 +49,7 @@ Options:
   --scripts-dir PATH   Authoritative SGSD scripts path.
   --agents-dir PATH    Authoritative SGSD agents path.
   --source-dir PATH    Authoritative canonical source checkout.
+  --restore-id ID      Coordinator ticket; requires detached paused greeting.
   --greet              Start Claude with the SGSD greeting prompt. Default.
   --go                 Refused for fresh owners; greet, verify handover, then send go.
   --shell              Do not start Claude; leave operator pane at a shell.
@@ -76,6 +78,10 @@ q() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --restore-id)
+      [[ $# -ge 2 && -z "$RESTORE_ID" && "$2" =~ ^recovery-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] \
+        || die "--restore-id requires one valid recovery ticket"
+      RESTORE_ID="$2"; shift 2 ;;
     --project)
       [[ $# -ge 2 ]] || die "--project requires a path"
       PROJECT_DIR="$2"
@@ -142,6 +148,10 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+if [[ -n "$RESTORE_ID" ]]; then
+  [[ "$CURRENT_TERMINAL" == false && "$ATTACH" == false && "$CLAUDE_MODE" == greet && "$RESET" == false && "$DOCTOR" == false ]] \
+    || die "recovery tickets require --greet --no-attach, never auto, shell, doctor or current-terminal mode"
+fi
 
 SGSD_LAUNCHER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" \
   || die "cannot resolve launcher directory"
@@ -234,9 +244,11 @@ if [[ -z "$SESSION" ]]; then
   PROJECT_DIGEST="$(printf '%s' "$PROJECT_DIR" | sha256sum)" || die "cannot derive project identity"
   SESSION="sgsd-${PROJECT_SLUG}-${PROJECT_DIGEST:0:12}"
 fi
-if [[ "$SESSION" =~ [^A-Za-z0-9_-] ]]; then
+if [[ "$SESSION" =~ [^A-Za-z0-9_-] || ${#SESSION} -gt 80 ]]; then
   die "session name contains unsupported characters: $SESSION"
 fi
+# Do not propagate a stale inherited session label into a current-terminal owner.
+if [[ "$CURRENT_TERMINAL" == true ]]; then unset SGSD_TMUX_SESSION; else export SGSD_TMUX_SESSION="$SESSION"; fi
 
 check_cmd() {
   local name="$1"
@@ -331,9 +343,10 @@ if [[ "$RESET" = true ]]; then die "managed sessions require an acknowledged han
 
 ATLAS_GLOBAL="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/global.cjs"
 ATLAS_FLEET="$SOURCE_DIR/super-gsd/tools/telemetry-atlas/fleet.cjs"
-if [[ "$CURRENT_TERMINAL" != true ]] && tmux has-session -t "$SESSION" 2>/dev/null; then
-  REUSE_PANE="$(tmux display-message -p -t "$SESSION:0.0" '#{pane_id}')" || die "cannot inspect existing session"
-  REUSE_PID="$(tmux display-message -p -t "$SESSION:0.0" '#{pane_pid}')" || die "cannot inspect existing session process"
+if [[ "$CURRENT_TERMINAL" != true ]] && tmux has-session -t "=$SESSION" 2>/dev/null; then
+  [[ -z "$RESTORE_ID" ]] || die "recovery session name already exists; coordinator must reconcile the exact owner"
+  REUSE_PANE="$(tmux display-message -p -t "=$SESSION:0.0" '#{pane_id}')" || die "cannot inspect existing session"
+  REUSE_PID="$(tmux display-message -p -t "=$SESSION:0.0" '#{pane_pid}')" || die "cannot inspect existing session process"
   node - "$ATLAS_FLEET" "$PROJECT_DIR" "$REUSE_PANE" "$REUSE_PID" <<'NODE' || die "existing session ownership is unverified; preserve it and use /sgsd-sessions for handover"
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
 try {
@@ -353,7 +366,7 @@ try {
 NODE
   echo "SGSD verified owned tmux session: $SESSION"
   if [[ "$ATTACH" = true ]]; then
-    exec tmux attach-session -t "$SESSION"
+    exec tmux attach-session -t "=$SESSION"
   fi
   exit 0
 fi
@@ -366,7 +379,9 @@ if [[ "$CLAUDE_MODE" != shell ]]; then
   [[ "$PROJECT_PIN" != not-pinned ]] || die "project is not installed/pinned; run the normal sgsd-update before launch"
   [[ "$CLAUDE_MODE" != go ]] || die "fresh owned sessions start with a briefing; use --greet, verify identity/handover, then say go"
   [[ -f "$ATLAS_GLOBAL" ]] || die "shared Atlas runtime missing; run the normal sgsd-update"
-  ATLAS_ENV_PREFIX="$(node "$ATLAS_GLOBAL" prepare --project-dir "$PROJECT_DIR" --require-managed --format prefix)" \
+  RESTORE_ARGS=()
+  [[ -z "$RESTORE_ID" ]] || RESTORE_ARGS=(--restore-id "$RESTORE_ID")
+  ATLAS_ENV_PREFIX="$(node "$ATLAS_GLOBAL" prepare --project-dir "$PROJECT_DIR" --require-managed --format prefix "${RESTORE_ARGS[@]}")" \
     || die "Atlas/ownership preparation refused; no provider started"
   [[ "$ATLAS_ENV_PREFIX" == env\ * && "$ATLAS_ENV_PREFIX" == *"SGSD_FLEET_MANAGED='1'"* ]] \
     || die "managed Atlas environment unavailable; no provider started"
@@ -383,6 +398,9 @@ PROJECT_Q="$(q "$PROJECT_DIR")"
 SCRIPTS_Q="$(q "$SCRIPTS_DIR")"
 
 GREET_PROMPT="You are the SGSD orchestrator. Use /sgsd-sessions for workspace/session health. Read this exact worktree's state and handover without resuming work. Report the original task, current hold, actual project/run ownership, shared receiver health, native delivery timestamp or pending, and operational delivery/gaps separately. Registry definitions are not running agents. Never claim registration is observed delivery. If state/checkpoint describes another worktree, mark context unresolved and ask before resuming. Keep the briefing short; no model probes or repeated full audits. Do not enter auto mode until ownership is bound, the handover is acknowledged and the operator says go."
+if [[ -n "$RESTORE_ID" ]]; then
+  GREET_PROMPT+=" This is a paused reboot recovery, not a resumed conversation. Read the recovery.previous_run_id and bounded context_refs in this SGSD_RUN_ID registration under SGSD_ATLAS_GLOBAL_ROOT. Missing or changed references mean context is unresolved. Preserve all existing approval holds. Do not replay workers, deployments, writes, payments or posting attempts. Give one short recovery briefing and wait."
+fi
 
 if [[ "$OPEN_COCKPIT" == true ]]; then start_localhost_cockpit; fi
 if [[ "$CURRENT_TERMINAL" == true ]]; then
@@ -422,24 +440,25 @@ NARRATIVE_CMD="cd $PROJECT_Q; if command -v pwsh >/dev/null 2>&1 && [ -f $SCRIPT
 
 tmux new-session \
   -e "PATH=$PATH" \
+  -e "SGSD_TMUX_SESSION=$SESSION" \
   -e "SGSD_CODEX_APP_SERVER_COMMAND=${SGSD_CODEX_APP_SERVER_COMMAND-}" \
   -e "SGSD_CODEX_COMMAND=${SGSD_CODEX_COMMAND-}" \
   -e "SGSD_CODEX_APP_SERVER_ARGS=${SGSD_CODEX_APP_SERVER_ARGS-}" \
   -e "SGSD_CODEX_FORCE_LAUNCHER=${SGSD_CODEX_FORCE_LAUNCHER-}" \
   -d -s "$SESSION" -n SGSD -c "$PROJECT_DIR" "$OPERATOR_CMD" || {
     # No provider was created by this failed launch; release only its pending claim.
-    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+    if ! tmux has-session -t "=$SESSION" 2>/dev/null; then
       eval "$ATLAS_ABORT_CMD" || warn "pending owner retained for explicit recovery"
     else
       warn "session exists after failed creation response; owner retained for inspection"
     fi
     die "tmux session creation failed"
   }
-OPERATOR_PANE="$(tmux display-message -p -t "$SESSION:0" "#{pane_id}")"
-tmux set-window-option -t "$SESSION:0" remain-on-exit on >/dev/null
-tmux set-option -t "$SESSION" status on >/dev/null
-tmux set-option -t "$SESSION" status-left "[SGSD:$SESSION] " >/dev/null
-tmux set-option -t "$SESSION" status-right "#H %H:%M" >/dev/null
+OPERATOR_PANE="$(tmux display-message -p -t "=$SESSION:0" "#{pane_id}")"
+tmux set-window-option -t "=$SESSION:0" remain-on-exit on >/dev/null
+tmux set-option -t "=$SESSION" status on >/dev/null
+tmux set-option -t "=$SESSION" status-left "[SGSD:$SESSION] " >/dev/null
+tmux set-option -t "=$SESSION" status-right "#H %H:%M" >/dev/null
 
 CODEX_PANE="$(tmux split-window -t "$OPERATOR_PANE" -h -c "$PROJECT_DIR" -P -F "#{pane_id}" "$CODEX_CMD")"
 MISSION_PANE="$(tmux split-window -t "$OPERATOR_PANE" -v -c "$PROJECT_DIR" -P -F "#{pane_id}" "$MISSION_CMD")"
@@ -448,13 +467,13 @@ tmux select-pane -t "$OPERATOR_PANE" -T "operator"
 tmux select-pane -t "$MISSION_PANE" -T "mission"
 tmux select-pane -t "$CODEX_PANE" -T "codex"
 tmux select-pane -t "$NARRATIVE_PANE" -T "narrative"
-tmux select-layout -t "$SESSION:0" tiled >/dev/null
+tmux select-layout -t "=$SESSION:0" tiled >/dev/null
 tmux select-pane -t "$OPERATOR_PANE"
 
 echo "SGSD tmux session started: $SESSION"
 echo "Project: $PROJECT_DIR"
-echo "Attach:  tmux attach -t $SESSION"
+echo "Attach:  tmux attach -t =$SESSION"
 
 if [[ "$ATTACH" = true ]]; then
-  exec tmux attach-session -t "$SESSION"
+  exec tmux attach-session -t "=$SESSION"
 fi

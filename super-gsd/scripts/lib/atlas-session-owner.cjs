@@ -41,7 +41,7 @@ function findProviderAncestor({ pid = process.ppid, runId, lookup = lookupProces
 }
 
 function bindSessionOwner({ projectDir, sessionId, environment = process.env,
-  findProvider = findProviderAncestor, bind } = {}) {
+  findProvider = findProviderAncestor, bind, remember } = {}) {
   if (!environment.SGSD_RUN_ID) return { status: 'unregistered', reason: 'supported_launch_required' };
   if (environment.SGSD_FLEET_MANAGED !== '1') return { status: 'unmanaged', reason: 'no_orchestrator_claim' };
   try {
@@ -51,9 +51,17 @@ function bindSessionOwner({ projectDir, sessionId, environment = process.env,
     // Literal dependency: the existing hook installer ships this full closure
     // into both project and flattened installs; no mixed-version fallback.
     const bindOwner = bind || require('../../tools/telemetry-atlas/fleet.cjs').bind;
-    const tmux = environment.TMUX_PANE ? { pane_id: environment.TMUX_PANE } : undefined;
-    return bindOwner({ root: environment.SGSD_ATLAS_GLOBAL_ROOT, runId: environment.SGSD_RUN_ID,
+    const preferredSession = environment.TMUX_PANE && /^[A-Za-z0-9_-]{1,80}$/.test(environment.SGSD_TMUX_SESSION || '')
+      ? environment.SGSD_TMUX_SESSION : undefined;
+    const tmux = environment.TMUX_PANE ? { pane_id: environment.TMUX_PANE,
+      ...(preferredSession ? { session_name: preferredSession } : {}) } : undefined;
+    const result = bindOwner({ root: environment.SGSD_ATLAS_GLOBAL_ROOT, runId: environment.SGSD_RUN_ID,
       projectDir, pid, sessionId, tmux });
+    if (result.status === 'bound') {
+      const rememberWorkspace = remember || require('../../tools/telemetry-atlas/workspace-recovery.cjs').remember;
+      rememberWorkspace({ root: environment.SGSD_ATLAS_GLOBAL_ROOT, runId: environment.SGSD_RUN_ID, preferredSession });
+    }
+    return result;
   } catch (error) {
     return { status: 'blocked', reason: /^[a-z][a-z0-9_]{0,80}$/.test(error.message) ? error.message : 'ownership_binding_failed' };
   }

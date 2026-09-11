@@ -1,7 +1,7 @@
 # SGSD workspace recovery after a server reboot
 
-Status: agreed operator-facing design; written specification awaiting operator review.
-Implementation and deployment have not started. Intended next numbered plan:170-15.
+Status: operator approved the written specification on 2026-09-11 ("yeah go").
+Implementation authorized under 170-15; deployment requires its verification gates.
 
 ## Approved outcome
 

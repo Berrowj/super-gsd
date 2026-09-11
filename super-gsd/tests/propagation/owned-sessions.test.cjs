@@ -20,6 +20,7 @@ function fixture(t) {
     write(path.join(source, 'super-gsd', relative), fs.readFileSync(path.join(repo, 'super-gsd', relative)));
   write(path.join(source, 'super-gsd/tools/telemetry-atlas/global.cjs'), `
 if(process.argv[2]==='prepare') {
+  require('node:fs').writeFileSync(process.env.FIXTURE_PREPARE_LOG, JSON.stringify(process.argv.slice(2)));
   if(process.env.FIXTURE_CAPTURE==='off') { console.log('env CLAUDE_CODE_ENABLE_TELEMETRY=0'); process.exitCode=1; }
   else console.log("env SGSD_RUN_ID='sgsd-fixture' SGSD_FLEET_MANAGED='1' CLAUDE_CODE_ENABLE_TELEMETRY='1'");
 }
@@ -49,7 +50,8 @@ esac
         cwd: project, encoding: 'utf8', windowsHide: true, timeout: 20000,
         env: { ...process.env, HOME: root, SGSD_PROJECT_DIR: '', SGSD_TMUX_SESSION: '', SGSD_RUN_ID: '',
           SGSD_CODEX_APP_SERVER_COMMAND: path.join(bin, 'codex').replaceAll('\\', '/'),
-          PATH: `${bin}${path.delimiter}${process.env.PATH}`, FIXTURE_PROVIDER_LOG: path.join(root, 'provider.log'),
+          PATH: `${bin}${path.delimiter}${path.dirname(process.execPath)}${path.delimiter}${process.env.PATH}`, FIXTURE_PROVIDER_LOG: path.join(root, 'provider.log'),
+          FIXTURE_PREPARE_LOG:path.join(root,'prepare.json'),
           FIXTURE_TMUX_LOG: path.join(root, 'tmux.log'), ...extra }
       });
     }, read(name) { try { return fs.readFileSync(path.join(root, name), 'utf8'); } catch { return ''; } }
@@ -123,4 +125,29 @@ test('monitor enrollment failure prevents provider launch', { skip: !supported }
   const f = fixture(t), result = f.launch(['--current-terminal', '--no-cockpit'], { FIXTURE_MONITOR_OFF: '1' });
   assert.notEqual(result.status, 0);
   assert.equal(f.read('provider.log'), '');
+});
+
+test('restore ticket is forwarded only for paused detached launch and names exact tmux targets', {skip:!supported}, t=>{
+  const id='recovery-11111111-1111-4111-8111-111111111111',f=fixture(t);
+  const r=f.launch(['--restore-id',id,'--session','recovered','--greet','--no-attach']);
+  assert.equal(r.status,0,r.stderr+r.stdout);
+  const args=JSON.parse(f.read('prepare.json'));
+  assert.equal(args[args.indexOf('--restore-id')+1],id);
+  assert.match(f.read('tmux.log'),/SGSD_TMUX_SESSION=recovered/);
+  assert.match(f.read('tmux.log'),/has-session -t =recovered/);
+  assert.doesNotMatch(f.read('tmux.log'),/attach-session/);
+});
+
+test('restore ticket refuses current-terminal, shell, auto, attached and malformed modes before preparation', {skip:!supported}, t=>{
+  for(const tail of [['--current-terminal','--no-attach'],['--shell','--no-attach'],['--go','--no-attach'],[]]) {
+    const f=fixture(t),r=f.launch(['--restore-id','recovery-11111111-1111-4111-8111-111111111111',...tail]);
+    assert.notEqual(r.status,0);assert.equal(f.read('prepare.json'),'');assert.equal(f.read('provider.log'),'');
+  }
+  const f=fixture(t),r=f.launch(['--restore-id','arbitrary','--no-attach']);
+  assert.notEqual(r.status,0);assert.equal(f.read('prepare.json'),'');
+});
+
+test('launcher refuses session names beyond the remembered catalog limit before preparing an owner', {skip:!supported},t=>{
+  const f=fixture(t),r=f.launch(['--session','x'.repeat(81),'--no-attach']);
+  assert.notEqual(r.status,0);assert.equal(f.read('prepare.json'),'');
 });

@@ -1,6 +1,6 @@
 ---
 name: sgsd-sessions
-description: Use when opening, creating, attaching, handing over or checking SGSD sessions in DEVCP/Linux worktrees, including requests for new tmux workspaces, sg boot health, or uncertain Atlas attachment.
+description: Use when opening, restoring after reboot, attaching, handing over or checking SGSD sessions in DEVCP/Linux worktrees, including missing tmux workspaces, remembered sessions, sg boot health or uncertain Atlas attachment.
 ---
 
 <objective>
@@ -8,6 +8,39 @@ One registered orchestrator per real worktree, under the host's shared fleet
 identity. Preserve work and show observed evidence, not a generic green badge.
 The coordinator is a private ownership record, not another paid agent.
 </objective>
+
+<reboot_recovery>
+After a server reboot, use `sg --sessions` from any directory to inspect the
+remembered workspaces before starting providers. The first interactive `sg`
+offers all, selected entries or not now. It never selects all implicitly.
+Every new successfully bound managed workspace is remembered automatically;
+this is not limited to a fixed list of projects.
+
+With the operator's selection, use `sg --restore all` or
+`sg --restore PROJECT_ID,PROJECT_ID` using IDs from that list. A bare
+`sg --restore` needs an interactive choice; noninteractive callers must supply
+selection. Restore opens detached paused owners and returns attach choices;
+it does not also start a local owner or resume business work. Ordinary `sg`
+still keeps Claude in the calling terminal.
+Without a TTY, ordinary `sg` skips the menu and retains its single-workspace
+launch path; it never chooses or restores a fleet implicitly.
+
+Inspect each result separately: already running, restored/bound, pending,
+blocked or failed. Retry only the selected entries through the same restore
+command. Never replay a consumed launch ticket, reuse an old run ID, delete a
+pending claim, kill tmux or hand-edit a pin to force recovery. A missing worktree
+stays listed; repair its actual path/provenance before retrying. An uncertain
+same-boot pending owner or interrupted lock-reclaim guard remains blocked.
+
+Check the fresh run's previous-run/context-reference lineage. Saved handovers
+are references, not recovered in-memory conversation or permission to retry an
+interrupted operation. Preserve task approval holds and require a new operator
+instruction before business work. No automatic worker, deployment or posting replay.
+
+`sg --forget PROJECT_ID` removes restore intent only, not files, evidence or a
+running owner. Normal exit never means forget. The same run must not re-add a
+forgotten entry; a genuinely new managed binding can remember it again.
+</reboot_recovery>
 
 <process>
 1. Resolve the requested existing worktree using current directory and Git's
@@ -18,8 +51,9 @@ The coordinator is a private ownership record, not another paid agent.
 2. Read ownership before starting anything:
    `node ~/.claude/tools/telemetry-atlas/fleet.cjs status --project-dir ABSOLUTE_WORKTREE`.
    A claimed worktree cannot gain a second orchestrator, even a greeting-only
-   one under a different tmux name. Pending, stale and unknown claims require
-   explicit handover/recovery; never delete locks, reset sessions or adopt by PID.
+   one under a different tmux name. Use the restore path for reboot recovery;
+   it proves obsolete ownership before release. Unknown claims/locks remain
+   blocked; never delete locks, reset sessions or adopt by PID.
 
 3. For an existing owner, verify its run/project, current provider PID/start
    identity and tmux pane relationship. For replacement, collect a private
@@ -40,6 +74,8 @@ The coordinator is a private ownership record, not another paid agent.
    `node ~/.claude/tools/telemetry-atlas/monitor-schedule.cjs snapshot`.
    Report receiver health; this exact project/run registration; native delivery
    timestamp or pending/stale; operational delivery, gaps and backlog separately.
+   Match native evidence to `projects[].runs[].run_id`, not merely a recent
+   project aggregate. Missing/stale monitor evidence stays unknown or pending.
    Registration is not delivery; project-level gate evidence is not exact-session
    attribution. An idle session need not generate a synthetic heartbeat.
 

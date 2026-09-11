@@ -434,7 +434,9 @@ The `/sgsd-sessions` skill handles arbitrary worktrees and handover. Private
 ownership records live in the existing global Atlas root's `fleet/` directory.
 `node .../telemetry-atlas/fleet.cjs status --project-dir /absolute/worktree`
 reports claims; `release --run-id RUN` releases only a proved-dead matching owner.
-Pending/unknown claims and abandoned locks are not automatically reclaimed.
+Unknown claims and unsafe locks are not automatically reclaimed. Explicit
+reboot recovery can release a proved prior-boot claim; private locks can recover
+only from validated prior-boot or proved-dead ownership, preserving receipts.
 No fleet operation signals a process. Ownership is **not** delivery evidence.
 
 The optional private `~/.config/sgsd/codex-command` file pins one absolute native
@@ -456,3 +458,50 @@ first replacement. The legacy global-snapshot script currently refuses its stale
 installer contract; normal `sgsd-update` does not supply a shortcut preimage.
 Do not claim transactional rollback from that script. Windows capture is not
 verified by this Linux workflow.
+
+## Restoring workspaces after a reboot (170-15)
+
+The tracked Linux `sg` shortcut remembers successfully bound managed workspaces
+in the private Atlas `fleet/` area, outside `/tmp`. This list is separate from
+live ownership claims. Provider exit, SSH loss and server shutdown do not remove
+entries. Saved state/handover references and hashes preserve context without
+copying prompts/transcripts or promising recovery of unsaved model memory.
+
+After a changed Linux boot ID, the first interactive `sg` offers all, selected
+workspaces or not now. No selection means no fleet restore. These commands also
+work from home, without first entering a business worktree:
+
+```sh
+sg --sessions                     # List remembered workspaces; no provider starts
+sg --restore                      # Interactive selection
+sg --restore all                  # Explicitly restore the remembered fleet
+sg --restore PROJECT_ID,PROJECT_ID # IDs from --sessions; retry selected entries
+sg --forget PROJECT_ID            # Remove restore intent, never project/evidence files
+```
+
+Noninteractive restore requires explicit selection. Selected entries launch
+serially through the existing managed launcher into detached tmux sessions,
+paused at their briefings. Attach choices are returned; restore does not then
+launch another current-terminal owner. Ordinary `sg` retains its current-terminal
+topology. No provider runs automatically at server boot, and restoration never
+replays workers, shell commands, deployments or business operations.
+
+Each restarted owner gets a fresh run, linked to its validated previous run and
+saved context references. Consumed launch attempts are not replayed. Repeated
+restore checks an existing exact owner instead of duplicating it; partial success
+does not erase blocked entries. A missing/moved worktree, mismatched source/pin,
+unknown same-boot pending claim, unsafe metadata or interrupted reclaim guard is
+a named blocker. Do not delete locks or edit pins to clear it. Use normal update
+after publication for provenance mismatches; retain evidence when ownership is
+uncertain. Exact provider-conversation resumption is not promised.
+
+`--forget` does not terminate an owner. Its same-run hook/exit cannot silently
+re-add the entry; a new successful managed binding can remember it again. Initial
+legacy claims are validated rather than reconstructed from stale pane numbers.
+
+A bound owner is not proof of delivery. Check the fresh run's native timestamp
+in the existing monitor snapshot (`projects[].runs[]`); missing or stale snapshots
+remain pending/unknown. Operational delivery, gaps and backlog are project-level
+evidence and remain separate. Worker communication, ATC/MUDA/gates and off-host
+backup retain their existing receipts and coverage caveats. No synthetic heartbeat
+or paid model probe is needed to make a boot display green.

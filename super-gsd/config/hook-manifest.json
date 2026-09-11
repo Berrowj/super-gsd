@@ -471,10 +471,12 @@
         "scripts/lib/sgsd-state.cjs",
         "tools/state-resolver/resolve.cjs",
         "tools/telemetry-atlas/accounting.cjs",
+        "tools/telemetry-atlas/boot-identity.cjs",
         "tools/telemetry-atlas/contract.cjs",
         "tools/telemetry-atlas/fleet.cjs",
         "tools/telemetry-atlas/global-store.cjs",
-        "tools/telemetry-atlas/quota-sampler.cjs"
+        "tools/telemetry-atlas/quota-sampler.cjs",
+        "tools/telemetry-atlas/workspace-recovery.cjs"
       ],
       "sha256": "05dea5a932a7eac2135710aac9622f361464d528f0da30050a063876e3c6752a"
     },

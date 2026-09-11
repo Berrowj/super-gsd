@@ -8,7 +8,7 @@ const crypto = require('node:crypto');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const DEPENDENCY_FILES = ['server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs',
-  'contract.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs',
+  'contract.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs', 'boot-identity.cjs', 'workspace-recovery.cjs',
   'sgsd-ledger-runtime.cjs', 'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs'];
 function dependencySnapshot() {
   return DEPENDENCY_FILES.map(name => {
@@ -25,6 +25,8 @@ const { telemetryEnvironment, processIdentity, owned, ownsPort } = require('./li
 const { startServer } = require('./server.cjs');
 const { createLedgerRuntime } = require('./sgsd-ledger-runtime.cjs');
 const fleet = require('./fleet.cjs');
+const bootIdentity = require('./boot-identity.cjs');
+const workspaceRecovery = require('./workspace-recovery.cjs');
 const PROTOCOL = 1;
 const dependencyAfter = dependencySnapshot();
 const dependencyCoherent = cachedDependencies.length === 0
@@ -93,6 +95,7 @@ function expectedServeArgv(entry, root, token, ports, instanceId, transitionToke
     ...(instanceId ? ['--instance-id', instanceId] : []), ...(transitionToken ? ['--transition-token', transitionToken] : [])];
 }
 function exactIdentity(record, root, trustedSourceEntry) {
+  if (bootIdentity.bootState(record?.boot_id) === 'prior') throw new Error('service_prior_boot');
   const identity = processIdentity(record?.pid); if (!identity) throw new Error('service_identity_unverified');
   const allowed = new Set([realRegular(__filename)]);
   if (trustedSourceEntry) allowed.add(realRegular(trustedSourceEntry));
@@ -190,7 +193,9 @@ function getJson(url, timeout = 250) {
 async function status(root = rootPath(), timeout = 250) {
   try {
     const record = readJson(servicePath(root));
-    if (record.schema_version !== PROTOCOL || !alive(record.pid) || record.root_id !== digest(root)) return null;
+    if (record.schema_version !== PROTOCOL || bootIdentity.bootState(record.boot_id) === 'prior'
+        || (record.boot_id !== undefined && record.boot_id !== null && !bootIdentity.validBootId(record.boot_id))
+        || !alive(record.pid) || record.root_id !== digest(root)) return null;
     const health = await getJson(record.urls.health + '/health', timeout);
     if (health?.pid !== record.pid || health.instance_id !== record.instance_id || health.project_id !== digest(root)
         || (health.root_id !== undefined && health.root_id !== digest(root))
@@ -199,7 +204,8 @@ async function status(root = rootPath(), timeout = 250) {
   } catch { return null; }
 }
 function ownsStartup(root, token) {
-  try { const lock = readJson(lockPath(root)); return lock.pid === process.pid && lock.token === token; }
+  try { const lock = readJson(lockPath(root)); return lock.pid === process.pid && lock.token === token
+    && bootIdentity.bootState(lock.boot_id) !== 'prior'; }
   catch { return false; }
 }
 function releaseStartup(root, token) {
@@ -209,22 +215,21 @@ function createStartupLock(root, token) {
   privateDirectory(root); const file = lockPath(root); safePath(file);
   const fd = fs.openSync(file, 'wx', 0o600);
   try {
-    const bytes = Buffer.from(JSON.stringify({ pid: process.pid, token, identity: processIdentity(process.pid) }) + '\n');
+    const bytes = Buffer.from(JSON.stringify({ pid: process.pid, token, identity: processIdentity(process.pid), boot_id: bootIdentity.currentBootId() }) + '\n');
     if (fs.writeSync(fd, bytes) !== bytes.length) throw new Error('short_write'); fs.fsyncSync(fd);
   } finally { fs.closeSync(fd); }
   if (process.platform !== 'win32') {
     const directory = fs.openSync(root, 'r'); try { fs.fsyncSync(directory); } finally { fs.closeSync(directory); }
   }
 }
-function replaceStartupLock(root, pid, token) { durableJson(lockPath(root), { pid, token, identity: processIdentity(pid) }); }
+function replaceStartupLock(root, pid, token) { durableJson(lockPath(root), { pid, token, identity: processIdentity(pid), boot_id: bootIdentity.currentBootId() }); }
 async function acquireStartup(root, token, deadline) {
   while (Date.now() < deadline) {
     try { createStartupLock(root, token); return true; }
     catch (error) {
       if (error.code !== 'EEXIST') throw error;
       try {
-        const previous = readJson(lockPath(root));
-        if (!alive(previous.pid)) { fs.unlinkSync(lockPath(root)); continue; }
+        if (bootIdentity.reclaimLock({ file: lockPath(root), receiptDirectory: path.join(root, 'boot-receipts') })) continue;
       } catch (readError) { if (readError.code === 'ENOENT') continue; }
       await pause(40);
     }
@@ -258,6 +263,7 @@ async function startGlobal({ root = rootPath(), spoolPollMs = 1000, startupToken
       ingestPort: ports.ingest ?? 0, healthPort: ports.health ?? 0, metricsPort: ports.metrics ?? 0, spoolPollMs });
   } catch (error) { try { await collector?.close(); } catch {} store.close(); throw error; }
   const record = { schema_version: PROTOCOL, mode: 'global', root_id: digest(root), pid: process.pid,
+    boot_id: bootIdentity.currentBootId(),
     instance_id: instance.instanceId, started_at: new Date().toISOString(), urls: instance.urls,
     runtime_fingerprint: RUNTIME_FINGERPRINT, process_identity: processIdentity(process.pid), entry: fs.realpathSync(__filename),
     startup_token: startupToken || null };
@@ -300,8 +306,12 @@ async function ensureService(root, timeoutMs = 2000) {
     if (pendingTransition(root)) throw new Error('receiver_transition_pending');
     if (running) return running;
     // A live process with unverifiable health is not authority to kill or replace it.
-    try { const old = readJson(servicePath(root)); if (alive(old.pid)) throw new Error('service_unverified'); }
-    catch (error) { if (error.message === 'service_unverified') throw error; }
+    if (fs.existsSync(servicePath(root))) {
+      const old = readJson(servicePath(root)), reason = inactiveServiceReason(old, root);
+      if (!reason) throw new Error('service_unverified');
+      if (!bootIdentity.preserveRecord({ file: servicePath(root), receiptDirectory: path.join(root, 'boot-receipts'), reason }))
+        throw new Error('service_identity_changed');
+    }
     const child = spawn(process.execPath, ['--max-old-space-size=256', __filename, 'serve', '--root', root, '--startup-token', token],
       { detached: true, stdio: 'ignore', windowsHide: true, env: { ...process.env } });
     let failed = false; child.on('error', () => { failed = true; }); child.unref();
@@ -316,6 +326,13 @@ async function ensureService(root, timeoutMs = 2000) {
     }
     throw new Error('service_start_timeout');
   } finally { if (!childOwnsLock) releaseStartup(root, token); }
+}
+function inactiveServiceReason(record, root) {
+  if (record?.schema_version !== PROTOCOL || record.root_id !== digest(root)
+      || !Number.isSafeInteger(record.pid) || record.pid < 1 || record.pid > 2147483647
+      || (record.boot_id !== undefined && record.boot_id !== null && !bootIdentity.validBootId(record.boot_id))) return null;
+  if (bootIdentity.bootState(record.boot_id) === 'prior') return 'prior_boot';
+  return bootIdentity.processState(record.pid) === 'dead' ? 'owner_process_dead' : null;
 }
 function sameIdentity(left, right) {
   return Boolean(left && right && left.pid === right.pid && left.start_time === right.start_time
@@ -356,6 +373,17 @@ async function completeTransition(root, journal, deadline) {
   }
   throw new Error('receiver_start_timeout');
 }
+function verifyAbsentHistory(journal, deadline) {
+  if (!journal) return;
+  const identities = [journal.old_identity, journal.candidate_identity, journal.replacement_identity].filter(Boolean);
+  if (!validIdentity(journal.replacement_identity) || identities.some(identity => !validIdentity(identity)))
+    throw new Error('transition_journal_unverified');
+  if (identities.some(identity => owned(identity))) throw new Error('service_health_unverified');
+  const ports = urlPorts({ urls: journal.urls });
+  if (['ingest', 'health', 'metrics'].some(name => journal.ports?.[name] !== ports[name]))
+    throw new Error('transition_journal_unverified');
+  requireVacantPorts(Object.values(ports), deadline);
+}
 async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs = 5000, transitionObserver } = {}) {
   requireAttestedRuntime();
   root = path.resolve(root);
@@ -383,20 +411,18 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
       return restartService({ root, trustedSourceEntry, timeoutMs: Math.max(1, deadline - Date.now()), transitionObserver });
     }
     if (!fs.existsSync(serviceFile) && (!journal || journal.phase === 'complete')) {
-      if (journal) {
-        const identities = [journal.old_identity, journal.candidate_identity, journal.replacement_identity].filter(Boolean);
-        if (!validIdentity(journal.replacement_identity) || identities.some(identity => !validIdentity(identity)))
-          throw new Error('transition_journal_unverified');
-        if (identities.some(identity => owned(identity))) throw new Error('service_health_unverified');
-        const ports = urlPorts({ urls: journal.urls });
-        if (['ingest', 'health', 'metrics'].some(name => journal.ports?.[name] !== ports[name]))
-          throw new Error('transition_journal_unverified');
-        requireVacantPorts(Object.values(ports), deadline);
-      }
+      verifyAbsentHistory(journal, deadline);
       return { status: 'absent' };
     }
     if (process.platform !== 'linux') throw new Error('receiver_transition_windows_open');
     if (!journal || journal.phase === 'complete') {
+      const inactive = readJson(serviceFile), inactiveReason = inactiveServiceReason(inactive, root);
+      if (inactiveReason) {
+        verifyAbsentHistory(journal, deadline);
+        if (!bootIdentity.preserveRecord({ file: serviceFile, receiptDirectory: path.join(root, 'boot-receipts'), reason: inactiveReason }))
+          throw new Error('service_identity_changed');
+        return { status: 'absent' };
+      }
       const old = await verifiedService(root, trustedEntry, undefined, deadline);
       if (old.record.runtime_fingerprint === RUNTIME_FINGERPRINT && old.record.health?.runtime_fingerprint === RUNTIME_FINGERPRINT) {
         return { status: 'already_current', service: old.record };
@@ -468,20 +494,25 @@ async function restartService({ root = rootPath(), trustedSourceEntry, timeoutMs
 function disabledEnvironment() {
   return { CLAUDE_CODE_ENABLE_TELEMETRY: '0', OTEL_LOGS_EXPORTER: 'none', OTEL_METRICS_EXPORTER: 'none', OTEL_TRACES_EXPORTER: 'none',
     SGSD_ATLAS_ENDPOINT: '', SGSD_ATLAS_STATE_DIR: '', SGSD_ATLAS_RUN_ENDPOINT: '', SGSD_ATLAS_PROJECT_ID: '', SGSD_RUN_ID: '', SGSD_ATLAS_CODEX_EXPORTER: '',
-    SGSD_FLEET_MANAGED: '', SGSD_FLEET_COORDINATOR_ID: '' };
+    SGSD_FLEET_MANAGED: '', SGSD_FLEET_COORDINATOR_ID: '', SGSD_RESTORE_ID: '' };
 }
 function unsetKeys() {
   return [...new Set([...Object.keys(process.env).filter(key => /^OTEL_[A-Z0-9_]+$/.test(key)),
     'BETA_TRACING_ENDPOINT','CLAUDE_CODE_ENHANCED_TELEMETRY_BETA','ENABLE_ENHANCED_TELEMETRY_BETA'])];
 }
-async function prepare({ root = rootPath(), projectDir = process.cwd(), provider = 'anthropic', role = 'orchestrator', accountingSource, disabled = false } = {}) {
+async function prepare({ root = rootPath(), projectDir = process.cwd(), provider = 'anthropic', role = 'orchestrator', accountingSource, restoreId, disabled = false } = {}) {
   requireAttestedRuntime();
   root = path.resolve(root);
   const off = reason => ({ enabled: false, reason, unset: unsetKeys(), environment: disabledEnvironment(), codex_args: [] });
   if (disabled || process.env.SGSD_ATLAS_DISABLED === '1' || fs.existsSync(path.join(root, 'disabled'))) return off('disabled');
-  let claim;
+  let claim, run, recovery;
   try {
-    const run = registerRun({ root, projectDir, provider, role, accountingSource });
+    if (restoreId !== undefined) {
+      if (provider !== 'anthropic' || role !== 'orchestrator' || process.platform !== 'linux') throw new Error('recovery_scope_invalid');
+      recovery = workspaceRecovery.consumeTicket({ root, recoveryId: restoreId, projectDir: path.resolve(projectDir) });
+    }
+    run = registerRun({ root, projectDir, provider, role, accountingSource, ...(recovery ? { recovery } : {}) });
+    if (recovery) workspaceRecovery.recordPrepared({ root, recoveryId: restoreId, runId: run.run_id });
     const service = await ensureService(root);
     // Reservation follows the awaited bootstrap: a bootstrap timeout cannot leave
     // a pending owner. No provider is launched by prepare or by the fleet store.
@@ -493,7 +524,7 @@ async function prepare({ root = rootPath(), projectDir = process.cwd(), provider
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: `${endpoint}/v1/metrics`,
       OTEL_LOG_RAW_API_BODIES: '0', SGSD_ATLAS_RUN_ENDPOINT: endpoint,
       SGSD_ATLAS_PROJECT_ID: run.project_id, SGSD_ATLAS_GLOBAL_ROOT: root,
-      SGSD_FLEET_MANAGED: claim ? '1' : '', SGSD_FLEET_COORDINATOR_ID: claim?.coordinator_id || '' };
+      SGSD_FLEET_MANAGED: claim ? '1' : '', SGSD_FLEET_COORDINATOR_ID: claim?.coordinator_id || '', SGSD_RESTORE_ID: recovery ? restoreId : '' };
     // Only telemetry configuration is added; no model, auth, sandbox or output setting.
     const exporter = `{ otlp-http = { endpoint = "${endpoint}/v1/logs", protocol = "json", headers = {} } }`;
     environment.SGSD_ATLAS_CODEX_EXPORTER = provider === 'openai' ? `otel.exporter=${exporter}` : '';
@@ -503,16 +534,24 @@ async function prepare({ root = rootPath(), projectDir = process.cwd(), provider
     if (!queueEvent({ schema_version: 1, source_event_id: `launch:${run.run_id}`, occurred_at: now, event_type: 'coverage',
       source: { kind: 'atlas_lifecycle', instance: 'local', provenance: 'client_observed', confidence: 'exact', completeness_reason: 'launcher_session_start' },
       identity: { sgsd_run_id: run.run_id }, runtime: { provider }, execution: { success: true } }, run.state_dir)) gap(root, 'launch_spool_full');
+    if (recovery && !queueEvent({ schema_version: 1, source_event_id: `restore:${restoreId}`, occurred_at: now, event_type: 'handoff',
+      source: { kind: 'atlas_lifecycle', instance: 'local', provenance: 'client_observed', confidence: 'exact', completeness_reason: 'paused_workspace_recovery' },
+      identity: { sgsd_run_id: run.run_id, handoff_id: restoreId, parent_handoff_id: recovery.previous_run_id },
+      runtime: { provider }, payload: { content_digest: digest(recovery.context_refs) }, execution: { success: true } }, run.state_dir)) gap(root, 'recovery_spool_full');
     return { enabled: true, unset: unsetKeys(), environment, codex_args: codexArgs, run };
   } catch (error) {
     if (claim) { try { fleet.release({ root, runId: claim.run_id, allowPending: true }); } catch {} }
+    if (recovery && run) { try { finish({ root, runId: run.run_id, abortPending: true }); } catch {} }
     gap(root, 'automatic_capture_unavailable');
-    return off(/^fleet_[a-z_]+$/.test(error.message) ? error.message : 'automatic_capture_unavailable');
+    return off(/^(fleet|recovery)_[a-z_]+$/.test(error.message) ? error.message : 'automatic_capture_unavailable');
   }
 }
 function finish({ root = rootPath(), runId = process.env.SGSD_RUN_ID, abortPending = false } = {}) {
   try {
     const run = readRun(root, runId); if (!run) return false;
+    // Refresh only a currently remembered matching run. Exit is never forget,
+    // and an old finishing run cannot upsert or replace a newer workspace owner.
+    try { workspaceRecovery.refresh({ root, runId }); } catch { gap(root, 'workspace_context_refresh_unavailable'); }
     if (run.role === 'orchestrator' && process.platform === 'linux') {
       const owner = fleet.status({ root, projectDir: run.project_dir }).claims.find(row => row.run_id === runId);
       if (owner) fleet.release({ root, runId, allowPending: abortPending });
@@ -581,7 +620,7 @@ if (require.main === module) {
     };
     const requireManaged = process.argv.includes('--require-managed');
     const timer = setTimeout(() => { gap(root, 'bootstrap_timeout'); process.stderr.write('[Atlas] capture unavailable: startup timeout\n'); emitOff(); process.exit(requireManaged ? 1 : 0); }, 3000);
-    prepare({ root, projectDir: value('--project-dir', process.cwd()), provider: value('--provider', 'anthropic'), role: value('--role', 'orchestrator'), accountingSource: value('--accounting-source') })
+    prepare({ root, projectDir: value('--project-dir', process.cwd()), provider: value('--provider', 'anthropic'), role: value('--role', 'orchestrator'), accountingSource: value('--accounting-source'), restoreId: value('--restore-id') })
       .then(result => {
         clearTimeout(timer);
         if (!result.enabled && result.reason !== 'disabled') process.stderr.write('[Atlas] capture unavailable; run the Atlas audit\n');

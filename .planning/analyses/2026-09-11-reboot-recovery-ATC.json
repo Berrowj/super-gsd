@@ -1,0 +1,140 @@
+{
+  "source_project": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo",
+  "original_native_ledgers_preserved": true,
+  "attempts": [
+    {
+      "schema_version": 1,
+      "status": "RECORDED",
+      "outcome": "block",
+      "recorded_at": "2026-09-11T11:09:00.381Z",
+      "project": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo",
+      "owner": "codex.coordinator.17015",
+      "worker_id": "7ec03d5e-e489-4706-bd80-b2bd2092b119",
+      "wrapper_attempt_id": "5395d3f3-feb3-4e58-8419-e2d636042b13",
+      "thread_id": "01a0901e-5fb5-72d1-8882-101093799726",
+      "turn_id": "01a0901e-61bf-7363-bd75-ec13b4765a4f",
+      "atlas_run_id": "sgsd-e4c422ac-30cc-4a8f-a61e-bfeef3a90459",
+      "gate_invocation_id": "05a56a09-39bc-42bc-b1b0-de487805426e",
+      "report_path": "/home/jackberrow/.local/state/sgsd/17015-atc/report-1.txt",
+      "report_sha256": "9a8883309ca2c1ae7bfce2e492c580350c1c3d87d042d15a6422ee007959e58f",
+      "report_bytes": 952,
+      "findings": 2,
+      "critical": 1,
+      "warnings": 1,
+      "pass_rate": "8/10",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "xhigh",
+      "duration_ms": null,
+      "route_gate_invocation_id": null,
+      "route_status_scope": "wrapper transport, not review verdict",
+      "inputs": [
+        {
+          "path": "/home/jackberrow/.local/state/sgsd/17015-atc/atc-dispatch-1.json",
+          "sha256": "692b51dc48865df43b39fb80e47ef92fea46075ecf021a5a9a5cecbfd4b82ae5"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/worker-sessions/7ec03d5e-e489-4706-bd80-b2bd2092b119/state.json",
+          "sha256": "e4f6a31c1f12e222f38aa7e79258d0e0d4058e1257f5e1eb13ceb06880f1ecfc"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/worker-sessions/7ec03d5e-e489-4706-bd80-b2bd2092b119/wrapper-result.json",
+          "sha256": "e5df77f0a9e3128d5d5779089a252f3a0b8858dd08dde88f1ef335ef7d9ccaff"
+        }
+      ],
+      "ledgers": [
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/metrics/review-ledger.jsonl",
+          "bytes": 2463,
+          "sha256": "e48cec9a1d797dc725ea3280bb2511debf7e2a1904a8726458221bcde40cf031",
+          "appended_row_sha256": "e48cec9a1d797dc725ea3280bb2511debf7e2a1904a8726458221bcde40cf031"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/metrics/gate-value-log.jsonl",
+          "bytes": 756,
+          "sha256": "0b8f6cb4e3da33f5e2b04b08eb90ed834a54d857d1e3f3008fcc616fcfdf5126",
+          "appended_row_sha256": "0b8f6cb4e3da33f5e2b04b08eb90ed834a54d857d1e3f3008fcc616fcfdf5126"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/metrics/route-decisions.jsonl",
+          "bytes": 766,
+          "sha256": "498ac76af9af8c01536275f1e9e1d799e74fdf4eb90736e36bdb30460ff0e807",
+          "appended_row_sha256": "498ac76af9af8c01536275f1e9e1d799e74fdf4eb90736e36bdb30460ff0e807"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/milestones/v4.1-token-economics-atlas/phases/170-atlas-capture-foundation/commit-reviews.jsonl",
+          "bytes": 9554,
+          "sha256": "14cd9f689fc70b126e46436a0f753125bf3aa873d7c2eadd04c393e2278e0e15",
+          "appended_row_sha256": "f6c71be9f28c82dad542ebad1aae16f12f5c2fafc12141d6d128cb5144ca63cf"
+        }
+      ],
+      "result_path": "/home/jackberrow/.local/state/sgsd/17015-atc/record-atc-7ec03d5e-e489-4706-bd80-b2bd2092b119.result.json"
+    },
+    {
+      "schema_version": 1,
+      "status": "RECORDED",
+      "outcome": "pass",
+      "recorded_at": "2026-09-11T11:18:34.451Z",
+      "project": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo",
+      "owner": "codex.coordinator.17015",
+      "worker_id": "60dd74f4-be52-4cad-a98f-9e1107aeef7b",
+      "wrapper_attempt_id": "5e023c4f-aba1-4aa0-854b-24b3045ce68b",
+      "thread_id": "01a0901e-5fb5-72d1-8882-101093799726",
+      "turn_id": "01a0902e-449d-71a1-ac28-2597f7d076d5",
+      "atlas_run_id": "sgsd-2e4d115a-9de6-4055-b017-bc9b6122a774",
+      "gate_invocation_id": "b5484951-a480-4f1e-a4d1-e51c1539551d",
+      "report_path": "/home/jackberrow/.local/state/sgsd/17015-atc/report-2.txt",
+      "report_sha256": "67ddc05c5e565e2ef9f5f69fe8d0390154da9af4f625984bd4a1a4cef08de8a3",
+      "report_bytes": 178,
+      "findings": 0,
+      "critical": 0,
+      "warnings": 0,
+      "pass_rate": "10/10",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "xhigh",
+      "duration_ms": null,
+      "route_gate_invocation_id": null,
+      "route_status_scope": "wrapper transport, not review verdict",
+      "inputs": [
+        {
+          "path": "/home/jackberrow/.local/state/sgsd/17015-atc/atc-dispatch-2.json",
+          "sha256": "dd43bc6ee6bab6273fb7538cda3968ed58c16830d102610283668c0f084b9a0e"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/worker-sessions/60dd74f4-be52-4cad-a98f-9e1107aeef7b/state.json",
+          "sha256": "53648b6fb7211178bd26dfdeb13f5177eae0c072e875895cdf622cce28194687"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/worker-sessions/60dd74f4-be52-4cad-a98f-9e1107aeef7b/wrapper-result.json",
+          "sha256": "e4a22db75531f70025063c27ae233a9fbd24b5f63b77a40562db53ee1f09a141"
+        }
+      ],
+      "ledgers": [
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/metrics/review-ledger.jsonl",
+          "bytes": 4186,
+          "sha256": "6e84b90e557a0c3fae74b9f58257edec136e2b9533af795c357ceb285befc016",
+          "appended_row_sha256": "dd3896d685b3314e1cae6e8b28bef99e839ad07183998cbd3c39f983b7c59a4d"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/metrics/gate-value-log.jsonl",
+          "bytes": 1515,
+          "sha256": "dff1ec85447d6395e01a02a89c150859fb04feef2b841edefcc5b5b5ad867aad",
+          "appended_row_sha256": "16f3c6251897692ab9fb26fd9381aca102f3ee57ad830aa3871321c3bd442520"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/metrics/route-decisions.jsonl",
+          "bytes": 1532,
+          "sha256": "0c7b7da2a9fcbb27f0b2f95cb2dadff5b173f412dde4f00ddcdc412fd6ae87e7",
+          "appended_row_sha256": "eafbec59aee328809d9b593d22a7638c0b29ac4d77e6f306e99b660f4fb0c130"
+        },
+        {
+          "path": "/tmp/sgsd-17015-tests.dHcYg5vB/review-repo/.planning/milestones/v4.1-token-economics-atlas/phases/170-atlas-capture-foundation/commit-reviews.jsonl",
+          "bytes": 10760,
+          "sha256": "0f1f836f0794a0eab6a47807eb2fd8a8be3400e3f47377f615cfff3426a30e5d",
+          "appended_row_sha256": "a69f99a438783f54e4b01db5ffeb9fd1efefce5535d6fc1eb8d3b086ad5d3572"
+        }
+      ],
+      "result_path": "/home/jackberrow/.local/state/sgsd/17015-atc/record-atc-60dd74f4-be52-4cad-a98f-9e1107aeef7b.result.json"
+    }
+  ]
+}
