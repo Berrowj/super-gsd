@@ -113,19 +113,19 @@ profiles:
 cli_profiles:
   executor:
     model: gpt-5.6-sol
-    reasoning: xhigh
+    reasoning: high
     sandbox: danger-full-access
     ephemeral: false
     approval: never
   review:
     model: gpt-5.6-sol
-    reasoning: xhigh
+    reasoning: high
     sandbox: danger-full-access
     ephemeral: false
     approval: never
   triage:
     model: gpt-5.6-sol
-    reasoning: xhigh
+    reasoning: high
     sandbox: danger-full-access
     ephemeral: false
     approval: never
