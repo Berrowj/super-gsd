@@ -268,7 +268,7 @@ Report in chat: the governing thought first, then T codes with one line each, th
 | Condition | Behaviour |
 | --- | --- |
 | Registry missing at all three paths | Stop, report `registry_missing`, no record |
-| MCP unavailable, local script present (laptop) | `vtp_mode: local-sidecar`, every hit graded `local-sidecar`, record says so in Source ledger |
+| MCP unavailable, local script present (laptop) | `vtp_mode: local-sidecar`; grade each passage as `measured`, `argued` or `anecdotal`, and record retrieval provenance in Source ledger |
 | MCP unavailable, no local script (devcp) | Frame-only record, `route: none`, ask operator to re-run when the tunnel is up; with `--allow-ungrounded`, full run with `grounded: false` and `route: none` |
 | A lens returns nothing, or every retrieved passage is unused | `nothing_found: true`, zero moves, lens listed in the omitted table |
 | Local retriever exits 1 | Retry once with `PYTHONIOENCODING=utf-8`; then `retrieval_error` for that lens, noted in Method notes |
