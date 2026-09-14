@@ -22,7 +22,7 @@
 # ============================================================================
 
 schema_version: 1
-registry_version: 1.0.0
+registry_version: 1.1.0
 last_updated: 2026-09-14
 owner: think
 
@@ -649,7 +649,8 @@ mode_additions:
   discuss: [L-DIAL-THIRD, L-ANA-TRANSFER, L-COMM-STICK]
 
 wildcard_rule:
-  description: "Add one lens whose family is absent from the selected set and whose move_type is the one the selected set lacks; if every move_type is present, take the lateral lens from the family furthest from the subject"
+  description: "Add one lens whose family is absent from the selected set and whose move_type is the one the selected set lacks; if every move_type is present, take the first lens in fallback_order whose family is absent from the selected set. The wildcard counts against the depth cap and is never cut."
+  fallback_order: [L-ANA-SOLVED, L-DIAL-THIRD, L-PS-REPRESENT, L-DES-PROBLEM, L-META-SOCIAL, L-COMM-STICK]
   preference_by_missing_move_type:
     lateral: [L-DIAL-THIRD, L-ANA-SOLVED, L-PS-REPRESENT, L-DES-PROBLEM]
     logical: [L-CRIT-PREMISE, L-CORRECT-APART, L-DIAL-REFUTE]
@@ -657,15 +658,23 @@ wildcard_rule:
     structural: [L-LIMIT-DELETE, L-DES-PROTOTYPE, L-HARNESS-QUADRANT]
 
 depth:
+  # lenses caps core + mode additions + wildcard + forced (--lenses). A hybrid's second lens is
+  # additive and never counted. Cut order applies until the cap holds; never_cut always wins.
   quick:
-    lenses: 4
+    lenses: 6
     hybrids: 1
     wildcard: true
+    hybrid_second_counts_against_cap: false
+    cut_order: [mode_additions_last_added_first, core_from_end_of_route]
+    never_cut: [wildcard, forced, hybrid_first]
     dispatch: orchestrator
   full:
     lenses: 10
     hybrids: 2
     wildcard: true
+    hybrid_second_counts_against_cap: false
+    cut_order: [mode_additions_last_added_first, core_from_end_of_route]
+    never_cut: [wildcard, forced, hybrid_first]
     dispatch: parallel-subagents
 
 retirement:

@@ -1,7 +1,7 @@
 ---
 name: think
 description: "Multi-lens thinking over a problem, a thing being built, or a topic, with every lens drawn from the VTP thinking library through the think-lenses registry and every move grounded in retrieved passages. Use when the operator says 'think through', 'how else could we', 'what are we missing', 'different angle', 'stuck on', or before any brief, plan or deliberation on something non-trivial. Not for factual lookups, live-data questions or execution requests."
-argument-hint: "<problem | thing being built | topic | path/to/brief-or-plan.md | phase> [--mode solve|enhance|discuss] [--depth quick|full] [--subject SAP-DATA|UI-RELAY|INTEGRATION|DEPLOY-INFRA|ORCHESTRATION|KNOWLEDGE|SECURITY|REPORTING|PRODUCT|PROCESS|PEOPLE|COMMS] [--allow-ungrounded]"
+argument-hint: "<problem | thing being built | topic | path/to/brief-or-plan.md | phase> [--mode solve|enhance|discuss] [--depth quick|full] [--subject SAP-DATA|UI-RELAY|INTEGRATION|DEPLOY-INFRA|ORCHESTRATION|KNOWLEDGE|SECURITY|REPORTING|PRODUCT|PROCESS|PEOPLE|COMMS] [--allow-ungrounded] [--registry <path>] [--lenses L-ID,L-ID]"
 allowed-tools:
   - Read
   - Write
@@ -12,10 +12,8 @@ allowed-tools:
   - AskUserQuestion
   - mcp__vtp-kb__vtp_search_book_passages
   - mcp__vtp-kb__vtp_search_research_passages
-  - mcp__vtp-kb__vtp_get_document
   - mcp__vtp__vtp_search_book_passages
   - mcp__vtp__vtp_search_research_passages
-  - mcp__vtp__vtp_get_document
 ---
 
 <trigger>
@@ -36,7 +34,7 @@ Take one framed problem, build or topic and run it through a set of ways of thin
 
 This skill recommends. It never edits source, never dispatches executors and never writes a plan. It writes one record and one metrics row.
 
-Cost: quick depth is one orchestrator pass over 4 lenses plus 1 hybrid (about 15k tokens with retrieval). Full depth dispatches up to 10 lens sub-agents in parallel plus 2 hybrids (60k to 90k tokens). Default is quick; use full for GATE-tier subjects or when the operator asks.
+Cost, measured on the first green run (quick depth, local retrieval, 5 lenses, 15 moves): 12 minutes 46 seconds and roughly 90k to 100k tokens of unique content, most of it the record and the lens files rather than the reasoning. Quick depth is one orchestrator pass over up to 6 lenses plus 1 hybrid second lens. Full depth dispatches up to 10 lens sub-agents in parallel plus 2 hybrid second lenses; assume two to three times the quick cost. Default is quick; use full for GATE-tier subjects or when the operator asks.
 
 </objective>
 
@@ -47,7 +45,7 @@ Cost: quick depth is one orchestrator pass over 4 lenses plus 1 hybrid (about 15
 3. **Falsifier on every move.** Each move states the observation that would show it wrong, or the literal text `none (judgement call)`. No move is dressed up with a contrived test.
 4. **Books are lenses.** A passage supplies a way of asking, never a fact about Clarity, SAP or JCL. A claim about live state in a move must name the probe that would establish it.
 5. **Append-only record.** `.planning/thinking/` is never rewritten. A re-run writes a new file and links the previous one.
-6. **Fixed vocabulary.** Move types are `lateral`, `logical`, `dynamic`, `structural`. Subjects are the registry's subject keys. Evidence grades are `measured`, `argued`, `anecdotal`, `local-sidecar`, `none`.
+6. **Fixed vocabulary.** Move types are `lateral`, `logical`, `dynamic`, `structural`. Subjects are the registry's subject keys. Evidence carries two fields: `retrieval` (`mcp` or `local-sidecar`, the provenance of the whole run) and `grade` (`measured`, `argued`, `anecdotal`, what the passage itself offers). Provenance never lowers a grade and a grade never hides provenance.
 7. **Communication rules of the host repo apply to the record**: answer first, no emoji, no em dashes, headings summarise their content, codes on every move (T1..Tn), every action names an owner and a trigger.
 
 </contracts>
@@ -55,15 +53,15 @@ Cost: quick depth is one orchestrator pass over 4 lenses plus 1 hybrid (about 15
 <step_0_inputs>
 ## Step 0: Parse inputs, resolve the registry, probe retrieval
 
-1. `$ARGUMENTS` is one of: free text; a path to a `.md` (brief, plan, idea, CONTEXT.md); or the word `phase` (read the active phase's CONTEXT.md and PLAN.md via `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` for the phase id). Flags: `--mode`, `--depth`, `--subject`, `--allow-ungrounded`.
-2. Resolve the registry, first hit wins:
+1. `$ARGUMENTS` is one of: free text; a path to a `.md` (brief, plan, idea, CONTEXT.md); or the word `phase` (read the active phase's CONTEXT.md and PLAN.md via `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` for the phase id). Flags: `--mode`, `--depth`, `--subject`, `--allow-ungrounded`, `--registry <path>` (explicit registry file, wins over the search order; a skill under test in a worktree passes this), `--lenses L-ID,L-ID` (force these lenses into the selected set; they count against the cap and are never cut).
+2. Resolve the registry: `--registry <path>` when given, otherwise first hit wins:
    - `super-gsd/registry/think-lenses.yaml` (project)
    - `~/.claude/super-gsd/registry/think-lenses.yaml` (global registry snapshot)
    - `~/.claude/super-gsd/source/super-gsd/registry/think-lenses.yaml` (global source clone)
    If none resolves, stop and report `registry_missing`; do not improvise lenses.
 3. Probe retrieval, in this order, and record `vtp_mode`:
    - `mcp`: call `vtp_search_book_passages` on whichever VTP server this environment registers (`vtp-kb` in-project, `vtp` at user scope on devcp) with `query: "health probe"`, `limit: 1`. A response with a `results` array means `mcp`.
-   - `local-sidecar`: the MCP call failed or the tool is absent, and `scripts/think-retrieve-local.py` exists in the current directory (Voice-Text-Plan on the laptop). Ranking is token overlap, so grade every hit `local-sidecar`.
+   - `local-sidecar`: the MCP call failed or the tool is absent, and `scripts/think-retrieve-local.py` exists in the current directory (Voice-Text-Plan on the laptop). Ranking is token overlap with a relevance floor, so the run carries `retrieval: local-sidecar` and every hit is graded on its content like any other passage.
    - `none`: neither. Continue only with `--allow-ungrounded`; otherwise stop after Step 2 and write a frame-only record with `route: none` and the instruction to re-run when VTP is reachable.
 4. Create the run directory `.planning/tmp/think/{YYYYMMDD-HHMM}-{slug}/` (or `./thinking/tmp/...` outside an SGSD project). Every intermediate artefact goes there; sub-agents receive paths, never pasted content.
 </step_0_inputs>
@@ -95,11 +93,11 @@ If the frame cannot name a decision or a consequence, stop and ask the operator 
 <step_2_route>
 ## Step 2: Select the lens set from the registry, not from habit
 
-1. Start from `subject_routes[subject].core` (union when two subjects). Add `mode_additions[mode]`. Add the subject's hybrids up to the depth cap.
-2. Apply the wildcard rule: find the move_type absent from the selected set and add the first active lens from `wildcard_rule.preference_by_missing_move_type[that type]` whose family is not already present. If every move_type is present, add the lateral lens from the family furthest from the subject.
-3. Cap to `depth.{quick|full}.lenses`. When cutting, keep at least one lens per move_type and keep the wildcard.
-4. Skip any lens with `state: retired`.
-5. Write `lenses.md` listing each selected lens: id, name, question, principles, move_type, evidence_strength, authority_limit, and the reason it was selected (core, mode, hybrid first, hybrid second, wildcard). Also list the families NOT selected in one line, so the omission is visible (NUO-P-04).
+1. Start from `subject_routes[subject].core` (union when two subjects). Add `mode_additions[mode]`. Add any `--lenses`. Skip any lens with `state: retired`.
+2. Apply the wildcard rule: find the move_type absent from the set so far and add the first active lens from `wildcard_rule.preference_by_missing_move_type[that type]` whose family is not already present. If every move_type is present, take the first lens in `wildcard_rule.fallback_order` whose family is not already present. The wildcard is chosen by the registry's order, never by taste; it counts against the cap and is never cut.
+3. Cap the set to `depth.{quick|full}.lenses` (quick 6, full 10). Cut in this order until the cap holds: mode additions from the last added, then core lenses from the end of the route list. Never cut the wildcard, a `--lenses` entry, or the first lens of a hybrid you are about to select in step 4.
+4. Select the subject's hybrids in route order, up to `depth.{quick|full}.hybrids`, keeping only those whose first lens survived the cap. A hybrid's second lens is additive and does not count against the cap, so quick depth runs at most 7 lenses and full at most 12.
+5. Write `lenses.md` listing each selected lens: id, name, question, principles, move_type, evidence_strength, authority_limit, and the reason it was selected (core, mode, forced, hybrid first, hybrid second, wildcard). List the lenses cut by the cap with the reason, so a re-run with `--lenses` can restore them. List the families NOT selected in one line, so the omission is visible (NUO-P-04).
 
 The engineering reflex (inversion, control theory, adversarial framing) is not a lens set. If the selected set contains no metacognitive, dialectical, probabilistic or design lens, the routing was overridden by habit; go back to the registry.
 </step_2_route>
@@ -110,10 +108,10 @@ The engineering reflex (inversion, control theory, adversarial framing) is not a
 For each selected lens, retrieve 2 to 4 passages and save them to `{lens_id}.passages.json` in the run directory.
 
 - `mcp`: `vtp_search_book_passages({ query: <lens.question rewritten with the frame's nouns>, filters: { book_slug: [lens.book_slug, ...lens.extra_books], principles: lens.principles }, limit: 4, snippet_chars: 900 })`. If the server predates the `principles` filter it is ignored silently and the book_slug scope still holds. For lenses with `research_queries`, also call `vtp_search_research_passages({ query, limit: 3 })` per query.
-- `local-sidecar`: `python scripts/think-retrieve-local.py --slug <book_slug[,extra_books]> --principles <ids> --query "<rewritten question>" --limit 4`. Exit code 2 means the book is not on disk; treat as nothing found.
-- Grade each hit: `measured` when the passage reports a measurement or a study; `argued` when it argues; `anecdotal` when it tells a case; `local-sidecar` for every local-mode hit regardless of content.
+- `local-sidecar`: `python scripts/think-retrieve-local.py --slug <book_slug[,extra_books]> --principles <ids> --query "<rewritten question>" --limit 4 --snippet 900 --out {runDir}/{lens_id}.passages.json` (`--snippet` is `snippet_chars`). Exit 0: hits written. Exit 3: no chunk cleared the relevance floor, record `nothing_found: true`. Exit 2: the book is not on disk, record `nothing_found: true` and name the book in Method notes. Exit 1: the script failed; retry once with `PYTHONIOENCODING=utf-8`, then record `retrieval_error` for that lens and continue. Never read exit 1 as nothing found.
+- Grade each hit on its content: `measured` when the passage reports a measurement or a study; `argued` when it argues; `anecdotal` when it tells a case. Provenance is recorded once for the run as `retrieval: mcp | local-sidecar`, never as a grade.
 
-A lens whose retrieval returns nothing relevant is recorded `nothing_found: true` and produces no moves. Do not fill the gap from recall. Do not widen the query until it matches something unrelated.
+A lens whose retrieval returns nothing relevant is recorded `nothing_found: true` and produces no moves. A passage that was retrieved and read but is too far from the frame to ground a move goes in that lens's `passages_unused`; a lens whose every passage is unused is `nothing_found: true` as well. Do not fill the gap from recall. Do not widen the query until it matches something unrelated.
 
 Retrieval is done by the orchestrator before any dispatch. Sub-agents never call MCP (they receive the passages file path).
 </step_3_ground>
@@ -138,10 +136,11 @@ moves:
     evidence:
       - principle: FPT-P-02
         passage: "book_slug::chunk_id"
-        grade: measured | argued | anecdotal | local-sidecar
+        grade: measured | argued | anecdotal
         quote: "up to 25 words from the passage"
     rules_out: "what this lens says not to do here"
-    handoff: L-CORRECT-APART   # optional: the lens that should take this move next
+    handoff: L-CORRECT-APART   # optional: any registry lens, selected or not, that should take this move next
+passages_unused: ["book_slug::chunk_id"]   # retrieved and read, too far from the frame to ground a move
 limits: "what this lens cannot see, from its authority_limit"
 ```
 
@@ -160,7 +159,7 @@ Apply ONLY this lens's question to the frame. Produce moves grounded in the pass
 });
 ```
 
-Validate each returned YAML (required keys present, every move has `evidence` with at least one passage, `falsifier` non-empty). One retry on a schema failure, then mark the lens `invalid_output` and continue.
+Validate each returned YAML (required keys present, every move has `evidence` with at least one passage, every `grade` in the fixed vocabulary, `falsifier` non-empty). One retry on a schema failure, then mark the lens `invalid_output` and continue.
 
 **Hybrids** run after their first lens has finished: the second lens receives the first lens's `.out.yaml` path as extra input and is told to extend, contradict or bound those moves, not to start again.
 </step_4_think>
@@ -176,6 +175,7 @@ Validate each returned YAML (required keys present, every move has `evidence` wi
    - third activity: if two moves are in tension, is there an arrangement that meets both requirements, and if not, keep the tension as a stated limit, do not average it (NUO-P-01, ANA-P-02).
 4. Collect `rules_out` from every lens into one ruled-out list; a move that a lens ruled out and another lens proposed is kept with both sides named.
 5. Mark each move `lateral`, `logical`, `dynamic` or `structural`. If one type is absent from the top five, say so; do not manufacture one.
+6. Collect every `handoff` that names a lens outside the selected set. List them with the moves that asked for them under `## Not run` in the record, so a re-run with `--lenses` or `--depth full` can cover them.
 </step_5_collide>
 
 <step_6_record>
@@ -196,6 +196,7 @@ grounded: {true|false}
 lenses_used: [{ids}]
 lenses_nothing_found: [{ids}]
 hybrids_used: [{ids}]
+not_run: [{lens ids named by handoffs but not selected}]
 previous_record: {path or null}
 route: {sgsd-triage | sgsd-deliberate | gsd-plan-phase | rd-board | none}
 ---
@@ -228,23 +229,26 @@ route: {sgsd-triage | sgsd-deliberate | gsd-plan-phase | rd-board | none}
 ## Disagreements kept
 {tensions not resolved, with both sides named}
 
+## Not run
+{lenses named by a handoff but outside the selected set, and the lenses cut by the cap, each with the move or reason}
+
 ## Route
 {which SGSD continuation and why; if sgsd-deliberate, the Key Questions the brief should carry; if gsd-plan-phase, the task list with T codes; if rd-board, the candidate; if none, why}
 
 ## Source ledger
-{every passage used: book slug, chunk id, grade; every research passage; the retrieval mode}
+{retrieval mode for the run; every passage used: book slug, chunk id, grade; every passage retrieved and unused; every research passage}
 
 ## Registry gaps
 {ways of thinking that were wanted and are not in think-lenses.yaml, as proposals}
 
 ## Method notes
-{lenses fired, lenses with nothing found, vtp_mode, approximate tokens, wall time, what was not checked}
+{lenses fired, lenses with nothing found or retrieval_error, lenses cut by the cap, vtp_mode, what was not checked. No timing or token figures here: the record is written before the run ends, and the metrics row carries them}
 ```
 
-Append one row to `.planning/metrics/think-log.jsonl`:
+Append one row to `.planning/metrics/think-log.jsonl` (`mkdir -p .planning/metrics` first; `record` is the repo-relative path; the row is written after the record and carries the timing):
 
 ```json
-{"ts":"{ISO}","slug":"{slug}","mode":"{mode}","subject":["..."],"depth":"{depth}","vtp_mode":"{mode}","grounded":true,"lenses":["..."],"lenses_nothing_found":["..."],"moves":N,"promoted":0,"route":"{route}","record":"{path}"}
+{"ts":"{ISO}","slug":"{slug}","mode":"{mode}","subject":["..."],"depth":"{depth}","vtp_mode":"{mode}","grounded":true,"lenses":["..."],"lenses_nothing_found":["..."],"lenses_cut":["..."],"not_run":["..."],"moves":N,"promoted":0,"route":"{route}","record":"{repo-relative path}","wall_s":N,"tokens_est":N}
 ```
 
 `promoted` starts at 0 and is updated by the operator or by the consuming skill when a move becomes a plan task, a brief question or an rd-board candidate (`node -e` one-liner or a manual edit is acceptable; the field exists so lenses can be retired by ablation).
@@ -266,7 +270,8 @@ Report in chat: the governing thought first, then T codes with one line each, th
 | Registry missing at all three paths | Stop, report `registry_missing`, no record |
 | MCP unavailable, local script present (laptop) | `vtp_mode: local-sidecar`, every hit graded `local-sidecar`, record says so in Source ledger |
 | MCP unavailable, no local script (devcp) | Frame-only record, `route: none`, ask operator to re-run when the tunnel is up; with `--allow-ungrounded`, full run with `grounded: false` and `route: none` |
-| A lens returns nothing | `nothing_found: true`, zero moves, lens listed in the omitted table |
+| A lens returns nothing, or every retrieved passage is unused | `nothing_found: true`, zero moves, lens listed in the omitted table |
+| Local retriever exits 1 | Retry once with `PYTHONIOENCODING=utf-8`; then `retrieval_error` for that lens, noted in Method notes |
 | Sub-agent returns invalid YAML twice | `invalid_output`, lens excluded, noted in Method notes |
 | Frame has no decision | One AskUserQuestion, then stop if still none |
 
@@ -281,6 +286,7 @@ Report in chat: the governing thought first, then T codes with one line each, th
 5. Never write more than one record per run and never rewrite an existing record.
 6. Never route a `grounded: false` record into a brief, plan or board.
 7. Never present a book passage as a fact about Clarity, SAP or JCL.
+8. Never write timing or token figures into the record; the metrics row carries them, because the record is append-only and finished before the run is.
 
 </rules>
 
@@ -296,6 +302,7 @@ Stop and go back to the registry when you notice any of these:
 - The falsifier restates the move ("it would be wrong if it did not work").
 - The route is `none` while grounded moves exist.
 - You are about to skip a lens because "the earlier lens already covered it".
+- The wildcard was picked by judgement; when every move_type is present the registry's `fallback_order` decides.
 
 </red_flags>
 
@@ -319,7 +326,7 @@ Stop and go back to the registry when you notice any of these:
 | --- | --- | --- | --- |
 | 0 Inputs | `$ARGUMENTS` | registry path, `vtp_mode`, run dir | no registry, no run |
 | 1 Frame | operator text or file | `frame.md` with decision, means removed, premises | no decision, one question, then stop |
-| 2 Route | frame + registry | `lenses.md` (selected, why, omitted) | wildcard always added; habit never selects |
+| 2 Route | frame + registry | `lenses.md` (selected, why, cut, omitted) | cap 6 or 10; wildcard and hybrid firsts never cut; habit never selects |
 | 3 Ground | lenses | `{lens}.passages.json` | nothing found is a result |
 | 4 Think | frame + passages | `{lens}.out.yaml` | every move: evidence + falsifier |
 | 5 Collide | all outputs | T codes, dialectical pass, ruled out, tensions | rank by effect on the decision |
