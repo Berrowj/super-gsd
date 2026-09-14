@@ -116,10 +116,6 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   fb('sgsd-sepl', 'on-demand', ['manual', 'semi', 'auto'], {
     phrases: ['sgsd-sepl', 'sepl', 'deliberate', 'deliberate decision'],
   }, { availability: 'canonical' }),
-  fb('think', 'prompt-time', ['manual', 'semi', 'auto'], {
-    phrases: ['think this through', 'think through', 'how else could we', 'what are we missing', 'different angle', 'lateral thinking', 'stuck on'],
-    regexes: ['\b(?:think|thinking)\b.{0,40}\b(?:through|about|over)\b.{0,160}\b(?:problem|approach|design|option|angle|idea)\b', '\bwhat\s+(?:are\s+we|am\s+i)\s+missing\b', '\b(?:different|another|fresh)\s+(?:angle|lens|way\s+of\s+thinking)\b'],
-  }, { availability: 'canonical' }),
   fb('sgsd-overwatcher', 'phase-close', ['auto'], {
     event_names: ['phase-close'],
   }, {
@@ -217,6 +213,10 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   fb('sgsd-audit', 'on-demand', ['manual'], {
     phrases: ['gsd-secure-phase', 'secure phase', 'security phase', 'phase security review'],
   }, { aliases: ['gsd-secure-phase'], availability: 'alias' }),
+  fb('think', 'prompt-time', ['manual', 'semi', 'auto'], {
+    phrases: ['think this through', 'think through', 'how else could we', 'what are we missing', 'different angle', 'lateral thinking', 'stuck on'],
+    regexes: ['\\b(?:think|thinking)\\b.{0,40}\\b(?:through|about|over)\\b.{0,160}\\b(?:problem|approach|design|option|angle|idea)\\b', '\\bwhat\\s+(?:are\\s+we|am\\s+i)\\s+missing\\b', '\\b(?:different|another|fresh)\\s+(?:angle|lens|way\\s+of\\s+thinking)\\b'],
+  }, { availability: 'canonical' }),
   fb('create-quote', 'prompt-time', ['manual', 'semi', 'auto'], {
     regexes: [
       '^\\s*(?:please\\s+)?(?:create|draft|prepare|build|make|generate)\\b(?=[^\\r\\n]{0,180}\\b(?:sap|jcl)\\b)(?=[^\\r\\n]{0,180}\\bquotes?\\b)',
