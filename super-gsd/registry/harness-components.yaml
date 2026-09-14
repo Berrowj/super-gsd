@@ -256,6 +256,19 @@ components:
     rollback_method: git-revert
     protected: false
 
+  - id: think
+    class: skill
+    paths:
+      - super-gsd/skills/think/SKILL.md
+      - super-gsd/registry/think-lenses.yaml
+    owner: orchestrator
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/skills/think/SKILL.md'')"'
+      - 'node -e "require(''fs'').statSync(''super-gsd/registry/think-lenses.yaml'')"'
+    rollback_method: git-revert
+    protected: false
+
   # ============================================================
   # MEMORY
   # ============================================================

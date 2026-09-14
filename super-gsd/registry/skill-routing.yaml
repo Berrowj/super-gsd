@@ -578,3 +578,25 @@ routes:
       - auto
     availability: external-if-installed
     notes: Suggest diagram design for explicit standalone diagram, flowchart, or sequence-diagram requests, never an HTML explainer.
+
+  - skill: think
+    signatures:
+      phrases:
+        - think this through
+        - think through
+        - how else could we
+        - what are we missing
+        - different angle
+        - lateral thinking
+        - stuck on
+      regexes:
+        - '(?:think|thinking).{0,40}(?:through|about|over).{0,160}(?:problem|approach|design|option|angle|idea)'
+        - 'what\s+(?:are\s+we|am\s+i)\s+missing'
+        - '(?:different|another|fresh)\s+(?:angle|lens|way\s+of\s+thinking)'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: Suggest /think when the operator wants a problem, build or topic thought through from several angles before briefing, planning or deliberating.

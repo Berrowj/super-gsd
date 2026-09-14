@@ -116,6 +116,10 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   fb('sgsd-sepl', 'on-demand', ['manual', 'semi', 'auto'], {
     phrases: ['sgsd-sepl', 'sepl', 'deliberate', 'deliberate decision'],
   }, { availability: 'canonical' }),
+  fb('think', 'prompt-time', ['manual', 'semi', 'auto'], {
+    phrases: ['think this through', 'think through', 'how else could we', 'what are we missing', 'different angle', 'lateral thinking', 'stuck on'],
+    regexes: ['\b(?:think|thinking)\b.{0,40}\b(?:through|about|over)\b.{0,160}\b(?:problem|approach|design|option|angle|idea)\b', '\bwhat\s+(?:are\s+we|am\s+i)\s+missing\b', '\b(?:different|another|fresh)\s+(?:angle|lens|way\s+of\s+thinking)\b'],
+  }, { availability: 'canonical' }),
   fb('sgsd-overwatcher', 'phase-close', ['auto'], {
     event_names: ['phase-close'],
   }, {

@@ -1,0 +1,675 @@
+# ============================================================================
+# SGSD think lens registry
+# ============================================================================
+# Lenses are ways of thinking distilled from the VTP library. Every principle id
+# resolves to wiki/books/<book_slug>.enrichment.json in Voice-Text-Plan, and the
+# lens questions are the books' own signature questions rewritten for use on a
+# framed problem. The /think skill iterates over this file; it never invents a
+# lens at run time.
+#
+# Rules of the registry:
+#   - A lens is admissible only with a book_slug, principle ids, one question,
+#     one move_type, an authority_limit and an evidence_strength copied from the
+#     book profile. Books are lenses, never authority for live SAP, Mongo or
+#     Clarity state.
+#   - Retirement is by ablation: a lens that produced no promoted move across 20
+#     recorded runs in .planning/metrics/think-log.jsonl is marked
+#     state: retired, not deleted, so the history stays readable (HCC-P-07).
+#   - Hybrids are ordered pairs. The second lens receives the first lens's
+#     output; running them side by side is not the hybrid.
+#   - Subject routes name the core set. The skill adds one wildcard lens from a
+#     family absent from the core set, chosen by the move_type the core lacks.
+# ============================================================================
+
+schema_version: 1
+registry_version: 1.0.0
+last_updated: 2026-09-14
+owner: think
+
+move_types:
+  lateral: "Changes the representation or the frame so that options appear which were not visible before"
+  logical: "Constrains: separates premise from conclusion, form from truth, necessary from familiar, cause from symptom"
+  dynamic: "Treats quantities as distributions and systems as loops; prices information, time, drift and reversal"
+  structural: "Changes an arrangement: a gate, a template, a store, a boundary, an owner, a sequence"
+
+families:
+  metacognitive:
+    books: [foundations-of-metacognition, metacognition-process-function-and-use, social-metacognition, metacognition-in-language-learning-and-teaching, cognitive-coaching-a-foundation-for-renaissance-schools]
+    stance: "Monitoring and control are separate channels; a self-report is a claim, never the check"
+  critical:
+    books: [your-deceptive-mind-a-scientific-guide-to-critical-thinking, critical-thinking-skills-practical-tools-for-rational-decisions, dont-be-stupid-about-critical-thinking]
+    stance: "Fix the question and the criteria before the evidence arrives; base rates decide what a positive means"
+  probabilistic:
+    books: [probabilistic-thinking-presenting-plural-perspectives, why-cant-you-just-give-me-the-number]
+    stance: "A number under uncertainty is a model plus a state of information, never a property of the thing"
+  first_principles:
+    books: [first-principles-thinking-mental-models-for-thinking, problem-solving-best-strategies-to-decision-making]
+    stance: "Strip to the constraints that cannot move, rebuild from them, and rewrite the problem before searching"
+  dialectical:
+    books: [dialectical-thinking-zeno-socrates-kant-marx, the-necessary-unity-of-opposites-the-dialectical-thinking-of-northrop-frye, formal-transcendental-and-dialectical-thinking-logic-and-reality]
+    stance: "A deadlock is a shared frame; refute from the opponent's own rule; corroboration is variety, not repetition"
+  analogical:
+    books: [analogical-thinking-post-enlightenment-understanding-in-language-collaboration-and-interpretation, design-thinking-playbook, problem-solving-best-strategies-to-decision-making]
+    stance: "Hold similarity short of identity; one analogue cannot show its own limit; assume it is solved somewhere"
+  limits:
+    books: [fatal-strategies, thinking-machines-and-the-philosophy-of-computer-science]
+    stance: "Correctness is stated apart from the running thing; a quality pushed past its limit absorbs its opposite"
+  design:
+    books: [design-thinking-for-engineering-a-practical-guide, design-thinking-for-dummies, design-thinking-playbook, interdisciplinary-design-thinking-in-architecture-education, designing-for-emotion, navigating-the-common-core-with-english-language-learners, the-data-science-super-agent-volume-i-beginning-again, the-design-of-everyday-things-revised-and-expanded-edition]
+    stance: "Refuse the problem as stated; build the cheapest artefact that can be proved wrong; calibrate the observer first"
+  communication:
+    books: [the-minto-pyramid-principle, made-to-stick-why-some-ideas-survive-and-others-die, the-back-of-the-napkin, thing-explainer-complicated-stuff-in-simple-words]
+    stance: "Answer first, one governing thought, concrete and testable by the audience"
+  harness:
+    books: [agentic-engineering-at-scale]
+    stance: "Classify every steering artefact by timing and intent; a spec is worth what it rules out"
+
+lenses:
+  # ---------------------------------------------------------------- metacognitive
+  - id: L-META-MONITOR
+    family: metacognitive
+    name: "Monitor audit"
+    book_slug: foundations-of-metacognition
+    principles: [FOM-P-01, FOM-P-02, FOM-P-03, FOM-P-07]
+    question: "Which part of this behaviour requires the state to be represented rather than merely caused, and would the acceptance criterion also certify a thermostat?"
+    move_type: logical
+    subjects: [ORCHESTRATION, DEPLOY-INFRA, SECURITY, KNOWLEDGE]
+    evidence_strength: 0.7
+    authority_limit: "Cognitive science on animals, children and human confidence judgements; no claims about language models"
+    state: active
+
+  - id: L-META-CALIBRATE
+    family: metacognitive
+    name: "Calibration apart from the decision"
+    book_slug: foundations-of-metacognition
+    extra_books: [metacognition-process-function-and-use]
+    principles: [FOM-P-04, FOM-P-05, MPFU-P-02, MPFU-P-05]
+    question: "Which cue did this confidence ride in on, is the calibrator a separate accumulator from the decider, and does the reported correlation answer the question the decision asks?"
+    move_type: dynamic
+    subjects: [ORCHESTRATION, REPORTING, SAP-DATA]
+    evidence_strength: 0.7
+    authority_limit: "Human experimental psychology; every result concerns people judging their own memory or perception"
+    state: active
+
+  - id: L-META-NOTKNOW
+    family: metacognitive
+    name: "Protect the ability to say not known"
+    book_slug: foundations-of-metacognition
+    extra_books: [metacognition-process-function-and-use, metacognition-in-language-learning-and-teaching]
+    principles: [FOM-P-06, FOM-P-10, MPFU-P-11, MLLT-P-03]
+    question: "Where does a pre-filled plausible value, an example or a last-known figure destroy the honest report of not knowing, and which of the two ignorances is this?"
+    move_type: logical
+    subjects: [SAP-DATA, KNOWLEDGE, ORCHESTRATION, REPORTING]
+    evidence_strength: 0.7
+    authority_limit: "Human studies; the pre-fill effect is measured on recall tasks, not on agents"
+    state: active
+
+  - id: L-META-SOCIAL
+    family: metacognitive
+    name: "How the team became certain"
+    book_slug: social-metacognition
+    principles: [SMC-P-02, SMC-P-05, SMC-P-06, SMC-P-07]
+    question: "Did more information make this more accurate or only more certain, is ease being read as evidence, and would recomputing from clean inputs beat suppressing the bias?"
+    move_type: lateral
+    subjects: [ORCHESTRATION, PROCESS, COMMS]
+    evidence_strength: 0.68
+    authority_limit: "Single-session laboratory studies with self-reported outcomes"
+    state: active
+
+  - id: L-META-TRANSFER
+    family: metacognitive
+    name: "Capability where nobody arranged the conditions"
+    book_slug: metacognition-in-language-learning-and-teaching
+    extra_books: [navigating-the-common-core-with-english-language-learners]
+    principles: [MLLT-P-02, MLLT-P-04, MLLT-P-10, NCC-P-03]
+    question: "Which half was delivered, the explaining or the practising, and what is the test nobody trained for that would show the capability survives?"
+    move_type: structural
+    subjects: [PROCESS, KNOWLEDGE, ORCHESTRATION]
+    evidence_strength: 0.65
+    authority_limit: "Small-N classroom studies, self-report heavy"
+    state: active
+
+  - id: L-COACH
+    family: metacognitive
+    name: "Evidence contract before the event"
+    book_slug: cognitive-coaching-a-foundation-for-renaissance-schools
+    principles: [CCRS-P-01, CCRS-P-02, CCRS-P-05, CCRS-P-04]
+    question: "Which support function is running, evaluate, consult, collaborate or mediate, and what observable evidence did the parties agree to record before the work happened?"
+    move_type: structural
+    subjects: [PROCESS, ORCHESTRATION, PEOPLE]
+    evidence_strength: 0.45
+    authority_limit: "Practitioner model from US school supervision; matched-control and self-report evidence only"
+    state: active
+
+  # ---------------------------------------------------------------- critical
+  - id: L-CRIT-PREMISE
+    family: critical
+    name: "Premises and criteria before evidence"
+    book_slug: your-deceptive-mind-a-scientific-guide-to-critical-thinking
+    extra_books: [critical-thinking-skills-practical-tools-for-rational-decisions, dont-be-stupid-about-critical-thinking]
+    principles: [YDM-P-11, YDM-P-08, YDM-P-04, CTS-P-03, DBS-P-02]
+    question: "What are the premises including the unstated ones, were the acceptance criteria fixed before the evidence arrived, who took the measurement and did they know the expected result, and is the same data being used to find and to confirm?"
+    move_type: logical
+    subjects: [ORCHESTRATION, SAP-DATA, SECURITY, GENERIC]
+    evidence_strength: 0.6
+    authority_limit: "Lecture guidebook; studies named by researcher, not cited"
+    state: active
+
+  - id: L-CRIT-BASERATE
+    family: critical
+    name: "Base rate first"
+    book_slug: your-deceptive-mind-a-scientific-guide-to-critical-thinking
+    extra_books: [dont-be-stupid-about-critical-thinking]
+    principles: [YDM-P-06, YDM-P-05, DBS-P-10]
+    question: "How often is this legitimately the case out of a stated total, what does a positive result mean at that prevalence, and is any ratio here presented without its base?"
+    move_type: dynamic
+    subjects: [SAP-DATA, REPORTING, SECURITY, ORCHESTRATION]
+    evidence_strength: 0.6
+    authority_limit: "Reasoning lens; the arithmetic is standard, the examples are secondhand"
+    state: active
+
+  - id: L-CRIT-QUESTION
+    family: critical
+    name: "Narrow the question, keep the target"
+    book_slug: critical-thinking-skills-practical-tools-for-rational-decisions
+    extra_books: [dont-be-stupid-about-critical-thinking]
+    principles: [CTS-P-01, CTS-P-09, DBS-P-03, DBS-P-04]
+    question: "Which free variables does the question still contain, has the target moved since the answer arrived, and which candidate decisions actually move the stated goal?"
+    move_type: logical
+    subjects: [GENERIC, PROCESS, COMMS, ORCHESTRATION]
+    evidence_strength: 0.25
+    authority_limit: "Popular procedure manuals without citations; use the procedures, not the claims"
+    state: active
+
+  - id: L-CRIT-OBSERVE
+    family: critical
+    name: "Observation as a scheduled activity"
+    book_slug: critical-thinking-skills-practical-tools-for-rational-decisions
+    extra_books: [dont-be-stupid-about-critical-thinking]
+    principles: [CTS-P-05, CTS-P-06, CTS-P-08, DBS-P-01]
+    question: "When is observation scheduled and what does it output, which observation did not fit and was kept, and was the cause chosen before or after the evidence?"
+    move_type: structural
+    subjects: [DEPLOY-INFRA, SAP-DATA, ORCHESTRATION]
+    evidence_strength: 0.25
+    authority_limit: "Popular procedure manual without citations"
+    state: active
+
+  # ---------------------------------------------------------------- probabilistic
+  - id: L-PROB-MODEL
+    family: probabilistic
+    name: "Which model produced this number"
+    book_slug: probabilistic-thinking-presenting-plural-perspectives
+    principles: [PTPP-P-01, PTPP-P-02, PTPP-P-03, PTPP-P-04, PTPP-P-05]
+    question: "Whose state of information does this figure describe, is it the true value, a model estimate or an empirical estimate, is the model fit for this question, and would rewriting it as counts out of a stated total change the reading?"
+    move_type: dynamic
+    subjects: [SAP-DATA, REPORTING, INTEGRATION, ORCHESTRATION]
+    evidence_strength: 0.7
+    authority_limit: "A lens on what numbers under uncertainty mean; not a source of method or current fact"
+    state: active
+
+  - id: L-PROB-COMPOSE
+    family: probabilistic
+    name: "Composition of uncertain parts"
+    book_slug: why-cant-you-just-give-me-the-number
+    extra_books: [probabilistic-thinking-presenting-plural-perspectives]
+    principles: [WCN-P-02, WCN-P-03, WCN-P-07, PTPP-P-11, PTPP-P-12]
+    question: "Were low cases or high cases added up, do the conditional estimates reconcile with the overall one, are the inputs independent, and could a pooled rate reverse inside every group?"
+    move_type: dynamic
+    subjects: [REPORTING, SAP-DATA, INTEGRATION, ORCHESTRATION]
+    evidence_strength: 0.42
+    authority_limit: "Executive primer built on consulting anecdote; the arithmetic holds, the cases are unsourced"
+    state: active
+
+  - id: L-PROB-VOI
+    family: probabilistic
+    name: "Value of information and options"
+    book_slug: why-cant-you-just-give-me-the-number
+    principles: [WCN-P-09, WCN-P-11, WCN-P-08, WCN-P-04]
+    question: "Which decision would this information change, if none why gather it, is there an option to buy before the outcome, and is the published statistic chosen for what it does to behaviour?"
+    move_type: dynamic
+    subjects: [REPORTING, ORCHESTRATION, PRODUCT, PROCESS]
+    evidence_strength: 0.42
+    authority_limit: "Executive primer; no current facts"
+    state: active
+
+  # ---------------------------------------------------------------- first principles
+  - id: L-FP-CONSTRAINT
+    family: first_principles
+    name: "Constraint classification and rebuild"
+    book_slug: first-principles-thinking-mental-models-for-thinking
+    principles: [FPT-P-01, FPT-P-02, FPT-P-03, FPT-P-06]
+    question: "Which constraints are physical, which economic, which conventional, can something that works be rebuilt from the kept ones alone, and does the rebuild say eliminate, recombine or reverse?"
+    move_type: lateral
+    subjects: [INTEGRATION, DEPLOY-INFRA, GENERIC, PRODUCT]
+    evidence_strength: 0.35
+    authority_limit: "Reasoning lens; chain of famous successes plus three failure cases"
+    state: active
+
+  - id: L-FP-CAUSE
+    family: first_principles
+    name: "Symptom or cause"
+    book_slug: first-principles-thinking-mental-models-for-thinking
+    extra_books: [the-design-of-everyday-things-revised-and-expanded-edition]
+    principles: [FPT-P-04, FPT-P-05, FPT-P-10, DET-P-10]
+    question: "Has this fix been reapplied before, was the causal field mapped before a single chain was followed, and at which level does the resistance allow intervention?"
+    move_type: logical
+    subjects: [GENERIC, INTEGRATION, SAP-DATA, DEPLOY-INFRA]
+    evidence_strength: 0.35
+    authority_limit: "Reasoning lens, no base rates for the method's success"
+    state: active
+
+  - id: L-PS-REPRESENT
+    family: first_principles
+    name: "Rewrite the problem before searching"
+    book_slug: problem-solving-best-strategies-to-decision-making
+    principles: [PSD-P-01, PSD-P-02, PSD-P-04, PSD-P-07]
+    question: "How is the problem written down and does another encoding make a move available, how well defined is it, is the method chosen because it fits or because it worked last time, and where does an attempted proof of unsolvability break?"
+    move_type: lateral
+    subjects: [GENERIC, PRODUCT, ORCHESTRATION, INTEGRATION]
+    evidence_strength: 0.25
+    authority_limit: "Self-help compilation; Luchins, Maier and Duncker summarised secondhand"
+    state: active
+
+  - id: L-PS-MONITOR
+    family: first_principles
+    name: "Plan that can be monitored"
+    book_slug: problem-solving-best-strategies-to-decision-making
+    principles: [PSD-P-05, PSD-P-08, PSD-P-09, PSD-P-11]
+    question: "Which intermediate states close the gap, who owns each step and what indicator shows it, is the success indicator itself treated as a hypothesis, and where is the expected-versus-observed gap recorded?"
+    move_type: structural
+    subjects: [ORCHESTRATION, PROCESS, DEPLOY-INFRA]
+    evidence_strength: 0.25
+    authority_limit: "Self-help compilation"
+    state: active
+
+  # ---------------------------------------------------------------- dialectical
+  - id: L-DIAL-REGRESS
+    family: dialectical
+    name: "Where the why chain may stop"
+    book_slug: dialectical-thinking-zeno-socrates-kant-marx
+    principles: [DIAL-P-01, DIAL-P-02, DIAL-P-03, DIAL-P-05]
+    question: "Which relation is being iterated, does it actually demand a floor, does the next order change the subject or restate the answer, and is the chain of goals all means?"
+    move_type: logical
+    subjects: [KNOWLEDGE, ORCHESTRATION, GENERIC]
+    evidence_strength: 0.35
+    authority_limit: "One teacher's argument, invented for a classroom"
+    state: active
+
+  - id: L-DIAL-REFUTE
+    family: dialectical
+    name: "Refute from the proposal's own rule"
+    book_slug: dialectical-thinking-zeno-socrates-kant-marx
+    principles: [DIAL-P-04, DIAL-P-06, DIAL-P-10, DIAL-P-12]
+    question: "What single rule does this proposal claim to satisfy, which case drawn from that rule can it not cover, was the recognition criterion built before the target, and does the concept exclude any case at all?"
+    move_type: logical
+    subjects: [ORCHESTRATION, INTEGRATION, SAP-DATA, SECURITY]
+    evidence_strength: 0.35
+    authority_limit: "Philosophical argument; no empirical claims"
+    state: active
+
+  - id: L-DIAL-THIRD
+    family: dialectical
+    name: "Third activity behind the deadlock"
+    book_slug: the-necessary-unity-of-opposites-the-dialectical-thinking-of-northrop-frye
+    principles: [NUO-P-01, NUO-P-02, NUO-P-03, NUO-P-04]
+    question: "What is each side protecting, what has the reversal been unable to undo, what does a re-read under the opposite framing conclude, and which dimension does each position omit?"
+    move_type: lateral
+    subjects: [GENERIC, ORCHESTRATION, PRODUCT, PROCESS]
+    evidence_strength: 0.6
+    authority_limit: "Literary criticism; supplies the instruction to look for a third factor and no criterion for recognising one"
+    state: active
+
+  - id: L-DIAL-BOUND
+    family: dialectical
+    name: "Bound the damage, then licence the change"
+    book_slug: the-necessary-unity-of-opposites-the-dialectical-thinking-of-northrop-frye
+    extra_books: [fatal-strategies]
+    principles: [NUO-P-08, NUO-P-09, NUO-P-07, FS-P-06]
+    question: "How much harm can any single actor or control instantiate, does the replacement reuse the incumbent's structure, and does total prevention have to build the thing it prevents?"
+    move_type: structural
+    subjects: [SECURITY, DEPLOY-INFRA, ORCHESTRATION]
+    evidence_strength: 0.6
+    authority_limit: "Argument, not measurement"
+    state: active
+
+  - id: L-DIAL-SYSTEM
+    family: dialectical
+    name: "Internal relations and interlocking evidence"
+    book_slug: formal-transcendental-and-dialectical-thinking-logic-and-reality
+    principles: [FTD-P-01, FTD-P-04, FTD-P-06, FTD-P-07, FTD-P-08]
+    question: "Are these parts externally related records or do they determine one another, does the evidence interlock or merely repeat, which inherited contradiction is the starting point, and what does the abstraction discard?"
+    move_type: logical
+    subjects: [SAP-DATA, INTEGRATION, KNOWLEDGE]
+    evidence_strength: 0.5
+    authority_limit: "Philosophical argument; supplies argument, not method"
+    state: active
+
+  # ---------------------------------------------------------------- analogical
+  - id: L-ANA-TRANSFER
+    family: analogical
+    name: "Transfer audit"
+    book_slug: analogical-thinking-post-enlightenment-understanding-in-language-collaboration-and-interpretation
+    extra_books: [first-principles-thinking-mental-models-for-thinking]
+    principles: [ANA-P-01, ANA-P-02, ANA-P-05, FPT-P-11]
+    question: "What is being borrowed, what is not claimed, where would a second more distant analogue disagree, which term sits in the unmarked slot, and is the mechanism travelling or only the resemblance?"
+    move_type: lateral
+    subjects: [KNOWLEDGE, GENERIC, ORCHESTRATION, PRODUCT]
+    evidence_strength: 0.4
+    authority_limit: "Humanities monograph; no stopping rule of its own"
+    state: active
+
+  - id: L-ANA-SOLVED
+    family: analogical
+    name: "Assume it is solved somewhere"
+    book_slug: design-thinking-playbook
+    extra_books: [problem-solving-best-strategies-to-decision-making, interdisciplinary-design-thinking-in-architecture-education, analogical-thinking-post-enlightenment-understanding-in-language-collaboration-and-interpretation]
+    principles: [DTP-P-06, PSD-P-06, IDT-P-09, ANA-P-07]
+    question: "Which field has already solved a problem of this shape, why was it not noticed here, and can that field's method be encoded as a tool rather than retold as a story?"
+    move_type: lateral
+    subjects: [GENERIC, PRODUCT, INTEGRATION, KNOWLEDGE]
+    evidence_strength: 0.3
+    authority_limit: "Workbook and practitioner cases"
+    state: active
+
+  - id: L-ANA-WITNESS
+    family: analogical
+    name: "Findings as witnessed events"
+    book_slug: analogical-thinking-post-enlightenment-understanding-in-language-collaboration-and-interpretation
+    extra_books: [thinking-machines-and-the-philosophy-of-computer-science]
+    principles: [ANA-P-09, ANA-P-12, ANA-P-04, TMPCS-P-01]
+    question: "Who else witnessed this finding and by what path, is it stored as an event with its moment or as a thing accumulated, and can the store answer how the fact came about?"
+    move_type: structural
+    subjects: [KNOWLEDGE, ORCHESTRATION, SAP-DATA]
+    evidence_strength: 0.4
+    authority_limit: "Humanities and philosophy; argument only"
+    state: active
+
+  # ---------------------------------------------------------------- limits
+  - id: L-LIMIT-REVERSAL
+    family: limits
+    name: "Past the limit the measure answers back"
+    book_slug: fatal-strategies
+    principles: [FS-P-01, FS-P-03, FS-P-04, FS-P-05]
+    question: "Has this quality been pushed past the point where it still has an opposite, has the measured object learned what the instrument rewards, and would perfecting the measurement complete the substitution of the model for the thing?"
+    move_type: dynamic
+    subjects: [REPORTING, ORCHESTRATION, PROCESS, SECURITY]
+    evidence_strength: 0.2
+    authority_limit: "Figures and arguments, never evidence; the book argues its claims cannot be tested"
+    state: active
+
+  - id: L-LIMIT-DELETE
+    family: limits
+    name: "Deletion probe"
+    book_slug: fatal-strategies
+    extra_books: [dont-be-stupid-about-critical-thinking, foundations-of-metacognition]
+    principles: [FS-P-07, FS-P-08, DBS-P-11, FOM-P-03]
+    question: "If this control were removed, which outcome would change, does anyone read it, does it exceed the attention budget of the people it governs, and does naming everyone responsible leave no one responsible?"
+    move_type: structural
+    subjects: [SECURITY, ORCHESTRATION, DEPLOY-INFRA, PROCESS]
+    evidence_strength: 0.3
+    authority_limit: "Argument plus one necessity criterion from cognitive science"
+    state: active
+
+  - id: L-CORRECT-APART
+    family: limits
+    name: "Correctness stated apart from the build"
+    book_slug: thinking-machines-and-the-philosophy-of-computer-science
+    principles: [TMPCS-P-04, TMPCS-P-02, TMPCS-P-03, TMPCS-P-11, TMPCS-P-05]
+    question: "Stated apart from the implementation, what would count as this system malfunctioning, could the current build ever violate it, does each link in the claim chain depend only on the one before, and is precision at the instrument being read as accuracy at the outcome?"
+    move_type: logical
+    subjects: [DEPLOY-INFRA, INTEGRATION, ORCHESTRATION, KNOWLEDGE]
+    evidence_strength: 0.62
+    authority_limit: "Academic philosophy; criteria and arguments, not code"
+    state: active
+
+  # ---------------------------------------------------------------- design
+  - id: L-DES-PROBLEM
+    family: design
+    name: "Problem statement without the means"
+    book_slug: design-thinking-for-engineering-a-practical-guide
+    extra_books: [design-thinking-for-dummies, the-data-science-super-agent-volume-i-beginning-again]
+    principles: [DTE-P-01, DTE-P-02, DTFD-P-01, DTFD-P-03, DSSA-P-01]
+    question: "Which clause of the statement arrived with the brief rather than from someone who has the problem, is the need written as a verb with the surprising reason, which decision is stuck and who is waiting on it, and does the wording already contain a means?"
+    move_type: lateral
+    subjects: [PRODUCT, GENERIC, UI-RELAY, REPORTING]
+    evidence_strength: 0.42
+    authority_limit: "Practitioner teaching experience; headline claims unevidenced"
+    state: active
+
+  - id: L-DES-PROTOTYPE
+    family: design
+    name: "One-question prototype with its falsifier"
+    book_slug: design-thinking-for-engineering-a-practical-guide
+    extra_books: [design-thinking-for-dummies, design-thinking-playbook]
+    principles: [DTE-P-05, DTE-P-06, DTE-P-08, DTFD-P-05, DTP-P-05]
+    question: "What single question is the artefact built to answer, which fidelity axis was chosen, what pass or fail condition was written before building, and what alternative is offered so it can be criticised?"
+    move_type: structural
+    subjects: [PRODUCT, UI-RELAY, INTEGRATION, ORCHESTRATION]
+    evidence_strength: 0.42
+    authority_limit: "Practitioner argument"
+    state: active
+
+  - id: L-DES-OBSERVE
+    family: design
+    name: "Calibrate the observer, then observe"
+    book_slug: design-thinking-for-dummies
+    extra_books: [design-thinking-for-engineering-a-practical-guide, design-thinking-playbook]
+    principles: [DTFD-P-06, DTFD-P-02, DTFD-P-07, DTE-P-09, DTP-P-04]
+    question: "What did we write down we expected to see before observing, are we sampling the extreme user or the average, does the stopping rule say repeat of pattern, and is the interview designed to defeat our hunch?"
+    move_type: logical
+    subjects: [UI-RELAY, PRODUCT, SAP-DATA, PROCESS]
+    evidence_strength: 0.4
+    authority_limit: "Practitioner manual; its own claims untested"
+    state: active
+
+  - id: L-DES-TEAM
+    family: design
+    name: "Mixed team, two developed options"
+    book_slug: interdisciplinary-design-thinking-in-architecture-education
+    extra_books: [design-thinking-for-engineering-a-practical-guide]
+    principles: [IDT-P-01, IDT-P-02, IDT-P-04, IDT-P-05, IDT-P-08, DTE-P-10]
+    question: "Is the work scoped around the problem or around who owns which part, are two developed options being carried to force the cross-discipline decision, who holds the brief back so the frame can move, and which boundary and currency decide the answer?"
+    move_type: structural
+    subjects: [PROCESS, ORCHESTRATION, PEOPLE, PRODUCT]
+    evidence_strength: 0.42
+    authority_limit: "Twenty-eight self-selected architecture cases"
+    state: active
+
+  - id: L-DES-EMOTION
+    family: design
+    name: "Usable is the floor"
+    book_slug: designing-for-emotion
+    extra_books: [the-design-of-everyday-things-revised-and-expanded-edition]
+    principles: [DFE-P-01, DFE-P-03, DFE-P-06, DFE-P-11, DET-P-01, DET-P-06, DET-P-11]
+    question: "If many people fail the same way what design defect makes that the easy path, does this element carry information or character and can it interrupt someone busy, what goodwill is banked before the failure, and which labels are compensating for form?"
+    move_type: structural
+    subjects: [UI-RELAY, PRODUCT, REPORTING]
+    evidence_strength: 0.4
+    authority_limit: "Practitioner experience, self-reported numbers"
+    state: active
+
+  - id: L-DES-SCAFFOLD
+    family: design
+    name: "Scaffolds with removal plans, boundaries with matched pairs"
+    book_slug: navigating-the-common-core-with-english-language-learners
+    principles: [NCC-P-01, NCC-P-02, NCC-P-04, NCC-P-05, NCC-P-08]
+    question: "Was the artefact simplified when only the run-up should have been, what observable signal says this support comes off and who watches for it, and can the boundary be taught with a matched Yes and No pair instead of a rule?"
+    move_type: structural
+    subjects: [KNOWLEDGE, SAP-DATA, ORCHESTRATION, PROCESS]
+    evidence_strength: 0.42
+    authority_limit: "Two teachers' practice; several claims rest on advocacy summaries"
+    state: active
+
+  - id: L-DES-DATA
+    family: design
+    name: "Read the process behind the record"
+    book_slug: the-data-science-super-agent-volume-i-beginning-again
+    principles: [DSSA-P-02, DSSA-P-03, DSSA-P-05, DSSA-P-06, DSSA-P-07, DSSA-P-12]
+    question: "What does one row stand for and which process wrote it, what explicit threshold could be written before any model, what is the base under every rate, is the summary hiding the shape, and which columns were recorded after the event?"
+    move_type: logical
+    subjects: [SAP-DATA, REPORTING, INTEGRATION]
+    evidence_strength: 0.3
+    authority_limit: "Self-published teaching text with invented dialogues"
+    state: active
+
+  # ---------------------------------------------------------------- communication
+  - id: L-COMM-PYRAMID
+    family: communication
+    name: "Answer first, MECE, hypothesis first"
+    book_slug: the-minto-pyramid-principle
+    principles: [MPP-P-01, MPP-P-02, MPP-P-04, MPP-P-07]
+    question: "What is the single governing thought, is each group of points exclusive and exhaustive, what situation, complication and question make this necessary, and was the analysis structured before the data was gathered?"
+    move_type: structural
+    subjects: [COMMS, REPORTING, ORCHESTRATION]
+    evidence_strength: 0.42
+    authority_limit: "Document-structuring lens only"
+    state: active
+
+  - id: L-COMM-STICK
+    family: communication
+    name: "Core, concrete, testable by the audience"
+    book_slug: made-to-stick-why-some-ideas-survive-and-others-die
+    extra_books: [thing-explainer-complicated-stuff-in-simple-words, the-back-of-the-napkin]
+    principles: [MTS-P-01, MTS-P-03, MTS-P-04, MTS-P-07, TEX-P-01, TEX-P-02, BTN-P-02]
+    question: "What is the one thing the audience must take away, can it be said in a concrete human-scale image, how would they test it without our authority, which words are hiding unexplained concepts, and which picture type fits the question?"
+    move_type: lateral
+    subjects: [COMMS, UI-RELAY, REPORTING, PRODUCT]
+    evidence_strength: 0.45
+    authority_limit: "Communication lenses; no authority on technical decisions"
+    state: active
+
+  # ---------------------------------------------------------------- harness
+  - id: L-HARNESS-QUADRANT
+    family: harness
+    name: "Guide, Guard, Sensor or Check"
+    book_slug: agentic-engineering-at-scale
+    principles: [AES-P-01, AES-P-02, AES-P-03, AES-P-07, AES-P-09, AES-P-10]
+    question: "Is each steering artefact descriptive or normative, feedforward or feedback, which quadrant is empty, what does the spec rule out, which decisions must be pinned before generation, and which change axis is this on?"
+    move_type: structural
+    subjects: [ORCHESTRATION, DEPLOY-INFRA, INTEGRATION, KNOWLEDGE, SECURITY]
+    evidence_strength: 0.48
+    authority_limit: "Practitioner playbook from consulting; not controlled study"
+    research_queries:
+      - "harness taxonomy guide guard check sensor feedforward feedback"
+      - "verifier separate from executor judge ablation self-report"
+      - "harness manifest predicted fixes attribution rollback per file"
+      - "invalid result envelope silent default score parser"
+    state: active
+
+hybrids:
+  - id: H-CONSTRAINT-CORRECT
+    first: L-FP-CONSTRAINT
+    second: L-CORRECT-APART
+    why: "Classify what cannot move, then state correctness apart from the build that has to satisfy it"
+  - id: H-BASERATE-MODEL
+    first: L-CRIT-BASERATE
+    second: L-PROB-MODEL
+    why: "State the base rate, then rewrite every figure as counts out of a stated total under a named model"
+  - id: H-PROTOTYPE-EXPECT
+    first: L-DES-PROTOTYPE
+    second: L-DES-OBSERVE
+    why: "Fix the one question and its falsifier, then record the expectation before observing"
+  - id: H-REFUTE-THIRD
+    first: L-DIAL-REFUTE
+    second: L-DIAL-THIRD
+    why: "Refute the proposal from its own rule, then look for the third activity the deadlock hides"
+  - id: H-MONITOR-DELETE
+    first: L-META-MONITOR
+    second: L-LIMIT-DELETE
+    why: "Ask what the monitor changes, then remove it and see whether any outcome moves"
+  - id: H-SOLVED-TRANSFER
+    first: L-ANA-SOLVED
+    second: L-ANA-TRANSFER
+    why: "Find where it is already solved, then carry one mechanism and name what is not claimed"
+  - id: H-PAIRS-THRESHOLD
+    first: L-DES-SCAFFOLD
+    second: L-DES-DATA
+    why: "Teach the boundary with matched pairs, then write the explicit threshold beside its base"
+  - id: H-PROBLEM-PROTOTYPE
+    first: L-DES-PROBLEM
+    second: L-DES-PROTOTYPE
+    why: "Strip the means out of the statement, then build the cheapest artefact that can prove the reframe wrong"
+  - id: H-CONTRACT-TRANSFER
+    first: L-COACH
+    second: L-META-TRANSFER
+    why: "Fix the evidence contract before the event, then test the capability nobody trained for"
+  - id: H-COMPOSE-VOI
+    first: L-PROB-COMPOSE
+    second: L-PROB-VOI
+    why: "Reconcile the conditionals, then price the information by the decision it changes"
+  - id: H-NOTKNOW-CALIBRATE
+    first: L-META-NOTKNOW
+    second: L-META-CALIBRATE
+    why: "Protect the honest empty first, then measure how often stated confidence is realised"
+
+subject_routes:
+  SAP-DATA:
+    core: [L-CRIT-BASERATE, L-DES-DATA, L-DIAL-SYSTEM, L-META-NOTKNOW]
+    hybrids: [H-BASERATE-MODEL, H-PAIRS-THRESHOLD]
+  UI-RELAY:
+    core: [L-DES-EMOTION, L-DES-OBSERVE, L-DES-PROTOTYPE, L-COMM-STICK]
+    hybrids: [H-PROTOTYPE-EXPECT]
+  INTEGRATION:
+    core: [L-FP-CONSTRAINT, L-DIAL-SYSTEM, L-CORRECT-APART, L-PROB-COMPOSE]
+    hybrids: [H-CONSTRAINT-CORRECT]
+  DEPLOY-INFRA:
+    core: [L-CORRECT-APART, L-META-MONITOR, L-FP-CONSTRAINT, L-CRIT-OBSERVE]
+    hybrids: [H-MONITOR-DELETE, H-CONSTRAINT-CORRECT]
+  ORCHESTRATION:
+    core: [L-META-MONITOR, L-META-CALIBRATE, L-HARNESS-QUADRANT, L-DIAL-REFUTE]
+    hybrids: [H-REFUTE-THIRD, H-MONITOR-DELETE]
+  KNOWLEDGE:
+    core: [L-ANA-WITNESS, L-ANA-TRANSFER, L-DIAL-REGRESS, L-DES-SCAFFOLD]
+    hybrids: [H-SOLVED-TRANSFER]
+  SECURITY:
+    core: [L-LIMIT-DELETE, L-DIAL-BOUND, L-META-MONITOR, L-CRIT-PREMISE]
+    hybrids: [H-MONITOR-DELETE]
+  REPORTING:
+    core: [L-CRIT-BASERATE, L-PROB-VOI, L-DES-DATA, L-COMM-PYRAMID]
+    hybrids: [H-BASERATE-MODEL, H-COMPOSE-VOI]
+  PRODUCT:
+    core: [L-DES-PROBLEM, L-DES-OBSERVE, L-DES-PROTOTYPE, L-ANA-SOLVED]
+    hybrids: [H-PROBLEM-PROTOTYPE, H-SOLVED-TRANSFER]
+  PROCESS:
+    core: [L-COACH, L-DES-TEAM, L-META-TRANSFER, L-CRIT-QUESTION]
+    hybrids: [H-CONTRACT-TRANSFER]
+  PEOPLE:
+    core: [L-COACH, L-META-SOCIAL, L-DES-TEAM, L-DIAL-THIRD]
+    hybrids: [H-CONTRACT-TRANSFER]
+  COMMS:
+    core: [L-COMM-PYRAMID, L-COMM-STICK, L-META-SOCIAL, L-CRIT-QUESTION]
+    hybrids: []
+  GENERIC:
+    core: [L-DES-PROBLEM, L-FP-CONSTRAINT, L-CRIT-PREMISE, L-DIAL-THIRD]
+    hybrids: [H-PROBLEM-PROTOTYPE]
+
+mode_additions:
+  solve: [L-FP-CAUSE, L-PS-REPRESENT]
+  enhance: [L-LIMIT-REVERSAL, L-DIAL-THIRD]
+  discuss: [L-DIAL-THIRD, L-ANA-TRANSFER, L-COMM-STICK]
+
+wildcard_rule:
+  description: "Add one lens whose family is absent from the selected set and whose move_type is the one the selected set lacks; if every move_type is present, take the lateral lens from the family furthest from the subject"
+  preference_by_missing_move_type:
+    lateral: [L-DIAL-THIRD, L-ANA-SOLVED, L-PS-REPRESENT, L-DES-PROBLEM]
+    logical: [L-CRIT-PREMISE, L-CORRECT-APART, L-DIAL-REFUTE]
+    dynamic: [L-PROB-MODEL, L-LIMIT-REVERSAL, L-CRIT-BASERATE]
+    structural: [L-LIMIT-DELETE, L-DES-PROTOTYPE, L-HARNESS-QUADRANT]
+
+depth:
+  quick:
+    lenses: 4
+    hybrids: 1
+    wildcard: true
+    dispatch: orchestrator
+  full:
+    lenses: 10
+    hybrids: 2
+    wildcard: true
+    dispatch: parallel-subagents
+
+retirement:
+  policy: ablation
+  window_runs: 20
+  metric: promoted_moves_per_run
+  source: .planning/metrics/think-log.jsonl
