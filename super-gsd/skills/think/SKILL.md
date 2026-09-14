@@ -1,5 +1,6 @@
 ---
 name: think
+model: sonnet
 description: "Multi-lens thinking over a problem, a thing being built, or a topic, with every lens drawn from the VTP thinking library through the think-lenses registry and every move grounded in retrieved passages. Use when the operator says 'think through', 'how else could we', 'what are we missing', 'different angle', 'stuck on', or before any brief, plan or deliberation on something non-trivial. Not for factual lookups, live-data questions or execution requests."
 argument-hint: "<problem | thing being built | topic | path/to/brief-or-plan.md | phase> [--mode solve|enhance|discuss] [--depth quick|full] [--subject SAP-DATA|UI-RELAY|INTEGRATION|DEPLOY-INFRA|ORCHESTRATION|KNOWLEDGE|SECURITY|REPORTING|PRODUCT|PROCESS|PEOPLE|COMMS] [--allow-ungrounded] [--registry <path>] [--lenses L-ID,L-ID]"
 allowed-tools:
@@ -33,6 +34,8 @@ allowed-tools:
 Take one framed problem, build or topic and run it through a set of ways of thinking that the operator did not pick by habit. Every lens comes from `think-lenses.yaml`; every move a lens produces is grounded in a retrieved passage from the VTP library and carries a falsifier; the moves are then collided (dialectical pass) and ranked by effect on the stated goal. The output is an append-only think record with T-coded moves, a ruled-out list, kept disagreements and a route into SGSD (`/sgsd-triage`, a brief for `/sgsd-deliberate`, `/gsd-plan-phase` tasks, `/rd-board`, or nothing).
 
 This skill recommends. It never edits source, never dispatches executors and never writes a plan. It writes one record and one metrics row.
+
+Use Sonnet for the thinking pass and every lens worker. The skill's model override lasts for this turn; the host session resumes its usual model on the next prompt. Do not upgrade to Opus or Fable unless the operator explicitly asks.
 
 Cost, measured on the first green run (quick depth, local retrieval, 5 lenses, 15 moves): 12 minutes 46 seconds and roughly 90k to 100k tokens of unique content, most of it the record and the lens files rather than the reasoning. Quick depth is one orchestrator pass over up to 6 lenses plus 1 hybrid second lens. Full depth dispatches up to 10 lens sub-agents in parallel plus 2 hybrid second lenses; assume two to three times the quick cost. Default is quick; use full for GATE-tier subjects or when the operator asks.
 
@@ -152,7 +155,7 @@ limits: "what this lens cannot see, from its authority_limit"
 Agent({
   description: `think lens ${lens.id}`,
   subagent_type: "general-purpose",
-  model: "opus",
+  model: "sonnet",
   prompt: `Read ${runDir}/frame.md, then ${runDir}/${lens.id}.passages.json.
 Lens card: ${JSON.stringify(lensCard)}.
 Apply ONLY this lens's question to the frame. Produce moves grounded in the passages given; a move without a passage reference is not admissible. Every move carries a falsifier or the literal text "none (judgement call)". Do not read other files, do not call MCP, do not search the web. Write valid YAML matching the schema in the card to ${runDir}/${lens.id}.out.yaml and reply with the path only.`
