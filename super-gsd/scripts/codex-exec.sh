@@ -26,7 +26,7 @@
 #   3 — `codex` binary not on $PATH
 #   4 — auth-denied: $OPENAI_API_KEY set OR codex stderr matched /auth|401|unauthori[sz]ed/i
 #   5 — timeout (worker adapter returned 124 after bounded interruption)
-#   6 — report contract violation (one or more of the 5 required fields missing)
+#   6 — report contract violation (selected contract validation failed)
 #   8 — board host validator/provider gate unavailable (do not retry model)
 #   9 — report write failure (host-side persistence failure after valid output)
 #
@@ -196,8 +196,8 @@ CODEX_PROFILE_FULL_AUTO="$SGSD_CODEX_PROFILE_FULL_AUTO"
 # Validate the contract selector early — an unknown value must fail loudly
 # rather than silently falling through to the reviewer parser.
 case "$CONTRACT" in
-    code-reviewer-v1|rd-memo-v1|triage-verdict-v1|board-position-v1) ;;
-    *) echo "codex-exec: unknown --contract '$CONTRACT' (expected code-reviewer-v1 | rd-memo-v1 | triage-verdict-v1 | board-position-v1)" >&2; exit 1 ;;
+    code-reviewer-v1|rd-memo-v1|triage-verdict-v1|board-position-v1|structured-json-v1) ;;
+    *) echo "codex-exec: unknown --contract '$CONTRACT' (expected code-reviewer-v1 | rd-memo-v1 | triage-verdict-v1 | board-position-v1 | structured-json-v1)" >&2; exit 1 ;;
 esac
 
 # Board members advise only. The legacy profile ID is a role contract; full OS
@@ -480,6 +480,7 @@ if [[ "$1" == "app-server" ]]; then
         generic) export WORKER_FIXTURE_MODE=fail ;;
         auth) export WORKER_FIXTURE_MODE=auth ;;
         timeout) export WORKER_FIXTURE_MODE=wait ;;
+        json) export WORKER_FIXTURE_REPORT=$'structured output follows\n```json\n{"items":[{"id":1}],"ok":true}\n```\nstructured output complete\n' ;;
     esac
     exec node "$SGSD_FAKE_APP_SERVER_FIXTURE" "$@"
 fi
@@ -534,6 +535,38 @@ EOS
             [[ "$rc" -eq 6 ]] && grep -q 'report contract violation' "$case_dir/stderr.txt"
         }
 
+        sgsd_codex_exec_self_test_structured_json_case() {
+            local mode="$1" expected="$2"
+            local case_dir case_project case_prompt case_report before_rows after_rows rc
+            case_dir="$ST_TMP_ROOT/case-structured-json-$mode"
+            case_project="$case_dir/project"
+            case_prompt="$case_dir/prompt.txt"
+            case_report="$case_dir/report.json"
+            mkdir -p "$case_project/.planning/metrics"
+            printf 'prompt for structured-json %s\n' "$mode" > "$case_prompt"
+            before_rows=0
+            [[ -f "$case_project/.planning/metrics/codex-log.jsonl" ]] && before_rows="$(wc -l < "$case_project/.planning/metrics/codex-log.jsonl" | tr -d ' ')"
+            set +e
+            (cd "$case_project" && PATH="$ST_BIN:$PATH" SGSD_CODEX_APP_SERVER_COMMAND="$ST_BIN/codex" SGSD_CODEX_APP_SERVER_ARGS='[]' SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="$mode" "$ST_SELF" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout 5 --phase 33 --plan 33-03 --step "self-test-structured-json-$mode" --contract structured-json-v1) >/dev/null 2> "$case_dir/stderr.txt"
+            rc=$?
+            set -e
+            after_rows=0
+            [[ -f "$case_project/.planning/metrics/codex-log.jsonl" ]] && after_rows="$(wc -l < "$case_project/.planning/metrics/codex-log.jsonl" | tr -d ' ')"
+            if [[ "$rc" -ne "$expected" || ! -s "$case_report" || $((after_rows - before_rows)) -ne 1 ]]; then
+                return 1
+            fi
+            if [[ "$expected" -eq 0 ]]; then
+                node -e '
+                    const fs = require("fs");
+                    const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                    if (value === null || typeof value !== "object" || value.ok !== true || value.items?.[0]?.id !== 1) process.exit(1);
+                ' "$case_report"
+            else
+                grep -q -- '--- codex stdout ---' "$case_report" &&
+                    grep -q 'missing contract fields' "$case_report"
+            fi
+        }
+
         sgsd_codex_exec_self_test_report_write_failure_case() {
             local case_dir case_project case_prompt report_parent case_report rc
             case_dir="$ST_TMP_ROOT/case-report-write-failure"
@@ -555,6 +588,8 @@ EOS
            sgsd_codex_exec_self_test_case generic 1 5 && \
            sgsd_codex_exec_self_test_case auth 4 5 && \
            sgsd_codex_exec_self_test_case timeout 5 1 && \
+           sgsd_codex_exec_self_test_structured_json_case json 0 && \
+           sgsd_codex_exec_self_test_structured_json_case contract 6 && \
            sgsd_codex_exec_self_test_write_failure_case; then
             ST_FINALIZE=true
         else
@@ -1088,6 +1123,66 @@ if [[ "$CONTRACT" == "triage-verdict-v1" || "$CONTRACT" == "board-position-v1" ]
         provider_circuit_record_result "$MILESTONE_TAG" "false"
         exit 6
     fi
+elif [[ "$CONTRACT" == "structured-json-v1" ]]; then
+    parsed=""
+    awk_rc=6
+    if command -v node >/dev/null 2>&1; then
+        parsed="$(node -e '
+            const fs = require("fs");
+            const text = fs.readFileSync(process.argv[1], "utf8");
+
+            function extractFirstJsonValue() {
+                for (let start = 0; start < text.length; start++) {
+                    const opener = text[start];
+                    if (opener !== "{" && opener !== "[") continue;
+
+                    const stack = [opener === "{" ? "}" : "]"];
+                    let inString = false;
+                    let escaped = false;
+
+                    for (let i = start + 1; i < text.length; i++) {
+                        const char = text[i];
+                        if (inString) {
+                            if (escaped) {
+                                escaped = false;
+                            } else if (char === "\\") {
+                                escaped = true;
+                            } else if (char === "\"") {
+                                inString = false;
+                            }
+                            continue;
+                        }
+
+                        if (char === "\"") {
+                            inString = true;
+                        } else if (char === "{") {
+                            stack.push("}");
+                        } else if (char === "[") {
+                            stack.push("]");
+                        } else if (char === "}" || char === "]") {
+                            if (stack[stack.length - 1] !== char) break;
+                            stack.pop();
+                            if (stack.length === 0) {
+                                const candidate = text.slice(start, i + 1);
+                                try {
+                                    JSON.parse(candidate);
+                                    return candidate;
+                                } catch {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+
+            const candidate = extractFirstJsonValue();
+            if (candidate === null) process.exit(6);
+            process.stdout.write(candidate);
+        ' "$STDOUT_TMP")"
+        awk_rc=$?
+    fi
 elif [[ "$CONTRACT" == "rd-memo-v1" ]]; then
     parsed="$(awk '
         /^verdict:[[:space:]]/ { start = NR }
@@ -1173,6 +1268,8 @@ if [[ $awk_rc -ne 0 || -z "$parsed" ]]; then
     append_narrative_event "codex_fallback" "parse_failure step=$STEP_TAG" "lastfail"
     if [[ "$CONTRACT" == "rd-memo-v1" ]]; then
         echo "codex-exec: report contract violation — no top-level 'verdict:' line found in codex stdout (rd-memo-v1)" >&2
+    elif [[ "$CONTRACT" == "structured-json-v1" ]]; then
+        echo "codex-exec: report contract violation — no parseable JSON object or array found in codex stdout (structured-json-v1)" >&2
     else
         echo "codex-exec: report contract violation — one or more of FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER missing from codex stdout" >&2
     fi
