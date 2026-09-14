@@ -11,8 +11,8 @@
 #
 # What it does (idempotent — safe to re-run):
 #   1. Ensures ~/.local/bin is on PATH (in ~/.bashrc and ~/.profile).
-#   2. Installs mcp-remote globally via npm (no sudo — uses the nvm-owned
-#      prefix at ~/.nvm/versions/node/<current>/).
+#   2. Drops vtp-stdio-proxy.mjs into ~/.local/bin (per-request bearer read;
+#      replaced mcp-remote, which froze the token into argv at spawn).
 #   3. Drops vtp-mcp-bridge.sh into ~/.local/bin/vtp-mcp-bridge.
 #   4. Registers the bridge with Claude Code at user scope.
 #
@@ -28,13 +28,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRIDGE_SRC="$SCRIPT_DIR/vtp-mcp-bridge.sh"
+PROXY_SRC="$SCRIPT_DIR/vtp-stdio-proxy.mjs"
 LOCAL_BIN="$HOME/.local/bin"
 BRIDGE_DST="$LOCAL_BIN/vtp-mcp-bridge"
+PROXY_DST="$LOCAL_BIN/vtp-stdio-proxy.mjs"
 
-if [ ! -r "$BRIDGE_SRC" ]; then
-  echo "[install] FATAL: $BRIDGE_SRC not found" >&2
-  exit 2
-fi
+for src in "$BRIDGE_SRC" "$PROXY_SRC"; do
+  if [ ! -r "$src" ]; then
+    echo "[install] FATAL: $src not found" >&2
+    exit 2
+  fi
+done
 
 mkdir -p "$LOCAL_BIN"
 
@@ -51,13 +55,9 @@ case ":$PATH:" in
     ;;
 esac
 
-# 2. mcp-remote
-if ! command -v mcp-remote >/dev/null 2>&1; then
-  echo "[install] installing mcp-remote globally"
-  npm install -g mcp-remote
-else
-  echo "[install] mcp-remote already installed: $(command -v mcp-remote)"
-fi
+# 2. proxy (dependency-free node script; mcp-remote no longer used)
+install -m 0755 "$PROXY_SRC" "$PROXY_DST"
+echo "[install] proxy installed at $PROXY_DST"
 
 # 3. wrapper
 install -m 0755 "$BRIDGE_SRC" "$BRIDGE_DST"

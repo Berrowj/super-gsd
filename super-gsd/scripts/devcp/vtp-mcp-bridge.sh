@@ -5,10 +5,12 @@
 # operator's laptop (reachable at localhost:4101 via the ssh reverse tunnel
 # that the laptop's vtp-tunnel-supervisor.cjs keeps open).
 #
-# Bearer is read fresh from ~/.vtp-bearer on every invocation, so bearer
-# rotations between Claude Code launches are picked up automatically.
+# Execs vtp-stdio-proxy.mjs, which reads ~/.vtp-bearer on EVERY request.
+# The previous mcp-remote implementation captured the token once at spawn,
+# so every tunnel rebind (which rotates the token) stranded all running
+# Claude Code sessions with permanent 401s until a manual /mcp reconnect.
 #
-# Installed at ~/.local/bin/vtp-mcp-bridge by devcp-side/install.sh and
+# Installed at ~/.local/bin/vtp-mcp-bridge by devcp/install.sh and
 # registered with Claude Code via:
 #
 #     claude mcp add --scope user vtp ~/.local/bin/vtp-mcp-bridge
@@ -18,6 +20,7 @@ set -e
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 TOKEN_FILE="$HOME/.vtp-bearer"
+PROXY="$HOME/.local/bin/vtp-stdio-proxy.mjs"
 
 if [ ! -r "$TOKEN_FILE" ]; then
   echo "[vtp-mcp-bridge] bearer file missing: $TOKEN_FILE" >&2
@@ -28,6 +31,15 @@ if [ ! -r "$TOKEN_FILE" ]; then
   exit 2
 fi
 
-TOKEN=$(cat "$TOKEN_FILE")
-exec npx -y mcp-remote@latest http://localhost:4101/mcp \
-  --header "Authorization: Bearer $TOKEN"
+if [ ! -r "$PROXY" ]; then
+  echo "[vtp-mcp-bridge] proxy missing: $PROXY (re-run devcp/install.sh)" >&2
+  exit 2
+fi
+
+# Warm the embedding model right after the session initializes: the first
+# vector-backed query otherwise pays a 120s+ bge-base-en-v1.5 cold start on
+# the laptop and reads as a hang (fault report 2026-08-26).
+export VTP_PROXY_WARM_TOOL="vtp_search_book_passages"
+export VTP_PROXY_WARM_ARGS='{"query":"session warmup"}'
+
+exec node "$PROXY"
