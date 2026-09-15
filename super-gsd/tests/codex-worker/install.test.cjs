@@ -190,7 +190,7 @@ process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: re
   assert.match(resolver.stdout, /^CODEX_PROFILE_STATUS=ok$/m);
   assert.match(resolver.stdout, /^CODEX_PROFILE_SOURCE=registry$/m);
   assert.match(resolver.stdout, /^CODEX_MODEL=gpt-5\.6-sol$/m);
-  assert.match(resolver.stdout, /^CODEX_REASONING_EFFORT=xhigh$/m);
+  assert.match(resolver.stdout, /^CODEX_REASONING_EFFORT=high$/m);
   const boardScript = path.join(installed, 'scripts/lib/board-dispatch.cjs');
   const describeBoard = extra => spawnSync(nodeExecutable, ['--no-global-search-paths', boardScript, '--describe',
     '--member', 'sgsd-board-architect', ...extra], { cwd: project, env: isolatedEnv, encoding: 'utf8', timeout: 5000 });
@@ -235,7 +235,7 @@ process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: re
   const thread = messages.find(message => message.method === 'thread/start');
   const turn = messages.find(message => message.method === 'turn/start');
   assert.equal(thread.params.model, 'gpt-5.6-sol'); assert.equal(thread.params.allowProviderModelFallback, false);
-  assert.equal(turn.params.model, 'gpt-5.6-sol'); assert.equal(turn.params.effort, 'xhigh');
+  assert.equal(turn.params.model, 'gpt-5.6-sol'); assert.equal(turn.params.effort, 'high');
   const status = spawnSync(nodeExecutable, [path.join(installed, 'tools/codex-worker/control.cjs'), 'status', '--project', project],
     { env, encoding: 'utf8', timeout: 5000 });
   assert.equal(status.status, 0, status.stderr); assert.equal(JSON.parse(status.stdout).workers[0].status, 'completed');
