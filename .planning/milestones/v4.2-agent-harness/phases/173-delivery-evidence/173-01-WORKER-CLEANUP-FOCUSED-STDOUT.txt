@@ -1,0 +1,11 @@
+✔ stopping an adapter cleans up its owned App Server process tree (child) (695.694427ms)
+✔ stopping an adapter cleans up its owned App Server process tree (delayed-child) (1722.719901ms)
+✔ unacknowledged responses never count and timeout cleanup retains an earlier real failure (4784.549702ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7310.763543

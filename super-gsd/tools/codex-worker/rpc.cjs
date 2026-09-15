@@ -3,6 +3,8 @@ const { spawn, spawnSync } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const path = require('node:path');
+const MAX_INBOUND_FRAME_BYTES = 4 * 1024 * 1024;
+const MAX_OUTBOUND_FRAME_BYTES = 1024 * 1024;
 function classifyError(value) {
   const body = (typeof value === 'string' ? value : JSON.stringify(value || {})).slice(0, 8192);
   if (/unauthori[sz]ed|not logged in|authentication (?:failed|required)|invalid api key|(?:status|httpStatusCode|statusCode)["\s:=]+401\b/i.test(body)) return 'worker_authentication_required';
@@ -32,10 +34,10 @@ class Rpc extends EventEmitter {
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', chunk => {
       this.buffer += chunk;
-      if (Buffer.byteLength(this.buffer) > 1024 * 1024) return this.fail(new Error('app_server_frame_limit'));
       let end;
       while ((end = this.buffer.indexOf('\n')) >= 0) {
         const line = this.buffer.slice(0, end); this.buffer = this.buffer.slice(end + 1);
+        if (Buffer.byteLength(line) > MAX_INBOUND_FRAME_BYTES) return this.fail(new Error('app_server_frame_limit'));
         if (!line.trim()) continue;
         let message;
         try { message = JSON.parse(line); if (!message || typeof message !== 'object') throw new Error(); }
@@ -48,6 +50,7 @@ class Rpc extends EventEmitter {
           } else pending.resolve(message.result);
         } else queueMicrotask(() => { if (!this.closed) this.emit('message', message); });
       }
+      if (Buffer.byteLength(this.buffer) > MAX_INBOUND_FRAME_BYTES) this.fail(new Error('app_server_frame_limit'));
     });
     // Never persist raw provider diagnostics or tool payloads into telemetry.
     this.diagnosticTail = ''; this.diagnosticClass = null;
@@ -63,7 +66,7 @@ class Rpc extends EventEmitter {
   send(message) {
     if (this.closed) throw new Error('app_server_closed');
     const line = JSON.stringify(message) + '\n';
-    if (Buffer.byteLength(line) > 1024 * 1024) throw new Error('app_server_frame_limit');
+    if (Buffer.byteLength(line) > MAX_OUTBOUND_FRAME_BYTES) throw new Error('app_server_frame_limit');
     this.child.stdin.write(line);
   }
   request(method, params, timeout = 10000) {
@@ -91,4 +94,4 @@ class Rpc extends EventEmitter {
   }
   close() { this.fail(new Error('app_server_closed')); }
 }
-module.exports = { Rpc, resolveCommand, classifyError };
+module.exports = { Rpc, resolveCommand, classifyError, MAX_INBOUND_FRAME_BYTES, MAX_OUTBOUND_FRAME_BYTES };

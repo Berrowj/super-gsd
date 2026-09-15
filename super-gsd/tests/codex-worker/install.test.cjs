@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const source = path.resolve(__dirname, '../..');
+const fixturePackages = Object.freeze(['js-yaml', 'argparse', 'ajv', 'fast-deep-equal', 'fast-uri', 'json-schema-traverse', 'require-from-string']);
 
 function copyFreshSource(root, name) {
   const target = path.join(root, name, 'super-gsd');
@@ -25,12 +26,22 @@ const globalTargets = ['agents', 'hooks', 'super-gsd'].map(name => path.join(pro
 fs.appendFileSync(process.env.FIXTURE_NPM_CAPTURE, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(),
   global_assets_present: globalTargets.some(target => fs.existsSync(target)) }) + '\\n');
 if (process.env.FIXTURE_NPM_MODE === 'fail') process.exit(23);
-for (const name of ['js-yaml', 'argparse', 'ajv', 'fast-deep-equal', 'fast-uri', 'json-schema-traverse', 'require-from-string']) {
+const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
+const lock = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package-lock.json'), 'utf8'));
+const manifestDependencies = Object.keys(manifest.dependencies || {}).sort();
+const lockDependencies = Object.keys(lock.packages?.['']?.dependencies || {}).sort();
+if (lock.lockfileVersion !== 3 || JSON.stringify(manifestDependencies) !== JSON.stringify(lockDependencies)) {
+  process.stderr.write('fixture_canonical_manifest_lock_mismatch\\n'); process.exit(24);
+}
+for (const name of JSON.parse(process.env.FIXTURE_NPM_PACKAGES)) {
+  const locked = lock.packages['node_modules/' + name];
+  const packageJson = JSON.parse(fs.readFileSync(path.join(process.env.FIXTURE_DEP_SOURCE, name, 'package.json'), 'utf8'));
+  if (!locked || packageJson.version !== locked.version) {
+    process.stderr.write('fixture_package_lock_mismatch:' + name + '\\n'); process.exit(25);
+  }
   fs.cpSync(path.join(process.env.FIXTURE_DEP_SOURCE, name), path.join(process.cwd(), 'node_modules', name),
     { recursive: true });
 }
-fs.copyFileSync(path.join(process.env.FIXTURE_DEP_SOURCE, '.package-lock.json'),
-  path.join(process.cwd(), 'node_modules', '.package-lock.json'));
 `, { mode: 0o700 });
 }
 
@@ -59,11 +70,12 @@ test('isolated global install delivers the full worker closure and its installed
   const nodeExecutable = fs.realpathSync(process.execPath);
   const sourceLocal = spawnSync(nodeExecutable, ['--no-global-search-paths', '-e', `
 const registry = require(process.argv[1]).loadSkillRoutingRegistry({ runtime: false, noCache: true, logDegradation: false });
-process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: registry.source }));
+process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: registry.source,
+  prompt_time_think_routes: registry.routes.filter(route => route.skill === 'think' && route.moment === 'prompt-time').length }));
 `, path.join(source, 'scripts/lib/skill-routing-registry.cjs')],
   { cwd: project, env: { ...process.env, NODE_PATH: '', NODE_OPTIONS: '--no-global-search-paths' }, encoding: 'utf8', timeout: 5000 });
   assert.equal(sourceLocal.status, 0, sourceLocal.stderr);
-  assert.deepEqual(JSON.parse(sourceLocal.stdout), { routes: 30, source: 'yaml' });
+  assert.deepEqual(JSON.parse(sourceLocal.stdout), { routes: 31, source: 'yaml', prompt_time_think_routes: 1 });
   const callerBin = path.join(root, 'caller bin'), localBin = path.join(fixtureHome, '.local/bin');
   const nvmBin = path.join(fixtureHome, '.nvm/versions/node/v99.0.0/bin');
   const selectedExecutableLog = path.join(root, 'selected executable');
@@ -158,16 +170,16 @@ process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: re
 `, nestedRouting, path.join(flatRoot, 'registry/skill-routing.yaml')],
   { cwd: project, env: isolatedEnv, encoding: 'utf8', timeout: 5000 });
   assert.equal(nestedLoad.status, 0, nestedLoad.stderr);
-  assert.deepEqual(JSON.parse(nestedLoad.stdout), { routes: 30, source: 'yaml' });
+  assert.deepEqual(JSON.parse(nestedLoad.stdout), { routes: 31, source: 'yaml' });
   const supportedLoad = loadInstalledRouting(path.join(root, 'missing-skill-routing.yaml'));
   assert.equal(supportedLoad.status, 0, supportedLoad.stderr);
   assert.deepEqual(JSON.parse(supportedLoad.stdout), {
-    strict_routes: 30,
+    strict_routes: 31,
     strict_source: 'yaml',
-    adapted_routes: 16,
+    adapted_routes: 17,
     adapted_source: 'yaml',
     adapted_degraded: false,
-    missing_routes: 30,
+    missing_routes: 31,
     missing_source: 'compiled_fallback',
     missing_degraded: true,
     missing_reason: 'skill_routing_registry_missing',
@@ -178,7 +190,7 @@ process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: re
   assert.match(resolver.stdout, /^CODEX_PROFILE_STATUS=ok$/m);
   assert.match(resolver.stdout, /^CODEX_PROFILE_SOURCE=registry$/m);
   assert.match(resolver.stdout, /^CODEX_MODEL=gpt-5\.6-sol$/m);
-  assert.match(resolver.stdout, /^CODEX_REASONING_EFFORT=xhigh$/m);
+  assert.match(resolver.stdout, /^CODEX_REASONING_EFFORT=high$/m);
   const boardScript = path.join(installed, 'scripts/lib/board-dispatch.cjs');
   const describeBoard = extra => spawnSync(nodeExecutable, ['--no-global-search-paths', boardScript, '--describe',
     '--member', 'sgsd-board-architect', ...extra], { cwd: project, env: isolatedEnv, encoding: 'utf8', timeout: 5000 });
@@ -223,7 +235,7 @@ process.stdout.write(JSON.stringify({ routes: registry.routes.length, source: re
   const thread = messages.find(message => message.method === 'thread/start');
   const turn = messages.find(message => message.method === 'turn/start');
   assert.equal(thread.params.model, 'gpt-5.6-sol'); assert.equal(thread.params.allowProviderModelFallback, false);
-  assert.equal(turn.params.model, 'gpt-5.6-sol'); assert.equal(turn.params.effort, 'xhigh');
+  assert.equal(turn.params.model, 'gpt-5.6-sol'); assert.equal(turn.params.effort, 'high');
   const status = spawnSync(nodeExecutable, [path.join(installed, 'tools/codex-worker/control.cjs'), 'status', '--project', project],
     { env, encoding: 'utf8', timeout: 5000 });
   assert.equal(status.status, 0, status.stderr); assert.equal(JSON.parse(status.stdout).workers[0].status, 'completed');
@@ -283,7 +295,7 @@ test('fresh source bootstraps only the pinned installed YAML closure before glob
     const env = { ...process.env, HOME: fixtureHome, USERPROFILE: fixtureHome, OPENAI_API_KEY: '',
       CODEX_HOME: path.join(fixtureHome, '.codex'), SGSD_ATLAS_GLOBAL_ROOT: path.join(fixtureHome, 'atlas-disabled'), SGSD_RUN_ID: '', SGSD_ATLAS_STATE_DIR: '',
       SGSD_ATLAS_DISABLED: '1', FIXTURE_DEP_SOURCE: dependencySource, FIXTURE_NPM_CAPTURE: capture,
-      FIXTURE_NPM_MODE: npmMode, PATH: `${binDir}:${path.dirname(nodeExecutable)}:${process.env.PATH}` };
+      FIXTURE_NPM_MODE: npmMode, FIXTURE_NPM_PACKAGES: JSON.stringify(fixturePackages), PATH: `${binDir}:${path.dirname(nodeExecutable)}:${process.env.PATH}` };
     const result = spawnSync('bash', [path.join(freshSource, 'install.sh'), '--install-global', '--project-dir', project],
       { cwd: project, env, encoding: 'utf8', timeout: 150000, maxBuffer: 4 * 1024 * 1024 });
     return { capture, env, fixtureHome, freshSource, project, result };

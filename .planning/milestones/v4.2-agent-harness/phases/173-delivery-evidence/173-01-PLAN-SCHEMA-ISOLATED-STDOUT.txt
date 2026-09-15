@@ -1,0 +1,10 @@
+PRIVATE_ROOT=/tmp/sgsd-phase173-plan-schema-r1.1QlMPr
+PRIVATE_MODE=700
+-- private npm ci --
+
+added 57 packages in 3s
+-- private validator --
+5 passed, 0 failed
+PRIVATE_LOCKED_ENTRIES=58
+PRIVATE_METRICS_BYTES=1567
+{"cleanup_target":"/tmp/sgsd-phase173-plan-schema-r1.1QlMPr","removed":true}
