@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v4.2-agent-harness
 current_phase: "173"
 milestone_name: Agent Harness
-current_plan: ""
+current_plan: "173-02"
 harness_milestone_status: "v4.2-agent-harness SEEDED 2026-09-14 by operator order (handoff HARNESS-DOCS-20260914). Seven phases 173-179 map SGSD items S1-S7 from .planning/briefs/2026-09-14-harness-programme/2026-09-14-sgsd-harness-build-plan.md; 173 delivery-evidence recommended first. No phase discussed, researched or planned yet; no source changed."
 v41_parked_status: "v4.1-token-economics-atlas PARKED 2026-09-14: phase 170 stays at plan 170-15 IMPLEMENTED_VERIFIED; phases 171/172 pending. Reopen on operator call; phase 178 coordinates attribution work with 171/172."
 reboot_recovery_status: "170-15 IMPLEMENTED_VERIFIED 2026-09-11 11:18Z: durable remembered workspaces, first-interactive-sg reboot offer, explicit restore/forget, paused fresh owned runs and prior-run lineage. Native Atlas327pass0fail5skip; propagation130pass with7 unchanged baseline snapshot-contract failures. Independent SPEC/QUALITY pass; genuine FULL ATC10/10 zero findings after preserved BLOCK and retained-thread corrections. Publication, normal five-worktree update and restored-session delivery checks next; no deployed/complete-capture claim."

@@ -1,0 +1,6 @@
+6ef97576de0efea1af284b084faa2ffd4d4954cbdfa4fe1a239e3a69cf007549  super-gsd/tools/codex-worker/run.cjs
+78aa51b8436aa9ef2e910cccae35d53e49a02904fe9334415739ebf94f8444ec  super-gsd/tools/codex-worker/mailbox.cjs
+acf444a53c7cb23853e9ef6dd379b819fc74606b9efbccf59a5d49130a38d8bd  super-gsd/tools/codex-worker/worker.test.cjs
+72c92c41deea0b837fd573585a0ea3b64e47ab817994a791e3411f8850870870  super-gsd/scripts/lib/codex-worker-shell.sh
+c6f56eecdc10adbb5b591bba3e6f339e541bed10601b963598c76cbc4c7ca5d0  super-gsd/tests/codex-worker/launch.test.cjs
+1a5876190c554756b36927d1d2357e2d072f8b2ac283ed8256f90a8637c72fb8  .planning/milestones/v4.2-agent-harness/phases/173-delivery-evidence/173-02-CANDIDATE-SOURCE-DIFF.patch

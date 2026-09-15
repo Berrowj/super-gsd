@@ -27,7 +27,7 @@ function start(f, project, mode = 'question', extra = [], holdPromptOpen = false
       SGSD_CODEX_APP_SERVER_ARGS: JSON.stringify([path.join(__dirname, 'fixtures/app-server.cjs')]), WORKER_FIXTURE_MODE: mode,
       WORKER_FIXTURE_CAPTURE: capture, WORKER_FIXTURE_CHILD_PID_FILE: childPidFile, SGSD_ATLAS_DISABLED: '1',
       SGSD_RUN_ID: '', SGSD_ATLAS_GLOBAL_ROOT: path.join(f.root, 'atlas-disabled'), SGSD_ATLAS_STATE_DIR: '',
-      CODEX_HOME: path.join(f.root, 'codex-home'), ...atlas } });
+      SGSD_WORKER_OWNER: 'orchestrator', CODEX_HOME: path.join(f.root, 'codex-home'), ...atlas } });
   f.children.push(child); let stdout = '', stderr = '';
   child.stdout.on('data', chunk => stdout += chunk); child.stderr.on('data', chunk => stderr += chunk);
   const completed = new Promise(resolve => child.on('close', code => resolve({ code, stdout, stderr })));
@@ -35,8 +35,9 @@ function start(f, project, mode = 'question', extra = [], holdPromptOpen = false
   else child.stdin.end('PRIVATE_WORKER_PROMPT no telemetry persistence');
   return { child, completed, capture, childPidFile };
 }
-function command(project, action, args = []) {
-  return spawnSync(process.execPath, [control, action, '--project', project, ...args], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
+function command(project, action, args = [], owner = 'orchestrator') {
+  const ownerArgs = owner === null || !['reply', 'steer', 'stop'].includes(action) ? [] : ['--owner', owner];
+  return spawnSync(process.execPath, [control, action, '--project', project, ...args, ...ownerArgs], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
 }
 async function state(project, predicate) {
   const deadline = Date.now() + 6000;
@@ -107,6 +108,190 @@ test('steering and stop target the exact active turn', async t => {
   const active = await state(f.projects[0], s => s.status === 'running' && s.worker_id !== row.worker_id && s.turn_id);
   assert.equal(command(f.projects[0], 'stop', ['--worker', active.worker_id]).status, 0);
   assert.notEqual((await stop.completed).code, 0);
+});
+test('exact owned identity rejects dead and PID-reused workers while unrelated workers remain live', async t => {
+  const f = fixture(t), owned = start(f, f.projects[0], 'wait'), unrelated = start(f, f.projects[0], 'wait');
+  const target = await state(f.projects[0], s => s.status === 'running' && s.turn_id && s.pid === owned.child.pid);
+  const other = await state(f.projects[0], s => s.status === 'running' && s.turn_id && s.worker_id !== target.worker_id);
+  assert.equal(target.pid, owned.child.pid);
+  assert.equal(typeof target.start_time, 'string'); assert.equal(typeof target.executable, 'string'); assert.ok(Array.isArray(target.argv));
+  owned.child.kill('SIGKILL'); await owned.completed;
+  const dead = JSON.parse(command(f.projects[0], 'status').stdout).workers.find(s => s.worker_id === target.worker_id);
+  const live = JSON.parse(command(f.projects[0], 'status').stdout).workers.find(s => s.worker_id === other.worker_id);
+  assert.equal(dead.status, 'orphaned'); assert.equal(dead.liveness_observation.state, 'dead');
+  assert.equal(live.status, 'running'); assert.equal(live.liveness_observation.state, 'live');
+  const mailbox = require('./mailbox.cjs'), reused = mailbox.read(f.projects[0], target.worker_id);
+  reused.pid = other.pid; reused.start_time = '0'; mailbox.save(reused);
+  const mismatch = JSON.parse(command(f.projects[0], 'status').stdout).workers.find(s => s.worker_id === target.worker_id);
+  const stillLive = JSON.parse(command(f.projects[0], 'status').stdout).workers.find(s => s.worker_id === other.worker_id);
+  assert.equal(mismatch.status, 'orphaned'); assert.equal(mismatch.liveness_observation.state, 'identity_mismatch');
+  assert.equal(stillLive.status, 'running'); assert.equal(stillLive.liveness_observation.state, 'live');
+  command(f.projects[0], 'stop', ['--worker', other.worker_id]); await unrelated.completed;
+});
+test('legacy records without identity keep PID-only liveness and report unknown identity', async t => {
+  const f = fixture(t), mailbox = require('./mailbox.cjs'), record = mailbox.create(f.projects[0]);
+  record.status = 'running'; record.thread_id = 'legacy-thread'; record.turn_id = 'legacy-turn';
+  delete record.start_time; delete record.executable; delete record.argv;
+  mailbox.save(record);
+
+  const listed = JSON.parse(command(f.projects[0], 'status').stdout).workers.find(row => row.worker_id === record.worker_id);
+  assert.equal(listed.status, 'running');
+  assert.deepEqual(listed.liveness_observation, { state: 'unknown', reason: 'missing_identity' });
+  const accepted = JSON.parse(command(f.projects[0], 'steer', ['--worker', record.worker_id, '--text', 'legacy direction'], null).stdout);
+  assert.equal(accepted.queued, true);
+
+  record.pid = 999999; mailbox.save(record);
+  const dead = JSON.parse(command(f.projects[0], 'status').stdout).workers.find(row => row.worker_id === record.worker_id);
+  assert.equal(dead.status, 'orphaned');
+  assert.deepEqual(dead.liveness_observation, { state: 'unknown', reason: 'missing_identity' });
+
+  record.pid = process.pid; record.start_time = '0'; record.executable = process.execPath; record.argv = ['reused-pid']; mailbox.save(record);
+  const reused = JSON.parse(command(f.projects[0], 'status').stdout).workers.find(row => row.worker_id === record.worker_id);
+  assert.equal(reused.status, 'orphaned'); assert.equal(reused.liveness_observation.state, 'identity_mismatch');
+  const rejected = command(f.projects[0], 'steer', ['--worker', record.worker_id, '--text', 'must not queue'], null);
+  assert.notEqual(rejected.status, 0); assert.match(rejected.stderr, /worker_not_active/);
+});
+test('owner-scoped control and inherited fan-out are enforced by the real mailbox path', async t => {
+  const f = fixture(t), owner = 'owner-a', worker = start(f, f.projects[0], 'question', ['--owner', owner], false,
+    { SGSD_WORKER_FANOUT_LIMIT: '1' });
+  const row = await state(f.projects[0], s => s.status === 'waiting_input' && s.owner === owner);
+  assert.equal(row.fanout_limit, 1);
+  const target = ['--worker', row.worker_id, '--request', row.pending[0].id, '--text', 'answer'];
+  const missing = JSON.parse(command(f.projects[0], 'reply', target, null).stdout);
+  const wrong = JSON.parse(command(f.projects[0], 'steer', ['--worker', row.worker_id, '--text', 'wrong owner'], 'owner-b').stdout);
+  const stopped = JSON.parse(command(f.projects[0], 'stop', ['--worker', row.worker_id], null).stdout);
+  for (const rejected of [missing, wrong, stopped]) {
+    assert.equal(rejected.queued, false); assert.equal(rejected.status, 'rejected');
+    const receipt = JSON.parse(command(f.projects[0], 'receipt', ['--worker', row.worker_id, '--command', rejected.command_id], null).stdout);
+    assert.equal(receipt.status, 'rejected'); assert.match(receipt.reason, /^worker_owner_(required|mismatch)$/);
+  }
+  assert.equal((await start(f, f.projects[0], 'complete', ['--owner', owner], false, { SGSD_WORKER_FANOUT_LIMIT: '1' }).completed).code, 1);
+  const differentOwner = await start(f, f.projects[0], 'complete', ['--owner', 'owner-b'], false, { SGSD_WORKER_FANOUT_LIMIT: '1' }).completed;
+  assert.equal(differentOwner.code, 0, differentOwner.stderr);
+  const approved = JSON.parse(command(f.projects[0], 'reply', target, owner).stdout);
+  assert.equal((await worker.completed).stdout.trim(), 'answer');
+  assert.equal(JSON.parse(command(f.projects[0], 'receipt', ['--worker', row.worker_id, '--command', approved.command_id], null).stdout).status, 'applied');
+  const mailbox = require('./mailbox.cjs'), legacy = mailbox.create(f.projects[0]);
+  legacy.status = 'running'; legacy.thread_id = 'legacy-thread'; legacy.turn_id = 'legacy-turn'; mailbox.save(legacy);
+  const legacyControl = JSON.parse(command(f.projects[0], 'steer', ['--worker', legacy.worker_id, '--text', 'legacy direction'], null).stdout);
+  assert.equal(legacyControl.queued, true);
+});
+test('concurrent creates cannot exceed the inherited fan-out limit', async t => {
+  const f = fixture(t), mailbox = require('./mailbox.cjs'), project = f.projects[0];
+  const owner = 'fanout-owner', workspace = fs.realpathSync(project), limit = 2;
+  // Keep inventory work nontrivial so the pre-lock implementation reliably
+  // exposes its check-then-publish race across the real child processes.
+  for (let i = 0; i < 128; i++) {
+    const historical = mailbox.create(project);
+    historical.status = 'completed'; mailbox.save(historical);
+  }
+  const attempts = Array.from({ length: limit + 2 }, () => start(f, project, 'wait', ['--owner', owner], false,
+    { SGSD_WORKER_FANOUT_LIMIT: String(limit) }));
+  const until = async predicate => {
+    const deadline = Date.now() + 6000;
+    while (Date.now() < deadline) { const value = predicate(); if (value) return value; await delay(25); }
+    assert.fail('expected concurrent worker outcome was not reached');
+  };
+  const active = await until(() => {
+    const rows = mailbox.list(project).filter(row => mailbox.isLive(row) && row.owner === owner && row.workspace === workspace);
+    return rows.length >= limit ? rows : null;
+  });
+  await until(() => attempts.filter(attempt => attempt.child.exitCode !== null).length === attempts.length - limit);
+  const failed = await Promise.all(attempts.filter(attempt => attempt.child.exitCode !== null).map(attempt => attempt.completed));
+  assert.equal(active.length, limit);
+  for (const result of failed) { assert.notEqual(result.code, 0); assert.match(result.stderr, /worker_fanout_limit/); }
+  for (const row of active) assert.equal(command(project, 'stop', ['--worker', row.worker_id], owner).status, 0);
+  await Promise.all(attempts.filter(attempt => attempt.child.exitCode === null).map(attempt => attempt.completed));
+
+  const staleOwner = 'stale-lock-owner', staleLock = mailbox.fanoutLockPath(project, { owner: staleOwner, workspace });
+  fs.writeFileSync(staleLock, JSON.stringify({ lock_id: mailbox.uid(), pid: 999999, start_time: '1', executable: 'dead', argv: ['dead'],
+    created_at: new Date(Date.now() - 61000).toISOString() }) + '\n', { mode: 0o600 });
+  const reclaimed = mailbox.create(project, { owner: staleOwner, workspace, fanout_limit: limit });
+  assert.equal(fs.existsSync(staleLock), false, 'a dead creator lock is reclaimed');
+  reclaimed.status = 'completed'; mailbox.save(reclaimed);
+
+  const liveOwner = 'live-lock-owner', liveLock = mailbox.fanoutLockPath(project, { owner: liveOwner, workspace });
+  const liveIdentity = require('../telemetry-atlas/lifecycle.cjs').processIdentity(process.pid);
+  assert.ok(liveIdentity);
+  const lockId = mailbox.uid();
+  fs.writeFileSync(liveLock, JSON.stringify({ lock_id: lockId, ...liveIdentity, created_at: new Date().toISOString() }) + '\n', { mode: 0o600 });
+  const now = Date.now, base = now(); let calls = 0;
+  Date.now = () => calls++ === 0 ? base : base + 60000;
+  try {
+    assert.throws(() => mailbox.create(project, { owner: liveOwner, workspace, fanout_limit: limit }), /worker_fanout_lock_timeout/);
+  } finally { Date.now = now; }
+  assert.equal(JSON.parse(fs.readFileSync(liveLock, 'utf8')).lock_id, lockId, 'a live creator lock is not reclaimed');
+  fs.unlinkSync(liveLock);
+});
+test('delivery observation keeps process outcome report validity observed delivery and independent verification separate', async t => {
+  const f = fixture(t), worker = start(f, f.projects[0], 'complete');
+  assert.equal((await worker.completed).code, 0);
+  const row = await state(f.projects[0], s => s.status === 'completed');
+  const mailbox = require('./mailbox.cjs'), record = mailbox.read(f.projects[0], row.worker_id);
+  assert.deepEqual(Object.keys(record.delivery_observation).sort(), [
+    'independent_verification', 'observed_delivery', 'process_outcome', 'report_validity', 'schema_version',
+  ]);
+  assert.equal(record.delivery_observation.schema_version, 1);
+  assert.equal(record.delivery_observation.process_outcome.state, 'succeeded');
+  assert.equal(record.delivery_observation.report_validity.state, 'valid');
+  assert.deepEqual(record.delivery_observation.observed_delivery, {
+    state: 'observed', worker_id: record.worker_id, instance: record.instance,
+    thread_id: record.thread_id, turn_id: record.turn_id, bytes: Buffer.byteLength('completed fixture'),
+    sha256: require('node:crypto').createHash('sha256').update('completed fixture', 'utf8').digest('hex'),
+    observed_at: record.delivery_observation.observed_delivery.observed_at,
+  });
+  assert.match(record.delivery_observation.observed_delivery.observed_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(record.delivery_observation.independent_verification.state, 'not_run');
+  mailbox.setIndependentVerification(record, 'verified'); mailbox.save(record);
+  const status = JSON.parse(command(f.projects[0], 'status').stdout).workers.find(s => s.worker_id === row.worker_id);
+  assert.equal(status.delivery_observation.independent_verification.state, 'verified');
+  assert.equal(status.delivery_observation.process_outcome.state, 'succeeded');
+  assert.equal(status.delivery_observation.report_validity.state, 'valid');
+});
+test('empty malformed and unacknowledged reports never complete while nonzero exit preserves delivery evidence', async t => {
+  const f = fixture(t), mailbox = require('./mailbox.cjs');
+  for (const mode of ['empty', 'invalid-json', 'early-cross-turn']) {
+    const worker = start(f, f.projects[0], mode);
+    const result = await worker.completed; assert.notEqual(result.code, 0, mode);
+    const record = mailbox.list(f.projects[0]).find(row => row.pid === worker.child.pid);
+    assert.notEqual(record.status, 'completed', mode);
+    assert.equal(record.delivery_observation.process_outcome.state, 'failed', mode);
+    assert.equal(record.delivery_observation.report_validity.state, 'invalid', mode);
+    if (mode === 'invalid-json') assert.equal(record.delivery_observation.observed_delivery.state, 'not_run');
+    else {
+      assert.equal(record.delivery_observation.observed_delivery.state, 'observed', mode);
+      assert.equal(record.delivery_observation.observed_delivery.worker_id, record.worker_id, mode);
+      assert.equal(record.delivery_observation.observed_delivery.instance, record.instance, mode);
+    }
+  }
+  const failed = start(f, f.projects[1], 'fail');
+  assert.notEqual((await failed.completed).code, 0);
+  const record = mailbox.list(f.projects[1]).find(row => row.pid === failed.child.pid);
+  assert.equal(record.delivery_observation.process_outcome.state, 'failed');
+  assert.equal(record.delivery_observation.report_validity.state, 'invalid');
+  assert.equal(record.delivery_observation.observed_delivery.state, 'observed');
+  assert.equal(record.delivery_observation.observed_delivery.bytes, Buffer.byteLength('NOT A SUCCESS'));
+  assert.match(record.delivery_observation.observed_delivery.sha256, /^[a-f0-9]{64}$/);
+});
+test('retained continuation binds its exact owned instance and result', async t => {
+  const f = fixture(t), mailbox = require('./mailbox.cjs'), initial = start(f, f.projects[0], 'complete');
+  assert.equal((await initial.completed).code, 0);
+  const original = await state(f.projects[0], s => s.status === 'completed');
+  const resumed = start(f, f.projects[0], 'complete', ['--resume-worker', original.worker_id]);
+  assert.equal((await resumed.completed).code, 0);
+  const continuation = mailbox.list(f.projects[0]).find(row => row.resumed_from === original.worker_id);
+  assert.ok(continuation);
+  assert.equal(continuation.thread_id, original.thread_id);
+  assert.notEqual(continuation.worker_id, original.worker_id);
+  assert.notEqual(continuation.instance, original.instance);
+  assert.deepEqual(continuation.delivery_observation.observed_delivery, {
+    state: 'observed', worker_id: continuation.worker_id, instance: continuation.instance,
+    thread_id: continuation.thread_id, turn_id: continuation.turn_id, bytes: Buffer.byteLength('completed fixture'),
+    sha256: require('node:crypto').createHash('sha256').update('completed fixture', 'utf8').digest('hex'),
+    observed_at: continuation.delivery_observation.observed_delivery.observed_at,
+  });
+  assert.equal(continuation.delivery_observation.process_outcome.state, 'succeeded');
+  assert.equal(continuation.delivery_observation.report_validity.state, 'valid');
 });
 test('failures, disconnects, oversized frames and permission requests never return successful reports', async t => {
   const f = fixture(t);
