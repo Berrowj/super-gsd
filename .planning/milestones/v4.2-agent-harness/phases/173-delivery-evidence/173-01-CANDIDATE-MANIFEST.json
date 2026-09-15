@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "project": "/home/jackberrow/.config/superpowers/worktrees/super-gsd/harness",
+  "git_common_dir": "/home/jackberrow/.claude/super-gsd/source/.git",
+  "base_commit": "476cfef8fee52943678d24e5507b8f871a8f611d",
+  "head_commit": "3718b109cee8d4604b8602aa6a2b9e84e226c1f3",
+  "candidate_diff": {
+    "path": "173-01-CANDIDATE-SOURCE-DIFF.patch.b64",
+    "sha256": "ee341265e3e6a0520982bb7b1faad43a30402c620a93eed86f1c0ecb52c5ff18",
+    "bytes": 20223,
+    "decoded_sha256": "a1a2fe3d20c28fef33f71357ef75a33d9d0ce7e4f6415bd7a25b6bd9f1ab5973",
+    "decoded_bytes": 14970,
+    "command": "{ git diff --cached --binary --no-ext-diff -- super-gsd/tools/codex-worker/rpc.cjs super-gsd/tests/codex-worker/install.test.cjs; git diff --no-index --binary --no-ext-diff /dev/null super-gsd/tools/codex-worker/rpc.test.cjs || test $? -eq 1; printf '\\n'; } | base64 -w 76"
+  },
+  "candidate_files": [
+    {
+      "path": "super-gsd/tools/codex-worker/rpc.cjs",
+      "change": "modified",
+      "before_sha256": "de2bff6323cbcac43b041a08c4564c719232a231c7df55e3cdde2ba8b1b763b4",
+      "after_sha256": "032ffd8828a8a8a63e58db1a36636ae8f18088e95b2e4ac8cfce5c460f9545fe"
+    },
+    {
+      "path": "super-gsd/tools/codex-worker/rpc.test.cjs",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "a6326111742bfe0c91ba3e9906dc2a9ecde820bd14d69f066e831deefe455a52"
+    },
+    {
+      "path": "super-gsd/tests/codex-worker/install.test.cjs",
+      "change": "modified",
+      "before_sha256": "91213289354953db156fa7605eb52df19b34765651272317e5334dd668ffebc8",
+      "after_sha256": "a974beeb4ed7e72c4d06d2b952ec95153a85f6228a0ae71533ab8f70b2cf234f"
+    }
+  ],
+  "relevant_unchanged": {
+    "super-gsd/tools/codex-worker/worker.test.cjs": "c1a6affe9b4d3fd19e86e95190e26c672e6edd8a1bd4318c75a87dd99d222a14",
+    "super-gsd/tools/codex-worker/run.cjs": "0ab821c1245213559fce812ee098e69c96984d085a00cab7b02ece29bcfe0f59",
+    "super-gsd/tools/codex-worker/fixtures/app-server.cjs": "8b0c983c3ba2697a58dc881bfbe08d99e6bd11a7f17179d6f993e81b39b6ec69",
+    "super-gsd/tools/plan-schema/package-lock.json": "e64491257bf2df2c24f1ab593fc8f5ca971456ae8ffd5867b101841f3cfbeafe"
+  }
+}

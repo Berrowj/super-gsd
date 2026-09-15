@@ -1,0 +1,11 @@
+codex-exec DRY RUN
+  resolved: node /home/jackberrow/.config/superpowers/worktrees/super-gsd/harness/super-gsd/tools/codex-worker/run.cjs --project /home/jackberrow/.config/superpowers/worktrees/super-gsd/harness --workspace /home/jackberrow/.config/superpowers/worktrees/super-gsd/harness --model gpt-5.6-terra --reasoning xhigh --timeout 180 --owner pm-automation.harness.20260915 --role reviewer --sandbox danger-full-access --ask-for-approval never  < .planning/milestones/v4.2-agent-harness/phases/173-delivery-evidence/173-01-ATC-R2-FOCUSED-REENTRY-PROMPT.md
+  auth:     OAuth-only (OPENAI_API_KEY not set) ✓
+  model:    gpt-5.6-terra
+  effort:   xhigh
+  timeout:  180s
+  project:  /home/jackberrow/.config/superpowers/worktrees/super-gsd/harness
+  codex-cd: /home/jackberrow/.config/superpowers/worktrees/super-gsd/harness
+  command:  /home/jackberrow/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex app-server
+  codex:    /home/jackberrow/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex
+  report-out: .planning/milestones/v4.2-agent-harness/phases/173-delivery-evidence/173-01-ATC-R2-FOCUSED-REENTRY-REPORT.md
