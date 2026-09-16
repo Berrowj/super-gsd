@@ -1,0 +1,20 @@
+PRIVATE_ROOT=/tmp/sgsd-phase173-plan-schema-r2.HkV1wV
+PRIVATE_MODE=700
+-- private npm ci --
+
+added 57 packages, and audited 58 packages in 2s
+
+10 packages are looking for funding
+  run `npm fund` for details
+
+3 high severity vulnerabilities
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+-- private validator --
+[36m[validate][0m Validating 173-02-DELIVERY-EVIDENCE-PLAN.md (mode: write)
+[173-02-DELIVERY-EVIDENCE-PLAN.md] VALID (no errors)
+VALIDATOR_EXIT=0
+PRIVATE_REMOVED=true

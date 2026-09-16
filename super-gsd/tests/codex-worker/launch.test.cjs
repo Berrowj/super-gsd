@@ -86,6 +86,47 @@ async function waiting(f, processHandle) {
   }
   assert.fail(`wrapper must keep an active question-bound worker: ${processHandle.stderr}`);
 }
+async function active(f, processHandle) {
+  const deadline = Date.now() + 12000;
+  while (Date.now() < deadline && !processHandle.exited) {
+    const record = mailbox.list(f.root).find(value => value.status === 'running' && value.turn_id);
+    if (record) return record;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.fail(`wrapper must keep an active read-only worker: ${processHandle.stderr}`);
+}
+async function exists(file, message) {
+  const deadline = Date.now() + 12000;
+  while (Date.now() < deadline) {
+    if (fs.existsSync(file)) return;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.fail(message);
+}
+function controlResult(f, action, args = []) {
+  const result = spawnSync(process.execPath, [control, action, '--project', f.root, ...args], { encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+function pauseExecutorAfterAdapter(f) {
+  const bin = path.join(f.root, 'clock gate'); fs.mkdirSync(bin);
+  const count = path.join(f.root, 'date-count'), ready = path.join(f.root, 'date-ready'), release = path.join(f.root, 'date-release');
+  const realDate = ['/usr/bin/date', '/bin/date'].find(candidate => fs.existsSync(candidate));
+  assert.ok(realDate, 'fixture has a native date command');
+  fs.writeFileSync(path.join(bin, 'date'), `#!/usr/bin/env bash
+count=0
+if [[ -r "$WORKER_FIXTURE_DATE_COUNT" ]]; then IFS= read -r count < "$WORKER_FIXTURE_DATE_COUNT" || true; fi
+count=$((count + 1))
+printf '%s\\n' "$count" > "$WORKER_FIXTURE_DATE_COUNT"
+if [[ "$count" -ge 3 ]]; then
+  : > "$WORKER_FIXTURE_DATE_READY"
+  while [[ ! -e "$WORKER_FIXTURE_DATE_RELEASE" ]]; do /bin/sleep 0.01; done
+fi
+exec ${JSON.stringify(realDate)} "$@"
+`, { mode: 0o700 });
+  return { ready, release, env: { PATH: `${bin}:${f.env.PATH}`, WORKER_FIXTURE_DATE_COUNT: count,
+    WORKER_FIXTURE_DATE_READY: ready, WORKER_FIXTURE_DATE_RELEASE: release } };
+}
 function frames(f) { return fs.readFileSync(f.capture, 'utf8').trim().split('\n').map(JSON.parse); }
 function treeSnapshot(root) {
   if (!fs.existsSync(root)) return null;
@@ -169,6 +210,94 @@ test('executor and explicit patch wrapper use the worker adapter and retain scop
     assert.equal(fs.existsSync(path.join(workspace, '.planning/worker-sessions')), false);
     assert.equal(JSON.parse(fs.readFileSync(path.join(f.root, '.planning/worker-sessions', record.worker_id, 'wrapper-result.json'))).exit_code, 0);
   }
+});
+
+test('real executor wrapper consumes the exact delivery observation before writing a receipt', { skip: bashOnly, timeout: 60000 }, async t => {
+  for (const [name, corrupt] of Object.entries({
+    missing_delivery_observation: record => { delete record.delivery_observation; },
+    dead: record => { record.status = 'running'; record.pid = 999999; },
+    missing_identity: record => { record.status = 'running'; delete record.start_time; },
+    identity_mismatch: record => { record.status = 'running'; record.pid = process.pid; record.start_time = '0'; },
+  })) {
+    const f = fixture(t), gate = pauseExecutorAfterAdapter(f);
+    const running = launch(t, [path.join(scripts, 'codex-executor.sh'), '--workspace', f.root,
+      '--prompt-file', f.prompt, '--report-out', f.report, '--timeout', '10'], f,
+    { ...gate.env, WORKER_FIXTURE_MODE: 'complete', WORKER_FIXTURE_REPORT: `receipt ${name}` });
+    await exists(gate.ready, `${name}: executor pauses after the core adapter returns`);
+    const record = mailbox.list(f.root)[0]; assert.equal(record.status, 'completed', `${name}: core completion precedes wrapper receipt`);
+    corrupt(record); mailbox.save(record);
+    fs.writeFileSync(gate.release, 'release\n');
+    const result = await running.done;
+    assert.equal(result.code, 9, `${name}: ${result.stdout}\n${result.stderr}`);
+    assert.doesNotMatch(result.stdout, /codex-executor: OK/);
+    const receiptPath = path.join(f.root, '.planning/worker-sessions', record.worker_id, 'wrapper-result.json');
+    assert.ok(fs.existsSync(receiptPath), `${name}: a failed wrapper still leaves its truthful receipt`);
+    const receipt = JSON.parse(fs.readFileSync(receiptPath));
+    assert.equal(receipt.exit_code, 9); assert.equal(receipt.worker_id, record.worker_id);
+    assert.equal(receipt.sha256, require('node:crypto').createHash('sha256').update(fs.readFileSync(f.report)).digest('hex'));
+    assert.equal(receipt.bytes, fs.statSync(f.report).size);
+  }
+});
+
+test('long-running read-only work uses budget plus one observation interval and authorized cancellation', { skip: bashOnly, timeout: 30000 }, async t => {
+  const budgetSeconds = 1;
+  const timed = fixture(t), source = path.join(timed.root, 'read-only-source.txt'); fs.writeFileSync(source, 'unchanged\n');
+  const sourceBefore = fs.statSync(source), timeoutStarted = Date.now();
+  const timeoutRun = launch(t, [path.join(scripts, 'codex-executor.sh'), '--workspace', timed.root,
+    '--prompt-file', timed.prompt, '--report-out', timed.report, '--timeout', String(budgetSeconds)], timed, { WORKER_FIXTURE_MODE: 'wait' });
+  await active(timed, timeoutRun);
+  const timeoutResult = await timeoutRun.done, timeoutElapsed = Date.now() - timeoutStarted;
+  assert.equal(timeoutResult.code, 5, timeoutResult.stderr);
+  const timeoutRecord = mailbox.list(timed.root)[0];
+  const timeoutReceipt = JSON.parse(fs.readFileSync(path.join(timed.root, '.planning', 'worker-sessions', timeoutRecord.worker_id, 'wrapper-result.json'), 'utf8'));
+  const observationIntervalSeconds = timeoutReceipt.observation_interval_seconds;
+  assert.equal(observationIntervalSeconds, 5, 'the declared interval covers TERM slack plus KILL-after');
+  assert.ok(timeoutElapsed <= (budgetSeconds + observationIntervalSeconds) * 1000,
+    `wrapper returned in ${timeoutElapsed}ms, exceeding declared budget plus one observation interval`);
+  assert.equal(fs.statSync(source).mtimeMs, sourceBefore.mtimeMs, 'read-only work does not need a source timestamp heartbeat');
+
+  const cancelled = fixture(t), cancelledSource = path.join(cancelled.root, 'read-only-source.txt'); fs.writeFileSync(cancelledSource, 'unchanged\n');
+  const cancelledBefore = fs.statSync(cancelledSource), cancellationStarted = Date.now();
+  const running = launch(t, [path.join(scripts, 'codex-executor.sh'), '--workspace', cancelled.root,
+    '--prompt-file', cancelled.prompt, '--report-out', cancelled.report, '--timeout', '5'], cancelled,
+  { WORKER_FIXTURE_MODE: 'wait', SGSD_WORKER_FANOUT_LIMIT: '1' });
+  const record = await active(cancelled, running);
+  const competing = await launch(t, [path.join(scripts, 'codex-executor.sh'), '--workspace', cancelled.root,
+    '--prompt-file', cancelled.prompt, '--report-out', path.join(cancelled.root, 'competing-report.txt'), '--timeout', '5'], cancelled,
+  { WORKER_FIXTURE_MODE: 'complete', SGSD_WORKER_FANOUT_LIMIT: '1' }).done;
+  assert.equal(competing.code, 1, competing.stderr);
+  for (const owner of [undefined, 'wrong-owner']) {
+    const args = ['--worker', record.worker_id]; if (owner) args.push('--owner', owner);
+    const rejected = controlResult(cancelled, 'stop', args);
+    assert.equal(rejected.status, 'rejected'); assert.equal(rejected.queued, false);
+    assert.match(rejected.reason, /^worker_owner_(required|mismatch)$/);
+  }
+  assert.equal(mailbox.list(cancelled.root).find(row => row.worker_id === record.worker_id).status, 'running');
+  const accepted = controlResult(cancelled, 'stop', ['--worker', record.worker_id, '--owner', cancelled.env.SGSD_WORKER_OWNER]);
+  assert.equal(accepted.queued, true);
+  const cancelledResult = await running.done, cancellationElapsed = Date.now() - cancellationStarted;
+  assert.equal(cancelledResult.code, 1, cancelledResult.stderr);
+  const cancelledReceipt = JSON.parse(fs.readFileSync(path.join(cancelled.root, '.planning', 'worker-sessions', record.worker_id, 'wrapper-result.json'), 'utf8'));
+  assert.equal(cancelledReceipt.observation_interval_seconds, observationIntervalSeconds);
+  assert.ok(cancellationElapsed <= (5 + observationIntervalSeconds) * 1000,
+    `authorized cancellation returned in ${cancellationElapsed}ms, exceeding its supervision bound`);
+  assert.equal(controlResult(cancelled, 'receipt', ['--worker', record.worker_id, '--command', accepted.command_id]).status, 'applied');
+  assert.equal(fs.statSync(cancelledSource).mtimeMs, cancelledBefore.mtimeMs, 'authorized supervision also leaves read-only source untouched');
+});
+
+test('non-Clarity Linux wrapper fixture has no product-specific path assumption', { skip: bashOnly }, async t => {
+  const f = fixture(t), forbidden = /(?:sap|vtp|clarity|devcp)/i;
+  assert.equal(fs.existsSync(path.join(f.root, '.git')), false, 'the portable fixture is only a local .planning project root');
+  assert.ok(fs.statSync(path.join(f.root, '.planning')).isDirectory());
+  for (const value of [f.root, f.env.HOME, f.env.CODEX_HOME, f.env.SGSD_CODEX_APP_SERVER_COMMAND]) assert.doesNotMatch(value, forbidden);
+  assert.notEqual(path.resolve(f.root), path.resolve(os.homedir()), 'the fixture does not use the operator home as its project');
+  // Linux-only coverage: the shared shell explicitly refuses native Windows or
+  // Windows interop before dispatch, so this test does not claim Windows support.
+  const result = await launch(t, [path.join(scripts, 'codex-executor.sh'), '--workspace', f.root,
+    '--prompt-file', f.prompt, '--report-out', f.report, '--timeout', '10'], f,
+  { WORKER_FIXTURE_MODE: 'complete', WORKER_FIXTURE_REPORT: 'portable fixture completed' }).done;
+  assert.equal(result.code, 0, result.stderr); assert.match(fs.readFileSync(f.report, 'utf8'), /portable fixture completed/);
+  const record = mailbox.list(f.root)[0]; assert.equal(record.status, 'completed');
 });
 
 test('explicit selectors are pinned before PATH and cwd changes with prefix argv intact', { skip: bashOnly }, async t => {
@@ -512,7 +641,7 @@ test('receipt persistence failure cannot print or log wrapper success', { skip: 
   const record = await waiting(f, running);
   fs.mkdirSync(path.join(f.root, '.planning/worker-sessions', record.worker_id, 'wrapper-result.json'));
   const reply = spawnSync(process.execPath, [control, 'reply', '--project', f.root, '--worker', record.worker_id,
-    '--request', record.pending[0].id, '--text', 'Continue the bounded task.'], { encoding: 'utf8', timeout: 5000 });
+    '--request', record.pending[0].id, '--text', 'Continue the bounded task.', '--owner', f.env.SGSD_WORKER_OWNER], { encoding: 'utf8', timeout: 5000 });
   assert.equal(reply.status, 0, reply.stderr);
   const result = await running.done; assert.equal(result.code, 9, result.stderr);
   assert.doesNotMatch(result.stdout, /codex-exec: OK/);

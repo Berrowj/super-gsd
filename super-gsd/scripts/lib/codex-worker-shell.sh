@@ -197,7 +197,13 @@ sgsd_codex_worker_prepare() {
     export SGSD_WORKER_PHASE="${PHASE_TAG:-${SGSD_WORKER_PHASE:-}}"
     export SGSD_WORKER_PLAN="${PLAN_TAG:-${SGSD_WORKER_PLAN:-}}"
     export SGSD_WORKER_STEP="${STEP_TAG:-${SGSD_WORKER_STEP:-}}"
-    SGSD_CODEX_WORKER_WATCHDOG_SECONDS="$(node -e 'const n=Number(process.argv[1]); if (!Number.isInteger(n)||n<1||n>86400) process.exit(2); process.stdout.write(String(n+3));' "$deadline")" || {
+    SGSD_CODEX_WORKER_TERM_SLACK_SECONDS=3
+    SGSD_CODEX_WORKER_KILL_AFTER_SECONDS=2
+    # The one declared post-budget observation interval is
+    # SGSD_CODEX_WORKER_OBSERVATION_INTERVAL_SECONDS: the TERM slack plus the
+    # KILL-after period in which the shared finish path can return.
+    export SGSD_CODEX_WORKER_OBSERVATION_INTERVAL_SECONDS="$((SGSD_CODEX_WORKER_TERM_SLACK_SECONDS + SGSD_CODEX_WORKER_KILL_AFTER_SECONDS))"
+    SGSD_CODEX_WORKER_WATCHDOG_SECONDS="$(node -e 'const n=Number(process.argv[1]), slack=Number(process.argv[2]); if (!Number.isInteger(n)||n<1||n>86400||!Number.isInteger(slack)||slack<1) process.exit(2); process.stdout.write(String(n+slack));' "$deadline" "$SGSD_CODEX_WORKER_TERM_SLACK_SECONDS")" || {
         echo "SGSD_WORKER: timeout must be an integer from 1 to 86400 seconds" >&2
         return 2
     }
@@ -213,7 +219,7 @@ sgsd_codex_worker_run() {
     # starts. The adapter owns the normal deadline; allow three seconds for its
     # cleanup, then terminate this process group (KILL after two more seconds).
     # Keep prompt paths and all worker arguments as positional argv, never code.
-    timeout --kill-after=2s "${SGSD_CODEX_WORKER_WATCHDOG_SECONDS}s" \
+    timeout --kill-after="${SGSD_CODEX_WORKER_KILL_AFTER_SECONDS}s" "${SGSD_CODEX_WORKER_WATCHDOG_SECONDS}s" \
         bash -c 'exec "${@:2}" < "$1"' sgsd-codex-worker "$prompt_file" \
         "${SGSD_CODEX_WORKER_ARGS[@]}" "${SGSD_ATLAS_CODEX_ARGS[@]}"
     worker_exit=$?
@@ -237,27 +243,61 @@ sgsd_codex_worker_begin() {
 sgsd_codex_worker_finish() {
     local wrapper_exit="$1"
     [[ -n "${SGSD_WORKER_WRAPPER_ID:-}" && "${SGSD_WORKER_WRAPPER_FINISHED:-false}" != true ]] || return 0
-    node - "$SGSD_CODEX_WORKER_RUN" "$PROJECT" "$REPORT_OUT" "$SGSD_WORKER_WRAPPER_ID" "$wrapper_exit" <<'NODE'
+    node - "$SGSD_CODEX_WORKER_RUN" "$PROJECT" "$REPORT_OUT" "$SGSD_WORKER_WRAPPER_ID" "$wrapper_exit" "$SGSD_CODEX_WORKER_OBSERVATION_INTERVAL_SECONDS" <<'NODE'
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 try {
-    const [runtime, project, report, attempt, code] = process.argv.slice(2);
+    const [runtime, project, report, attempt, code, interval] = process.argv.slice(2);
+    const observationIntervalSeconds = Number(interval);
+    if (!Number.isInteger(observationIntervalSeconds) || observationIntervalSeconds < 1) throw new Error('wrapper_observation_interval_invalid');
     const mailbox = require(path.join(path.dirname(runtime), 'mailbox.cjs'));
     const { resolveContainedPath } = require(path.resolve(path.dirname(runtime), '../../scripts/lib/sgsd-state.cjs'));
     const root = mailbox.projectRoot(project), exit = Number(code);
     const records = mailbox.list(root).filter(row => row.wrapper_attempt_id === attempt);
     if (records.length !== 1) throw new Error('wrapper_worker_binding_unavailable');
     const record = records[0];
-    if (exit === 0 && record.status !== 'completed') throw new Error('wrapper_turn_not_completed');
+    // A zero wrapper result is valid only when the *same* wrapper-bound
+    // record retains all layers of the delivery observation.  list() adds an
+    // exact liveness observation for active records, so a dead, unknown, or
+    // identity-mismatched active worker cannot be promoted by a stale pid.
+    const observationFailure = () => {
+        if (record.status !== 'completed') {
+            const liveness = record.liveness_observation?.state;
+            if (['dead', 'identity_mismatch', 'unknown'].includes(liveness)) return `wrapper_liveness_${liveness}`;
+            return 'wrapper_turn_not_completed';
+        }
+        const observation = record.delivery_observation;
+        if (!observation || observation.schema_version !== 1) return 'wrapper_delivery_observation_missing';
+        if (observation.process_outcome?.state !== 'succeeded') return 'wrapper_process_outcome_not_succeeded';
+        if (observation.report_validity?.state !== 'valid') return 'wrapper_report_validity_not_valid';
+        const delivery = observation.observed_delivery;
+        if (!delivery || delivery.state !== 'observed' || delivery.worker_id !== record.worker_id || delivery.instance !== record.instance
+            || delivery.thread_id !== record.thread_id || delivery.turn_id !== record.turn_id
+            || !Number.isSafeInteger(delivery.bytes) || delivery.bytes < 0 || delivery.bytes > 1024 * 1024
+            || typeof delivery.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(delivery.sha256)
+            || typeof delivery.observed_at !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(delivery.observed_at)) {
+            return 'wrapper_observed_delivery_not_exact';
+        }
+        if (!['not_run', 'verified', 'failed'].includes(observation.independent_verification?.state)) {
+            return 'wrapper_independent_verification_unknown';
+        }
+        return null;
+    };
+    const observationFailureReason = exit === 0 ? observationFailure() : null;
+    // A receipt is still diagnostic evidence when the wrapper discovers a
+    // contradiction.  Bind its existing report bytes/hash, but make both its
+    // exit and this process nonzero so callers cannot print a success banner.
+    const receiptExit = observationFailureReason ? 9 : exit;
     const reportPath = path.resolve(report);
     let body = null;
     try {
         if (!fs.statSync(reportPath).isFile() || fs.statSync(reportPath).size > 4 * 1024 * 1024) throw new Error('wrapper_report_unavailable');
         body = fs.readFileSync(reportPath);
-    } catch (error) { if (exit === 0) throw error; }
+    } catch (error) { if (receiptExit === 0) throw error; }
     const receipt = { schema_version: 1, wrapper_attempt_id: attempt, worker_id: record.worker_id,
-        project: root, thread_id: record.thread_id, turn_id: record.turn_id, exit_code: exit,
+        project: root, thread_id: record.thread_id, turn_id: record.turn_id, exit_code: receiptExit,
         report_path: reportPath, sha256: body ? crypto.createHash('sha256').update(body).digest('hex') : null,
-        bytes: body ? body.length : null, finished_at: new Date().toISOString() };
+        observation_interval_seconds: observationIntervalSeconds,
+        bytes: body ? body.length : null, observation_failure: observationFailureReason, finished_at: new Date().toISOString() };
     const file = resolveContainedPath(root, path.join('.planning/worker-sessions', record.worker_id, 'wrapper-result.json'));
     if (!file) throw new Error('wrapper_receipt_escapes_project');
     const temporary = `${file}.${crypto.randomUUID()}.tmp`;
@@ -266,6 +306,10 @@ try {
         // Every attempt has one immutable result. Never replace an existing receipt.
         fs.linkSync(temporary, file);
     } finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); }
+    if (observationFailureReason) {
+        process.stderr.write(`SGSD_WORKER: wrapper delivery observation rejected (${observationFailureReason}); do not infer wrapper success from the core turn\n`);
+        process.exitCode = receiptExit;
+    }
 } catch {
     process.stderr.write('SGSD_WORKER: wrapper receipt unavailable; do not infer wrapper success from the core turn\n');
     process.exitCode = 9;
