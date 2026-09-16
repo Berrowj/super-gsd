@@ -9,7 +9,7 @@ const http = require('node:http');
 const { spawn } = require('node:child_process');
 const DEPENDENCY_FILES = ['server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs',
   'contract.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs', 'boot-identity.cjs', 'workspace-recovery.cjs',
-  'sgsd-ledger-runtime.cjs', 'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs', 'codex-continuous-manager.cjs', 'supervised-coordination.cjs', '../codex-worker/usage.cjs'];
+  'sgsd-ledger-runtime.cjs', 'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs', 'codex-continuous-manager.cjs', 'supervised-coordination.cjs', '../codex-worker/usage.cjs', '../codex-worker/native-process.cjs'];
 function dependencySnapshot() {
   return DEPENDENCY_FILES.map(name => {
     const bytes = fs.readFileSync(path.join(__dirname, name));

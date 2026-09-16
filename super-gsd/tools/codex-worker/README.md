@@ -152,8 +152,12 @@ to registered global project/root evidence; missing data is unknown, not zero.
 Coverage is only this acknowledged worker thread/turn: no home/history scan,
 internal child-thread coverage, or complete provider/billing reconciliation is
 claimed. Cold resume excludes all pre-open history. Non-worker/manual runs keep
-legacy accounting. Windows native rollout capture is not implemented and remains
-OPEN_REQUIRED; Windows launchers do not opt into Linux-only authority.
+legacy accounting. Windows native rollout capture is explicit Root-only relay
+work, not automatic launcher attachment: the supported entrypoint is
+`tools/telemetry-atlas/codex-parent-bridge.cjs`, which records a local typed
+registration for the existing continuous manager. The bridge uses the local
+Win32 process query for executable/creation identity and requires invocation
+from the exact known cwd; it does not inspect or claim the historical census.
 `SGSD_ATLAS_DISABLED=1` prevents attachment and capture. The global installer
 delivers the Atlas dependency closure beside both installed worker layouts.
 

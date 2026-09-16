@@ -6,20 +6,41 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
-const { registerRun, readRun, validNativeBinding, RUN } = require('./global-store.cjs');
+const { registerRun, readRun, writeJson, validNativeBinding, RUN } = require('./global-store.cjs');
 const { safePath, digest } = require('./contract.cjs');
 const { registerCoordination, COORDINATION_ROLES } = require('./supervised-coordination.cjs');
+const { readBootId, readNativeProcess } = require('../codex-worker/native-process.cjs');
 
 const MAX_ROLLOUT_BYTES = 8 * 1024 * 1024;
 const MAX_ROLLOUT_LINES = 256;
-const executableVersion = executable => executable.match(/\/(\d+\.\d+\.\d+)(?:[-/]|$)/)?.[1] || null;
+const NATIVE_PROJECT_ROLES = new Set(['executor', 'orchestrator']);
+const executableVersion = executable => executable.match(/[\\/](\d+\.\d+\.\d+)(?:[-\\/]|$)/)?.[1] || null;
+const WINDOWS_CODEX_LAYOUT = /^(.+\\node_modules\\@openai\\codex)\\node_modules\\@openai\\codex-win32-x64\\vendor\\[^\\]+\\bin\\codex\.exe$/i;
 const fail = reason => { throw new Error(reason); };
 
-function readBootId() {
-  return fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
+function trustedWindowsExecutableVersion(executable, { readFile = fs.readFileSync, lstat = fs.lstatSync } = {}) {
+  const match = typeof executable === 'string' && path.win32.normalize(executable).match(WINDOWS_CODEX_LAYOUT);
+  if (!match) return null;
+  const packageFile = path.win32.join(match[1], 'package.json');
+  let stat, raw, metadata;
+  try {
+    stat = lstat(packageFile);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > 64 * 1024) return null;
+    raw = readFile(packageFile, 'utf8');
+    metadata = JSON.parse(raw);
+  } catch { return null; }
+  return metadata?.name === '@openai/codex' && typeof metadata.version === 'string'
+    && /^\d+\.\d+\.\d+$/.test(metadata.version) ? metadata.version : null;
+}
+function observedExecutableVersion(executable, options) {
+  if (typeof executable === 'string' && WINDOWS_CODEX_LAYOUT.test(path.win32.normalize(executable))) {
+    return trustedWindowsExecutableVersion(executable, options);
+  }
+  return executableVersion(executable);
 }
 
-function readProcess(pid) {
+function readProcess(pid, expectedCwd, options = {}) {
+  if (process.platform === 'win32') return readNativeProcess(pid, expectedCwd, options);
   if (process.platform !== 'linux' || !Number.isSafeInteger(pid) || pid < 1) fail('codex_bridge_process_unverified');
   const base = `/proc/${pid}`;
   let stat;
@@ -80,16 +101,38 @@ function existingBindings(root, binding) {
   return result;
 }
 
-async function registerCurrentCodex({ root, projectDir, pid, expectedStartTime, sessionId, threadId, rolloutPath,
+function cursorSeed(file, stat, observedAt = new Date().toISOString()) {
+  return { schema_version: 1, path: file, dev: stat.dev, ino: stat.ino, offset: stat.size,
+    last_response_id: null, last_event_id: null, observed_at: observedAt, seen_event_ids: [], seen_response_ids: [] };
+}
+function ownerMismatch(stat, getuid = process.getuid) {
+  const currentUid = typeof getuid === 'function' ? getuid() : null;
+  return Number.isSafeInteger(stat?.uid) && Number.isSafeInteger(currentUid) && stat.uid !== currentUid;
+}
+
+function seedWindowsCursor(run, rolloutPath) {
+  if (process.platform !== 'win32') return;
+  const cursorFile = path.join(run.state_dir, 'native-continuous-cursor.json');
+  if (fs.existsSync(cursorFile)) return;
+  const file = path.resolve(rolloutPath); safePath(file);
+  const stat = fs.lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || ownerMismatch(stat)) {
+    fail('codex_bridge_rollout_unavailable');
+  }
+  writeJson(cursorFile, cursorSeed(file, stat));
+}
+
+async function registerCurrentCodex({ root, projectDir, role, pid, expectedStartTime, sessionId, threadId, rolloutPath,
   processLookup = readProcess, rolloutReader = readRolloutMetadata, bootIdLookup = readBootId } = {}) {
   root = path.resolve(root); projectDir = fs.realpathSync(path.resolve(projectDir));
-  const actual = processLookup(pid);
+  if (!NATIVE_PROJECT_ROLES.has(role)) fail('codex_bridge_project_role_invalid');
+  const actual = processLookup(pid, projectDir, { requireInvokerCwd: process.platform === 'win32' });
   if (actual.pid !== pid || actual.start_time !== expectedStartTime || actual.cwd !== projectDir || actual.boot_id !== bootIdLookup()) fail('codex_bridge_identity_mismatch');
   if (actual.environment.SGSD_RUN_ID || actual.environment.SGSD_ATLAS_PROJECT_ID) fail('codex_bridge_process_already_scoped');
   const rollout = await rolloutReader(rolloutPath);
   const meta = rollout.sessionMeta;
   if (!meta || meta.session_id !== sessionId || meta.cwd !== projectDir || meta.model_provider !== 'openai' || meta.source !== 'cli'
-      || !rollout.threadIds.includes(threadId) || threadId !== sessionId || executableVersion(actual.executable) !== meta.cli_version) fail('codex_bridge_rollout_mismatch');
+      || !rollout.threadIds.includes(threadId) || threadId !== sessionId || observedExecutableVersion(actual.executable) !== meta.cli_version) fail('codex_bridge_rollout_mismatch');
   const native_binding = { schema_version: 1, provider: 'openai', accounting_source: 'codex_rollout',
     project_id: digest(projectDir), project_dir: projectDir, session_id: sessionId, thread_id: threadId,
     pid, start_time: actual.start_time, boot_id: actual.boot_id, executable: actual.executable };
@@ -99,7 +142,8 @@ async function registerCurrentCodex({ root, projectDir, pid, expectedStartTime, 
     if (prior.length === 1 && sameBinding(prior[0].native_binding, native_binding)) return { status: 'already_registered', run: prior[0], binding: native_binding };
     fail('codex_bridge_registration_ambiguous');
   }
-  const run = registerRun({ root, projectDir, provider: 'openai', role: 'executor', accountingSource: 'codex_rollout', native_binding });
+  const run = registerRun({ root, projectDir, provider: 'openai', role, accountingSource: 'codex_rollout', native_binding });
+  seedWindowsCursor(run, rolloutPath);
   return { status: 'registered', run, binding: native_binding };
 }
 
@@ -107,13 +151,13 @@ async function registerCurrentCoordination({ root, coordinationDir, role, pid, e
   processLookup = readProcess, rolloutReader = readRolloutMetadata, bootIdLookup = readBootId } = {}) {
   root = path.resolve(root); coordinationDir = fs.realpathSync(path.resolve(coordinationDir));
   if (!COORDINATION_ROLES.has(role)) fail('codex_bridge_coordination_role_invalid');
-  const actual = processLookup(pid);
+  const actual = processLookup(pid, coordinationDir, { requireInvokerCwd: process.platform === 'win32' });
   if (actual.pid !== pid || actual.start_time !== expectedStartTime || actual.cwd !== coordinationDir || actual.boot_id !== bootIdLookup()) fail('codex_bridge_identity_mismatch');
   if (actual.environment.SGSD_RUN_ID || actual.environment.SGSD_ATLAS_PROJECT_ID) fail('codex_bridge_process_already_scoped');
   const rollout = await rolloutReader(rolloutPath), meta = rollout.sessionMeta;
   if (!meta || meta.session_id !== sessionId || meta.cwd !== coordinationDir || meta.model_provider !== 'openai'
       || meta.source !== 'cli' || !rollout.threadIds.includes(threadId) || threadId !== sessionId
-      || executableVersion(actual.executable) !== meta.cli_version) fail('codex_bridge_rollout_mismatch');
+      || observedExecutableVersion(actual.executable) !== meta.cli_version) fail('codex_bridge_rollout_mismatch');
   const result = registerCoordination({ root, coordinationDir, role, pid, startTime: actual.start_time, bootId: actual.boot_id,
     executable: actual.executable, cwd: actual.cwd, sessionId, threadId, rolloutPath });
   return { ...result, binding: result.binding || result.native_binding };
@@ -122,11 +166,12 @@ async function registerCurrentCoordination({ root, coordinationDir, role, pid, e
 function values(argv) {
   const out = {}; const allowed = new Set(['--root', '--project-dir', '--coordination-dir', '--role', '--pid', '--start-time', '--session-id', '--thread-id', '--rollout-file']);
   while (argv.length) { const flag = argv.shift(); if (!allowed.has(flag) || out[flag] !== undefined || !argv.length) fail('codex_bridge_arguments_invalid'); out[flag] = argv.shift(); }
-  const coordination = out['--coordination-dir'] !== undefined || out['--role'] !== undefined;
+  const coordination = out['--coordination-dir'] !== undefined;
   if (coordination ? out['--project-dir'] !== undefined : !out['--project-dir']) fail('codex_bridge_arguments_invalid');
-  if (coordination && !out['--coordination-dir'] || !coordination && out['--role'] !== undefined) fail('codex_bridge_arguments_invalid');
+  if (coordination && !out['--coordination-dir'] || !coordination && !out['--role']) fail('codex_bridge_arguments_invalid');
   for (const flag of ['--pid', '--start-time', '--session-id', '--thread-id', '--rollout-file']) if (!out[flag]) fail('codex_bridge_arguments_invalid');
   if (coordination && !out['--role']) fail('codex_bridge_arguments_invalid');
+  if (out['--role'] && !(coordination ? COORDINATION_ROLES.has(out['--role']) : NATIVE_PROJECT_ROLES.has(out['--role']))) fail('codex_bridge_role_confusion');
   return out;
 }
 
@@ -137,10 +182,11 @@ if (require.main === module) {
     ? registerCurrentCoordination({ root, coordinationDir: args['--coordination-dir'], role: args['--role'], pid: Number(args['--pid']),
       expectedStartTime: args['--start-time'], sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file'] })
     : registerCurrentCodex({ root, projectDir: args['--project-dir'], pid: Number(args['--pid']), expectedStartTime: args['--start-time'],
-      sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file'] });
+      role: args['--role'], sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file'] });
   registration.then(result => process.stdout.write(JSON.stringify(result) + '\n')).catch(error => {
     process.stderr.write(`CODEX_BRIDGE: ${error.message}\n`); process.exitCode = 2;
   });
 }
 
-module.exports = Object.freeze({ registerCurrentCodex, registerCurrentCoordination, readRolloutMetadata });
+module.exports = Object.freeze({ registerCurrentCodex, registerCurrentCoordination, readRolloutMetadata, cursorSeed,
+  trustedWindowsExecutableVersion, observedExecutableVersion, ownerMismatch });

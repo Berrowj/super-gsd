@@ -9,6 +9,7 @@ const { createContinuousCapture } = require('../codex-worker/usage.cjs');
 
 const DEFAULT_POLL_MS = 1000;
 const MAX_RUNS = 1024;
+const NATIVE_PROJECT_ROLES = new Set(['executor', 'orchestrator']);
 
 function validCursor(file) {
   try {
@@ -37,7 +38,8 @@ function candidates(root) {
   for (const entry of entries) {
     if (!entry.isDirectory() || !RUN.test(entry.name)) continue;
     const run = readRun(root, entry.name);
-    if (!run || run.provider !== 'openai' || run.role !== 'executor' || run.accountingSource !== 'codex_rollout' || !run.native_binding) continue;
+    if (!run || run.provider !== 'openai' || !NATIVE_PROJECT_ROLES.has(run.role)
+        || run.accountingSource !== 'codex_rollout' || !run.native_binding) continue;
     const cursorFile = path.join(run.state_dir, 'native-continuous-cursor.json'), cursor = validCursor(cursorFile);
     if (!cursor) continue;
     result.push({ run, cursor, cursorFile });
