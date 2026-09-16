@@ -329,7 +329,10 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
     catch { fail('native_usage_file_changed'); return status(); }
     readBytes += n;
     const chunk = buffer.subarray(0, n), lastNewline = chunk.lastIndexOf(10);
-    if (lastNewline < 0) { gap('native_usage_incomplete_line'); return status(); }
+    // A bounded read may end inside the next JSONL record. Leave the cursor at
+    // the fragment start so the next poll rereads it after the writer appends
+    // its newline; this is resumable input, not an unhealthy capture.
+    if (lastNewline < 0) return status();
     const complete = chunk.subarray(0, lastNewline + 1).toString('utf8');
     let progressed = 0;
     for (const text of complete.split('\n')) {
@@ -339,7 +342,6 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
       progressed += bytes;
     }
     if (progressed) { state.offset += progressed; persist(); }
-    if (lastNewline + 1 < n) gap('native_usage_incomplete_line');
     return status();
   }
   function finalizeSync({ terminalStatus } = {}) {
