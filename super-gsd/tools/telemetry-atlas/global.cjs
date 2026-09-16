@@ -9,7 +9,7 @@ const http = require('node:http');
 const { spawn } = require('node:child_process');
 const DEPENDENCY_FILES = ['server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs',
   'contract.cjs', 'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs', 'boot-identity.cjs', 'workspace-recovery.cjs',
-  'sgsd-ledger-runtime.cjs', 'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs'];
+  'sgsd-ledger-runtime.cjs', 'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs', 'codex-continuous-manager.cjs', '../codex-worker/usage.cjs'];
 function dependencySnapshot() {
   return DEPENDENCY_FILES.map(name => {
     const bytes = fs.readFileSync(path.join(__dirname, name));
@@ -27,6 +27,7 @@ const { createLedgerRuntime } = require('./sgsd-ledger-runtime.cjs');
 const fleet = require('./fleet.cjs');
 const bootIdentity = require('./boot-identity.cjs');
 const workspaceRecovery = require('./workspace-recovery.cjs');
+const { createContinuousManager } = require('./codex-continuous-manager.cjs');
 const PROTOCOL = 1;
 const dependencyAfter = dependencySnapshot();
 const dependencyCoherent = cachedDependencies.length === 0
@@ -254,14 +255,16 @@ async function startGlobal({ root = rootPath(), spoolPollMs = 1000, startupToken
   instanceId ||= crypto.randomUUID();
   transitionChildClaim(root, transitionToken, instanceId);
   const store = storeFactory(root);
-  let instance, collector;
+  let instance, collector, continuous;
   try {
     collector = collectorFactory({ root });
     instance = await serverFactory({ projectDir: root, store, instanceId, runtimeFingerprint: RUNTIME_FINGERPRINT,
       resolveRoute: store.resolveRoute, scopeEvent: store.scopeEvent, spoolSources: store.spoolSources,
       operationalCollector: collector,
       ingestPort: ports.ingest ?? 0, healthPort: ports.health ?? 0, metricsPort: ports.metrics ?? 0, spoolPollMs });
-  } catch (error) { try { await collector?.close(); } catch {} store.close(); throw error; }
+    continuous = createContinuousManager({ root });
+    continuous.start();
+  } catch (error) { try { await continuous?.close(); } catch {} try { await collector?.close(); } catch {} store.close(); throw error; }
   const record = { schema_version: PROTOCOL, mode: 'global', root_id: digest(root), pid: process.pid,
     boot_id: bootIdentity.currentBootId(),
     instance_id: instance.instanceId, started_at: new Date().toISOString(), urls: instance.urls,
@@ -277,17 +280,17 @@ async function startGlobal({ root = rootPath(), spoolPollMs = 1000, startupToken
         replacement_instance_id: record.instance_id, service_ready_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     }
     if (startupToken) releaseStartup(root, startupToken);
-  } catch (error) { try { await collector.close(); } catch {} await instance.close(); store.close(); throw error; }
+  } catch (error) { try { await continuous?.close(); } catch {} try { await collector.close(); } catch {} await instance.close(); store.close(); throw error; }
   let closePromise;
   const close = () => {
     if (closePromise) return closePromise;
     closePromise = (async () => {
-      await collector.close(); await instance.close(); store.close();
+      await continuous.close(); await collector.close(); await instance.close(); store.close();
       try { if (readJson(servicePath(root)).instance_id === record.instance_id) fs.unlinkSync(servicePath(root)); } catch {}
     })();
     return closePromise;
   };
-  return { ...instance, operationalCollector: collector, record, close };
+  return { ...instance, operationalCollector: collector, continuousCapture: continuous, record, close };
 }
 async function ensureService(root, timeoutMs = 2000) {
   requireAttestedRuntime();
