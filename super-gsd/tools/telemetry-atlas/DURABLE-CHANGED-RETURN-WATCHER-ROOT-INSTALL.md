@@ -41,13 +41,13 @@ for an applied receipt. Do not copy identity from an event payload.
   "sources": [
     {"path": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "sha256": "<64-hex-source-registration-hash>", "lane": "pm-delivery"},
     {"path": "/absolute/pm-automation/DURABLE-RETURN-EVENTS.jsonl", "sha256": "<64-hex-source-registration-hash>", "lane": "pm-automation"},
-    {"path": "/absolute/deploy/DURABLE-RETURN-EVENTS.jsonl", "sha256": "<64-hex-source-registration-hash>", "lane": "deploy"}
+    {"path": "/absolute/deploy/DURABLE-RETURN-EVENTS.jsonl", "sha256": "<64-hex-source-registration-hash>", "lane": "deploy"},
+    {"path": "/absolute/root/DURABLE-RETURN-EVENTS.jsonl", "sha256": "<64-hex-source-registration-hash>", "lane": "root"}
   ],
   "producers": [
     {"type": "mailbox", "project": "/absolute/pm-delivery-project", "workerId": "<worker-uuid>", "owner": "pm-delivery", "ownerEpoch": "<owner-epoch>", "lane": "pm-delivery", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "plan": "<existing-plan>", "task": "<existing-task>"},
-    {"type": "ledger", "inputPath": "/absolute/pm-delivery/existing-response-ledger.jsonl", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "lane": "pm-delivery", "sourceOwner": "pm-delivery", "route": "pm_to_root", "owner": "root", "ownerEpoch": "<root-epoch>"},
-    {"type": "ledger", "inputPath": "/absolute/deploy/EVENTS.jsonl", "outputPath": "/absolute/deploy/DURABLE-RETURN-EVENTS.jsonl", "coordinationDir": "/absolute/deploy", "lane": "deploy", "sourceOwner": "deploy", "route": "deploy_to_pm", "owner": "pm-delivery", "ownerEpoch": "<pm-epoch>", "plan": "<existing-plan>", "task": "<existing-task>", "defaultKind": "return"},
-    {"type": "inbox_directory", "inputDir": "/absolute/root/inbox", "outputPath": "/absolute/root/DURABLE-RETURN-EVENTS.jsonl", "lane": "root", "sourceOwner": "root", "route": "root_to_pm", "ownerEpochByOwner": {"pm-delivery": "<pm-delivery-epoch>", "pm-automation": "<pm-automation-epoch>"}, "plan": "<existing-plan>", "task": "<existing-task>"},
+    {"type": "ledger", "inputPath": "/absolute/deploy/EVENTS.jsonl", "outputPath": "/absolute/deploy/DURABLE-RETURN-EVENTS.jsonl", "coordinationDir": "/absolute/deploy", "lane": "deploy", "sourceOwner": "deploy", "route": "deploy_to_pm", "owner": "pm-delivery", "ownerEpoch": "<pm-delivery-epoch>", "ownerEpochByOwner": {"pm-delivery": "<pm-delivery-epoch>", "pm-automation": "<pm-automation-epoch>"}, "plan": "<existing-plan>", "task": "<existing-task>", "defaultKind": "return"},
+    {"type": "inbox_directory", "inputDir": "/absolute/root/inbox", "outputPath": "/absolute/root/DURABLE-RETURN-EVENTS.jsonl", "lane": "root", "owner": "root", "ownerEpoch": "<root-epoch>", "plan": "<existing-plan>", "task": "<existing-task>"},
     {"type": "native_primary", "inputPath": "/absolute/codex/sessions/rollout-<registered>.jsonl", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "lane": "native-harness", "sourceOwner": "native.<registered-thread>", "owner": "pm-delivery", "ownerEpoch": "<pm-epoch>", "plan": "<existing-plan>", "task": "<existing-task>", "primary": true, "identity": {"pid": 1, "start": "<native-start>", "pane_pid": 2, "pane_start": "<pane-start>", "cwd": "/absolute/harness", "runtime": "codex", "session": "<tmux-session>", "pane": "%<digits>", "window": "@<digits>", "thread": "<registered-thread>", "intake_path": "/absolute/harness/NATIVE-INTAKE.jsonl"}}
   ],
   "bindings": [
@@ -75,14 +75,33 @@ poll. `mailbox` producers project existing pending worker questions and
 `wrapper-result.json` returns. `ledger` producers incrementally map existing
 PM response and Deploy ready/result JSONL rows. The actual Deploy shape
 (`at,event,request,repository,accepted_chain,required_services,action,receipt`)
-uses `request` as the stable event ID, `at` as timestamp, and resolves
+uses `request` as the stable request identity, `at` as timestamp, and resolves
 `receipt` below the declared Deploy coordination directory before hashing it;
-`action` is never relayed. The dynamic `inbox_directory` producer discovers
+each transition ID (`event`) is part of the emitted identity, and the
+request prefix selects exactly its requesting PM. `action` is never relayed.
+The dynamic `inbox_directory` producer discovers
 new JSON files under Root `inbox`, accepts either `source_hash` or
 `source_sha256` and `question`/`result` or `question_or_result`, derives only
-bound PM owners, and emits pointer-only `root_to_pm` returns. Malformed or
+bound inbound routes: `pm-delivery`/`pm-automation` become `pm_to_root`, and
+`chat-support` becomes `chat_to_root`. The PM/chat owner remains the source;
+the target is the bound Root epoch, so no self-echo occurs. Malformed or
 unbound files are skipped without blocking valid siblings; durable seen IDs
-prevent replay.
+prevent replay. Root-to-PM is a separate outbound source/route and is not
+produced from the inbound inbox.
+
+The current PM `EVENTS.jsonl` shape is not represented as the ideal typed
+ledger unless its adapter is separately configured. The supported current
+PM-to-Root feed is the genuine Root inbox above; this packet makes no claim
+that arbitrary PM `at/event/result/receipt_sha256` rows are consumed.
+
+At cutover, Root seeds the existing producer state files before the first
+poll: each ledger cursor is the approved device/inode and EOF offset, the
+inbox directory cursor records the bounded discovered set, and `seen` contains
+only event IDs already covered by an accepted/applied receipt. The watcher
+source cursor is seeded at the same approved boundary. This prevents replay of
+historical acknowledged work while retaining exact applied receipts. An
+uncertain or no-retry record is never seeded as applied or silently discarded;
+it remains in the existing durable state for reconciliation.
 
 The `native_primary` producer accepts only a census-registered primary
 rollout whose bounded `session_meta` header has `source=cli`,
@@ -106,7 +125,8 @@ Each source line is a bounded JSON object with exactly these fields:
 `source_owner`, `route` (`native_to_pm` is the registered-primary-to-PM route), `owner`, `owner_epoch`, `source_path`,
 `source_sha256`, `observed_at`, `disposition`, `next_action`,
 `artifact_path`, `artifact_sha256`, and, only for `wake_owner`, a short safe
-`pointer`. Supported routes are `worker_to_pm`, `pm_to_root`, `root_to_pm`,
+`pointer`. Supported routes are `worker_to_pm`, `native_to_pm`, `pm_to_root`,
+`chat_to_root`, `root_to_pm`,
 `pm_to_worker`, `pm_to_deploy`, `deploy_to_pm`, and `deploy_to_root`; each is
 validated against the source/target ownership relationship and exact binding.
 Sources are append-only and must end records with a newline.

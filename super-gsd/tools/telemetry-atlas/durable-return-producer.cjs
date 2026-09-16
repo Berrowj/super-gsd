@@ -19,6 +19,8 @@ const CHUNK = 64 * 1024;
 const digest = value => crypto.createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
 const registrationHash = (file, lane) => digest(`sgsd-durable-source:v1:${path.resolve(file)}:${lane}`);
 const atom = value => typeof value === 'string' && ATOM.test(value) ? value : null;
+const plain = value => value && typeof value === 'object' && !Array.isArray(value)
+  && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 
 function fileHash(file) {
   const info = fs.lstatSync(file); if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) throw new Error('producer_artifact_unreadable');
@@ -120,8 +122,10 @@ function createDurableReturnProducer({ mailbox = null, now = () => new Date().to
     atomic(stateFile, state); return { emitted: emitted.length, event_ids: emitted, output_path: outputPath };
   }
 
-  function projectLedger({ inputPath, outputPath, lane, sourceOwner, route, owner, ownerEpoch, defaultKind = 'return', coordinationDir, plan: defaultPlan, task: defaultTask } = {}) {
-    if (![inputPath, outputPath].every(path.isAbsolute) || !ATOM.test(lane || '') || !ATOM.test(sourceOwner || '') || !ATOM.test(route || '') || !ATOM.test(owner || '') || !ATOM.test(ownerEpoch || '')) throw new Error('producer_ledger_config_invalid');
+  function projectLedger({ inputPath, outputPath, lane, sourceOwner, route, owner, ownerEpoch, ownerEpochByOwner = {}, defaultKind = 'return', coordinationDir, plan: defaultPlan, task: defaultTask } = {}) {
+    const ownerEpochMapValid = plain(ownerEpochByOwner) && Object.keys(ownerEpochByOwner).every(candidate => PMS.has(candidate) && ATOM.test(ownerEpochByOwner[candidate] || ''));
+    if (![inputPath, outputPath].every(path.isAbsolute) || !ATOM.test(lane || '') || !ATOM.test(sourceOwner || '') || !ATOM.test(route || '')
+        || !ATOM.test(owner || '') || (!ATOM.test(ownerEpoch || '') && route !== 'deploy_to_pm') || !ownerEpochMapValid) throw new Error('producer_ledger_config_invalid');
     const info = fs.lstatSync(inputPath); if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) throw new Error('producer_ledger_unreadable');
     const stateFile = `${outputPath}.producer-state.json`, state = loadState(stateFile), key = path.resolve(inputPath), cursor = state.cursors[key] || { dev: info.dev, ino: info.ino, offset: 0 };
     if (cursor.dev !== info.dev || cursor.ino !== info.ino || info.size < cursor.offset) throw new Error('producer_ledger_rewritten');
@@ -136,9 +140,13 @@ function createDurableReturnProducer({ mailbox = null, now = () => new Date().to
         const base = path.resolve(path.isAbsolute(coordinationDir || '') ? coordinationDir : path.dirname(inputPath));
         const receipt = typeof input.receipt === 'string' ? path.resolve(base, input.receipt) : null;
         if (!receipt || (receipt !== base && !receipt.startsWith(`${base}${path.sep}`)) || !fs.existsSync(receipt)) { skipped.push('record_artifact_unavailable'); continue; }
+        const requestOwner = ['pm-delivery', 'pm-automation'].find(candidate => String(input.request).startsWith(`${candidate}-`));
+        const targetOwner = requestOwner || owner, targetEpoch = ownerEpochByOwner[targetOwner] || (targetOwner === owner ? ownerEpoch : null);
+        if (!requestOwner || !PMS.has(targetOwner) || !ATOM.test(targetEpoch || '') || (ownerEpochByOwner[targetOwner] === undefined && targetOwner !== owner)) { skipped.push('record_requester_unbound'); continue; }
         const info = artifact(receipt);
-        row = baseEvent({ eventId: atom(input.request || input.event), kind: defaultKind, lane, plan: atom(defaultPlan || input.plan), task: atom(defaultTask || input.task), sourceOwner, route, owner, ownerEpoch,
-          sourcePath: outputPath, sourceSha, observedAt: input.at, disposition: 'completed', nextAction: 'wake_owner', pointer: `Deploy receipt: ${path.relative(base, receipt)}.`,
+        const transition = atom(input.event); if (!transition) { skipped.push('record_transition_unbound'); continue; }
+        row = baseEvent({ eventId: digest(['deploy-transition-v1', input.request, transition]), kind: defaultKind, lane, plan: atom(defaultPlan || input.plan), task: atom(defaultTask || input.task), sourceOwner, route, owner: targetOwner, ownerEpoch: targetEpoch,
+          sourcePath: outputPath, sourceSha, observedAt: input.at, disposition: 'completed', nextAction: 'wake_owner', pointer: `Deploy transition ${transition}: ${path.relative(base, receipt)}.`,
           artifactPath: info.artifact_path, artifactSha: info.artifact_sha256 });
       } else {
         const kind = input.kind || defaultKind, eventId = atom(input.event_id || input.id), observedAt = input.observed_at || input.at;
@@ -153,24 +161,21 @@ function createDurableReturnProducer({ mailbox = null, now = () => new Date().to
     state.cursors[key] = cursor; atomic(stateFile, state); return { emitted: emitted.length, skipped, output_path: outputPath, input_path: inputPath };
   }
 
-  function projectInbox({ inputPath, outputPath, lane = 'root', sourceOwner = 'root', route = 'root_to_pm', owner, ownerEpoch, ownerEpochByOwner = {}, plan, task } = {}) {
-    if (![inputPath, outputPath].every(path.isAbsolute) || !ATOM.test(lane) || !ATOM.test(sourceOwner)
-        || !ATOM.test(route) || (owner !== undefined && !ATOM.test(owner)) || (!ownerEpoch && !ownerEpochByOwner)
-        || (ownerEpoch !== undefined && !ATOM.test(ownerEpoch)) || !ATOM.test(plan || '') && plan !== undefined || !ATOM.test(task || '') && task !== undefined) {
-      throw new Error('producer_inbox_config_invalid');
-    }
-    const row = readJsonBounded(inputPath);
-    const targetOwner = owner || row.owner, targetEpoch = ownerEpoch || ownerEpochByOwner[targetOwner], targetPlan = plan || row.plan, targetTask = task || row.task;
-    const eventId = atom(row.event_id), observedAt = row.observed_at, sourcePath = row.source_path, sourceSha = row.source_hash || row.source_sha256;
-    if (!eventId || !sourcePath || !path.isAbsolute(sourcePath) || !HEX.test(sourceSha || '') || typeof observedAt !== 'string') {
-      throw new Error('producer_inbox_shape_invalid');
-    }
-    if (!PMS.has(targetOwner || '') || !ATOM.test(targetEpoch || '') || !ATOM.test(targetPlan || '') || !ATOM.test(targetTask || '')
-        || (owner && row.owner && row.owner !== owner)
+  function projectInbox({ inputPath, outputPath, lane = 'root', sourceOwner, route, owner = 'root', ownerEpoch, plan, task } = {}) {
+    if (![inputPath, outputPath].every(path.isAbsolute) || !ATOM.test(lane) || (sourceOwner !== undefined && !ATOM.test(sourceOwner))
+        || (route !== undefined && !ATOM.test(route)) || owner !== 'root' || !ATOM.test(ownerEpoch || '')
+        || (plan !== undefined && !ATOM.test(plan)) || (task !== undefined && !ATOM.test(task))) throw new Error('producer_inbox_config_invalid');
+    const row = readJsonBounded(inputPath), source = PMS.has(row.owner) ? { sourceOwner: row.owner, route: 'pm_to_root' }
+      : row.owner === 'chat-support' ? { sourceOwner: 'chat.chat-support', route: 'chat_to_root' } : null;
+    const targetPlan = plan || row.plan, targetTask = task || row.task, eventId = atom(row.event_id), observedAt = row.observed_at;
+    const sourcePath = row.source_path, sourceSha = row.source_hash || row.source_sha256;
+    if (!source || !eventId || !sourcePath || !path.isAbsolute(sourcePath) || !HEX.test(sourceSha || '') || typeof observedAt !== 'string'
+        || (sourceOwner !== undefined && sourceOwner !== source.sourceOwner) || (route !== undefined && route !== source.route)
+        || !ATOM.test(targetPlan || '') || !ATOM.test(targetTask || '')
         || !['question', 'result', 'question_or_result'].some(key => Object.hasOwn(row, key))) throw new Error('producer_inbox_shape_invalid');
     if (fileHash(sourcePath) !== sourceSha) throw new Error('producer_inbox_artifact_mismatch');
     const stateFile = `${outputPath}.producer-state.json`, state = loadState(stateFile), info = artifact(sourcePath);
-    const event = baseEvent({ eventId, kind: 'return', lane, plan: targetPlan, task: targetTask, sourceOwner, route, owner: targetOwner, ownerEpoch: targetEpoch,
+    const event = baseEvent({ eventId, kind: 'return', lane, plan: targetPlan, task: targetTask, sourceOwner: source.sourceOwner, route: source.route, owner, ownerEpoch,
       sourcePath: outputPath, sourceSha: registrationHash(outputPath, lane), observedAt: new Date(observedAt).toISOString(), disposition: 'completed', nextAction: 'wake_owner',
       pointer: `Root inbox: ${path.basename(inputPath)}.`, artifactPath: info.artifact_path, artifactSha: info.artifact_sha256 });
     if (!event) throw new Error('producer_inbox_contract_invalid');
@@ -178,14 +183,14 @@ function createDurableReturnProducer({ mailbox = null, now = () => new Date().to
     atomic(stateFile, state);
     return { emitted, event_ids: emitted ? [eventId] : [], output_path: outputPath, input_path: inputPath };
   }
-  function projectInboxDirectory({ inputDir, outputPath, lane = 'root', sourceOwner = 'root', route = 'root_to_pm', ownerEpochByOwner = {}, ownerEpoch, plan, task, maxFiles = 1024 } = {}) {
-    if (!path.isAbsolute(inputDir) || !path.isAbsolute(outputPath)) throw new Error('producer_inbox_directory_config_invalid');
+  function projectInboxDirectory({ inputDir, outputPath, lane = 'root', ownerEpoch, plan, task, maxFiles = 1024 } = {}) {
+    if (!path.isAbsolute(inputDir) || !path.isAbsolute(outputPath) || !ATOM.test(ownerEpoch || '') || !ATOM.test(plan || '') || !ATOM.test(task || '')) throw new Error('producer_inbox_directory_config_invalid');
     const stateFile = `${outputPath}.producer-state.json`, entries = fs.readdirSync(inputDir).filter(name => name.endsWith('.json')).sort().slice(0, maxFiles);
     const emitted = [], skipped = [];
     for (const name of entries) {
       const inputPath = path.join(inputDir, name);
       try {
-        const result = projectInbox({ inputPath, outputPath, lane, sourceOwner, route, ownerEpochByOwner, ownerEpoch, plan, task });
+        const result = projectInbox({ inputPath, outputPath, lane, owner: 'root', ownerEpoch, plan, task });
         emitted.push(...(result.event_ids || []));
       } catch (error) { skipped.push({ file: inputPath, reason: error.message }); }
     }

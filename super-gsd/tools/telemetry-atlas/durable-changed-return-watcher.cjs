@@ -15,7 +15,7 @@ const WINDOW = /^@[0-9]+$/;
 const KINDS = new Set(['question', 'return', 'ready']);
 const PMS = new Set(['pm-delivery', 'pm-automation']);
 const TARGET_KINDS = new Set(['managed_worker', 'native_pane']);
-const ROUTES = new Set(['worker_to_pm', 'native_to_pm', 'pm_to_root', 'root_to_pm', 'pm_to_worker', 'pm_to_deploy', 'deploy_to_pm', 'deploy_to_root']);
+const ROUTES = new Set(['worker_to_pm', 'native_to_pm', 'pm_to_root', 'chat_to_root', 'root_to_pm', 'pm_to_worker', 'pm_to_deploy', 'deploy_to_pm', 'deploy_to_root']);
 const DISPOSITIONS = new Set(['executing', 'deferred', 'awaiting_named_dependency', 'genuinely_blocked', 'completed', 'delivered', 'awaiting_ack', 'acknowledged', 'applied']);
 const NEXT_ACTIONS = new Set(['wake_owner', 'await_dependency', 'none']);
 const MAX_LINE = 512 * 1024;
@@ -52,6 +52,7 @@ function validateEvent(event, source) {
   const routeOkay = event.route === 'worker_to_pm' ? event.source_owner.startsWith('worker.') && PMS.has(event.owner)
     : event.route === 'native_to_pm' ? event.source_owner.startsWith('native.') && PMS.has(event.owner)
     : event.route === 'pm_to_root' ? PMS.has(event.source_owner) && event.owner === 'root'
+    : event.route === 'chat_to_root' ? event.source_owner.startsWith('chat.') && event.owner === 'root'
     : event.route === 'root_to_pm' ? event.source_owner === 'root' && PMS.has(event.owner)
     : event.route === 'pm_to_worker' ? PMS.has(event.source_owner) && event.owner === `${event.source_owner}.worker.${event.target_worker_id || ''}`
     : event.route === 'pm_to_deploy' ? PMS.has(event.source_owner) && event.owner === 'deploy'
@@ -94,7 +95,7 @@ function bindingFor(event, bindings) {
   if (binding.epoch !== event.owner_epoch) return { error: 'owner_epoch_mismatch' };
   if (event.route === 'pm_to_worker' && binding.parent_owner !== event.source_owner) return { error: 'worker_owner_mismatch' };
   if (event.route === 'root_to_pm' && !PMS.has(binding.owner)) return { error: 'root_target_not_pm' };
-  if (event.route === 'pm_to_root' && binding.owner !== 'root') return { error: 'pm_target_not_root' };
+  if (['pm_to_root', 'chat_to_root'].includes(event.route) && binding.owner !== 'root') return { error: 'root_target_not_root' };
   return { binding };
 }
 
