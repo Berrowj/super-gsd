@@ -100,6 +100,37 @@ test('ordinary capture drains a multi-chunk backlog, retains a split record and 
   assert.equal(JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8')).last_response_id, 'appended-tail');
 });
 
+test('ordinary capture advances through one newline-free record larger than maxRead within maxLine', t => {
+  const f = fixture(t, JSON.stringify(row('historic')) + '\n'), seed = f.capture({ stateFile: path.join(f.run.state_dir, 'native-continuous-cursor.json') }); seed.close();
+  const large = JSON.stringify({ ...row('oversized'), padding: 'x'.repeat(300 * 1024) });
+  assert.ok(Buffer.byteLength(large) > 256 * 1024 && Buffer.byteLength(large) < 1024 * 1024);
+  append(f, large);
+  let tick, active;
+  const manager = createContinuousManager({ root: path.join(f.temp, 'atlas'), timerSet(fn) { tick = fn; return { unref() {} }; },
+    captureFactory(options) { active = api.createContinuousCapture({ ...options, processLookup: f.processLookup, bootIdLookup: () => boot,
+      runtimeVersion: '0.154.0', queue: event => { f.queue.push(event); return true; } }); return active; } });
+  t.after(() => manager.close()); manager.start(); assert.equal(manager.status().captures, 1);
+  const durableOffset = JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8')).offset;
+  tick(); assert.equal(manager.status().captures, 1); assert.equal(active.status().buffered_bytes, 256 * 1024);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8')).offset, durableOffset);
+  tick(); assert.equal(manager.status().captures, 1); assert.ok(active.status().buffered_bytes > 256 * 1024);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8')).offset, durableOffset);
+  append(f, '\n'); tick();
+  assert.equal(manager.status().captures, 1);
+  assert.deepEqual(f.queue.map(event => event.identity.response_id), ['oversized']);
+  const cursor = JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8'));
+  assert.equal(cursor.last_response_id, 'oversized'); assert.equal(cursor.offset, fs.statSync(f.file).size);
+});
+
+test('ordinary capture fails closed when a newline-free record exceeds maxLine', t => {
+  const f = fixture(t, JSON.stringify(row('historic')) + '\n'), capture = f.capture();
+  append(f, JSON.stringify({ ...row('too-long'), padding: 'x'.repeat(1024 * 1024) }));
+  assert.equal(capture.poll().healthy, true);
+  let stopped;
+  for (let attempt = 0; attempt < 5 && stopped?.healthy !== false; attempt++) stopped = capture.poll();
+  assert.equal(stopped.healthy, false); assert.match(stopped.reasons.join(','), /native_usage_line_limit/);
+});
+
 test('completed malformed ordinary records remain unhealthy and fail closed', t => {
   const f = fixture(t), capture = f.capture();
   append(f, '{"malformed":\n');
