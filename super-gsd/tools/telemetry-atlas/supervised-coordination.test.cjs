@@ -6,10 +6,11 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 const { registerCurrentCoordination } = require('./codex-parent-bridge.cjs');
-const { readRun, readCoordination, validCoordinationBinding } = require('./global-store.cjs');
+const { readRun, readCoordination, validCoordinationBinding, createGlobalStore } = require('./global-store.cjs');
 const { COORDINATION_RUN, coordinationFiles } = require('./supervised-coordination.cjs');
 const { candidates } = require('./codex-continuous-manager.cjs');
 const { processIdentity } = require('./lifecycle.cjs');
+const { createContinuousCapture } = require('../codex-worker/usage.cjs');
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-coordination-'));
@@ -41,7 +42,8 @@ test('registers a typed coordination parent idempotently without a product proje
   assert.deepEqual(readCoordination(f.root, first.run.run_id).native_binding, first.binding);
   assert.equal(readRun(f.root, first.run.run_id), null);
   assert.equal(fs.existsSync(path.join(f.root, 'runs')), false);
-  assert.deepEqual(candidates(f.root), [], 'continuous product capture does not admit coordination storage');
+  const selected = candidates(f.root);
+  assert.equal(selected.length, 1); assert.equal(selected[0].coordination, true);
 });
 
 test('reader keeps coordination storage isolated from product registrations', async t => {
@@ -109,4 +111,46 @@ test('parses the actual Deploy Markdown owner epoch without an assignment artifa
   const authority = coordinationFiles(root, 'deploy');
   assert.equal(authority.epoch, 'deploy-20260915-1789483598');
   assert.equal(authority.assignment, null);
+});
+
+test('projects one coordination parent through the existing manager, spool and isolated ledger', async t => {
+  const f = fixture(t), registered = await registerCurrentCoordination(options(f));
+  const row = { timestamp: '2026-09-16T04:00:00.000Z', type: 'token_usage_record', payload: {
+    thread_id: 'coord-session', turn_id: 'turn-1', session_id: 'coord-session', root_turn_id: 'turn-1', response_id: 'response-1',
+    usage: { input_tokens: 11, cached_input_tokens: 2, cache_write_input_tokens: 0, output_tokens: 3, reasoning_output_tokens: 1, total_tokens: 14 },
+  }};
+  fs.appendFileSync(f.rolloutPath, JSON.stringify(row) + '\n' + JSON.stringify(row) + '\n');
+  let tick;
+  const manager = require('./codex-continuous-manager.cjs').createContinuousManager({ root: f.root,
+    timerSet(fn) { tick = fn; return { unref() {} }; }, captureFactory: captureOptions => createContinuousCapture({ ...captureOptions,
+      processLookup: f.lookup, bootIdLookup: () => f.boot, runtimeVersion: '0.154.0' }) });
+  t.after(() => manager.close());
+  manager.start(); tick();
+  assert.equal(manager.status().captures, 1);
+  const cursor = JSON.parse(fs.readFileSync(path.join(registered.run.state_dir, 'native-continuous-cursor.json')));
+  assert.equal(cursor.path, f.rolloutPath); assert.ok(cursor.offset > registered.run.native_binding.cursor_seed.offset);
+  const store = createGlobalStore(f.root), sources = store.spoolSources();
+  assert.equal(sources.length, 1); assert.equal(sources[0].route.scope, 'supervised_coordination');
+  const spoolFile = path.join(sources[0].directory, fs.readdirSync(sources[0].directory)[0]);
+  const event = JSON.parse(fs.readFileSync(spoolFile, 'utf8'));
+  assert.equal(event.identity.sgsd_run_id, registered.run.run_id); assert.equal(event.scope.association, 'supervised_coordination');
+  assert.equal(store.ingest(event, sources[0].intake).status, 'accepted'); fs.unlinkSync(spoolFile);
+  assert.equal(store.ingest({ ...event }, sources[0].intake).status, 'duplicate');
+  assert.equal(store.resolveRoute(`/runs/${registered.run.run_id}/v1/events`), null);
+  assert.equal(store.resolveRoute(`/coordination-runs/${registered.run.run_id}/v1/events`).scope, 'supervised_coordination');
+  store.close();
+});
+
+test('coordination authority, rollout and process changes fail closed before projection', async t => {
+  const f = fixture(t), registered = await registerCurrentCoordination(options(f));
+  const make = overrides => createContinuousCapture({ root: f.root, runId: registered.run.run_id, rolloutPath: f.rolloutPath,
+    threadId: 'coord-session', sessionId: 'coord-session', stateFile: path.join(registered.run.state_dir, `check-${Math.random()}.json`),
+    processLookup: f.lookup, bootIdLookup: () => f.boot, runtimeVersion: '0.154.0', ...overrides });
+  fs.writeFileSync(path.join(f.coordinationDir, 'ASSIGNMENT.json'), JSON.stringify({ name: 'pm-automation', title: 'PM Automation', session: 'pm-session', index: 9, workers: [] }));
+  assert.match(make({}).status().reasons.join(','), /native_usage_authority_unavailable/);
+  fs.writeFileSync(path.join(f.coordinationDir, 'ASSIGNMENT.json'), JSON.stringify({ name: 'pm-delivery', title: 'PM Delivery', session: 'pm-session', index: 9, workers: [] }));
+  fs.renameSync(f.rolloutPath, f.rolloutPath + '.rotated'); fs.writeFileSync(f.rolloutPath, '');
+  assert.match(make({}).status().reasons.join(','), /native_usage_file_rotated/);
+  fs.unlinkSync(f.rolloutPath); fs.renameSync(f.rolloutPath + '.rotated', f.rolloutPath);
+  assert.match(make({ processLookup: () => null }).status().reasons.join(','), /native_usage_process_identity_changed/);
 });

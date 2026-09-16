@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { readJson, readRun, RUN } = require('./global-store.cjs');
+const { readJson, readRun, readCoordination, RUN } = require('./global-store.cjs');
 const { atom } = require('./accounting.cjs');
 const { safePath } = require('./contract.cjs');
 const { createContinuousCapture } = require('../codex-worker/usage.cjs');
@@ -31,8 +31,8 @@ function candidates(root) {
     entries = fs.readdirSync(path.join(root, 'runs'), { withFileTypes: true });
     if (entries.length > MAX_RUNS) throw new Error('continuous_candidate_scan_limit');
   } catch (error) {
-    if (error.code === 'ENOENT') return result;
-    throw error;
+    if (error.code === 'ENOENT') entries = [];
+    else throw error;
   }
   for (const entry of entries) {
     if (!entry.isDirectory() || !RUN.test(entry.name)) continue;
@@ -41,6 +41,23 @@ function candidates(root) {
     const cursorFile = path.join(run.state_dir, 'native-continuous-cursor.json'), cursor = validCursor(cursorFile);
     if (!cursor) continue;
     result.push({ run, cursor, cursorFile });
+  }
+  let coordinationEntries;
+  try {
+    coordinationEntries = fs.readdirSync(path.join(root, 'coordination-runs'), { withFileTypes: true });
+    if (coordinationEntries.length > MAX_RUNS) throw new Error('continuous_coordination_scan_limit');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    coordinationEntries = [];
+  }
+  for (const entry of coordinationEntries) {
+    if (!entry.isDirectory() || !/^coord-[a-f0-9-]{36}$/.test(entry.name)) continue;
+    const run = readCoordination(root, entry.name);
+    if (!run) continue;
+    const cursorFile = path.join(run.state_dir, 'native-continuous-cursor.json');
+    const exists = fs.existsSync(cursorFile), cursor = exists ? validCursor(cursorFile) : run.native_binding.cursor_seed;
+    if (!cursor) continue;
+    result.push({ run, cursor, cursorFile, coordination: true, initialCursor: exists ? undefined : cursor });
   }
   return result;
 }
@@ -62,12 +79,14 @@ function createContinuousManager({ root, pollMs = DEFAULT_POLL_MS, timerSet = se
     let rows;
     try { rows = candidates(root); scanError = null; }
     catch (error) { scanError = error; onError(error); return; }
-    for (const { run, cursor, cursorFile } of rows) {
+    for (const { run, cursor, cursorFile, coordination, initialCursor } of rows) {
       if (captures.has(run.run_id) || stopped.has(run.run_id)) continue;
       try {
-        const capture = captureFactory({ root, projectDir: run.project_dir, runId: run.run_id,
-          rolloutPath: cursor.path, threadId: run.native_binding.thread_id, sessionId: run.native_binding.session_id,
-          stateFile: cursorFile });
+        const capture = captureFactory(coordination
+          ? { root, projectDir: null, runId: run.run_id, rolloutPath: cursor.path, threadId: run.native_binding.thread_id,
+            sessionId: run.native_binding.session_id, stateFile: cursorFile, initialCursor }
+          : { root, projectDir: run.project_dir, runId: run.run_id, rolloutPath: cursor.path,
+            threadId: run.native_binding.thread_id, sessionId: run.native_binding.session_id, stateFile: cursorFile });
         if (!capture?.poll || !capture?.status || !capture?.close || !capture.status().available) {
           try { capture?.close?.(); } catch {}
           stopped.add(run.run_id); continue;

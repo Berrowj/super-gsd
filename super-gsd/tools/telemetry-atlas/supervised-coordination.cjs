@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { readJson, writeJson } = require('./global-store.cjs');
+const { readJson, readRun, writeJson } = require('./global-store.cjs');
 const { privateDirectory } = require('./quota-sampler.cjs');
 const { safePath, digest } = require('./contract.cjs');
 
@@ -14,6 +14,7 @@ const COORDINATION_ROLES = new Set(['pm-delivery', 'pm-automation', 'deploy']);
 const COORDINATION_NAMES = new Map([['pm-delivery', 'PM Delivery'], ['pm-automation', 'PM Automation'], ['deploy', 'Deploy']]);
 const BOOT_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const NATIVE_ID = /^[A-Za-z0-9._:-]{1,160}$/;
+const MAX_ROLLOUT_BYTES = 512 * 1024 * 1024;
 const fail = reason => { throw new Error(reason); };
 
 function ownedFile(file, limit) {
@@ -54,9 +55,10 @@ function coordinationFiles(directory, role) {
 
 function validCoordinationBinding(value, expected = {}) {
   return value && typeof value === 'object' && !Array.isArray(value)
-    && Object.keys(value).length === 15
+    && Object.keys(value).length === 17
     && Object.keys(value).every(key => ['schema_version', 'scope', 'provider', 'accounting_source', 'coordination_id',
-      'coordination_dir', 'authority_epoch', 'role', 'pid', 'start_time', 'boot_id', 'executable', 'cwd', 'session_id', 'thread_id'].includes(key))
+      'coordination_dir', 'authority_epoch', 'role', 'pid', 'start_time', 'boot_id', 'executable', 'cwd', 'session_id', 'thread_id',
+      'rollout_descriptor', 'cursor_seed'].includes(key))
     && value.schema_version === 1 && value.scope === SCOPE && value.provider === 'openai'
     && value.accounting_source === ACCOUNTING_SOURCE && /^[a-f0-9]{64}$/.test(value.coordination_id || '')
     && NATIVE_ID.test(value.authority_epoch || '')
@@ -68,10 +70,38 @@ function validCoordinationBinding(value, expected = {}) {
     && typeof value.start_time === 'string' && /^\d{1,32}$/.test(value.start_time)
     && BOOT_ID.test(value.boot_id || '') && typeof value.executable === 'string' && path.isAbsolute(value.executable)
     && !/[\x00-\x1f\x7f]/.test(value.executable)
+    && validRolloutDescriptor(value.rollout_descriptor)
+    && validCursorSeed(value.cursor_seed, value.rollout_descriptor)
     && (expected.coordination_id === undefined || value.coordination_id === expected.coordination_id)
     && (expected.coordination_dir === undefined || value.coordination_dir === expected.coordination_dir)
     && (expected.authority_epoch === undefined || value.authority_epoch === expected.authority_epoch)
     && (expected.role === undefined || value.role === expected.role);
+}
+
+function validRolloutDescriptor(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 4
+    && Object.keys(value).every(key => ['schema_version', 'path', 'dev', 'ino'].includes(key)) && value.schema_version === 1
+    && typeof value.path === 'string' && path.isAbsolute(value.path) && !/[\x00-\x1f\x7f]/.test(value.path)
+    && Number.isSafeInteger(value.dev) && value.dev >= 0 && Number.isSafeInteger(value.ino) && value.ino >= 0;
+}
+
+function validCursorSeed(value, descriptor) {
+  return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 9
+    && Object.keys(value).every(key => ['schema_version', 'path', 'dev', 'ino', 'offset', 'last_response_id', 'last_event_id', 'seen_event_ids', 'seen_response_ids'].includes(key))
+    && value.schema_version === 1 && validRolloutDescriptor({ schema_version: 1, path: value.path, dev: value.dev, ino: value.ino })
+    && (!descriptor || value.path === descriptor.path && value.dev === descriptor.dev && value.ino === descriptor.ino)
+    && Number.isSafeInteger(value.offset) && value.offset >= 0 && (value.last_response_id === null || NATIVE_ID.test(value.last_response_id))
+    && (value.last_event_id === null || NATIVE_ID.test(value.last_event_id)) && Array.isArray(value.seen_event_ids)
+    && Array.isArray(value.seen_response_ids) && value.seen_event_ids.every(item => NATIVE_ID.test(item))
+    && value.seen_response_ids.every(item => NATIVE_ID.test(item));
+}
+
+function rolloutDescriptor(file) {
+  file = path.resolve(file); safePath(file);
+  const info = fs.lstatSync(file);
+  if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1 || (process.getuid && info.uid !== process.getuid())
+      || info.size > MAX_ROLLOUT_BYTES) fail('coordination_rollout_invalid');
+  return { schema_version: 1, path: file, dev: info.dev, ino: info.ino };
 }
 
 function sameCoordinationBinding(left, right) {
@@ -89,8 +119,25 @@ function readCoordination(root, runId) {
         || digest(run.coordination_dir) !== run.coordination_id || !validCoordinationBinding(run.native_binding, {
           coordination_id: run.coordination_id, coordination_dir: run.coordination_dir, authority_epoch: run.authority_epoch, role: run.role })
         || coordinationFiles(run.coordination_dir, run.role).epoch !== run.authority_epoch) return null;
-    return Object.freeze({ ...run, state_dir: path.join(root, 'coordination-runs', runId) });
+  return Object.freeze({ ...run, state_dir: path.join(root, 'coordination-runs', runId) });
   } catch { return null; }
+}
+
+function resolveNativeAuthority(root, runId) {
+  const coordination = readCoordination(root, runId);
+  if (coordination) return Object.freeze({ scope: SCOPE, run_id: coordination.run_id, role: coordination.role,
+    provider: coordination.provider, accountingSource: coordination.accountingSource, native_binding: coordination.native_binding,
+    state_dir: coordination.state_dir, source_hash: coordination.coordination_id, coordination_id: coordination.coordination_id,
+    coordination_dir: coordination.coordination_dir, project_id: null, project_dir: null,
+    ledger_dir: path.join(path.resolve(root), 'coordination-ledger', coordination.coordination_id), association: SCOPE });
+  const run = readRun(root, runId);
+  if (run) {
+    return Object.freeze({ scope: 'sgsd_project', run_id: run.run_id, role: run.role, provider: run.provider,
+      accountingSource: run.accountingSource, native_binding: run.native_binding, state_dir: run.state_dir,
+      source_hash: run.project_id, coordination_id: null, coordination_dir: null, project_id: run.project_id,
+      project_dir: run.project_dir, ledger_dir: run.metrics_dir, association: 'launcher_registration' });
+  }
+  return null;
 }
 
 function existingCoordination(root, binding) {
@@ -104,13 +151,18 @@ function existingCoordination(root, binding) {
       && run.native_binding.boot_id === binding.boot_id));
 }
 
-function registerCoordination({ root, coordinationDir, role, provider = 'openai', pid, startTime, bootId, executable, cwd, sessionId, threadId }) {
+function registerCoordination({ root, coordinationDir, role, provider = 'openai', pid, startTime, bootId, executable, cwd, sessionId, threadId, rolloutPath }) {
   if (provider !== 'openai' || !COORDINATION_ROLES.has(role)) fail('invalid_coordination_scope');
   const authority = coordinationFiles(coordinationDir, role);
+  const descriptor = rolloutDescriptor(rolloutPath);
+  const stat = fs.statSync(descriptor.path);
+  const cursor_seed = { schema_version: 1, path: descriptor.path, dev: descriptor.dev, ino: descriptor.ino, offset: stat.size,
+    last_response_id: null, last_event_id: null, seen_event_ids: [], seen_response_ids: [] };
   const coordinationId = digest(authority.directory);
   const native_binding = { schema_version: 1, scope: SCOPE, provider, accounting_source: ACCOUNTING_SOURCE,
     coordination_id: coordinationId, coordination_dir: authority.directory, authority_epoch: authority.epoch, role, pid, start_time: startTime,
-    boot_id: bootId, executable, cwd: cwd || authority.directory, session_id: sessionId, thread_id: threadId };
+    boot_id: bootId, executable, cwd: cwd || authority.directory, session_id: sessionId, thread_id: threadId,
+    rollout_descriptor: descriptor, cursor_seed };
   if (!validCoordinationBinding(native_binding, { coordination_id: coordinationId, coordination_dir: authority.directory,
     authority_epoch: authority.epoch, role })) fail('invalid_coordination_binding');
   const prior = existingCoordination(root, native_binding);
@@ -129,4 +181,5 @@ function registerCoordination({ root, coordinationDir, role, provider = 'openai'
 }
 
 module.exports = Object.freeze({ SCOPE, ACCOUNTING_SOURCE, COORDINATION_RUN, COORDINATION_ROLES,
-  coordinationFiles, validCoordinationBinding, readCoordination, registerCoordination });
+  coordinationFiles, validCoordinationBinding, validRolloutDescriptor, validCursorSeed, rolloutDescriptor,
+  readCoordination, resolveNativeAuthority, registerCoordination });

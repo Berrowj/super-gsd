@@ -16,15 +16,20 @@ function validateNativeEnvelope(event) {
       || !only(event.source, ['kind', 'instance', 'version', 'provenance', 'confidence', 'completeness_reason'])) return 'invalid_native_source';
   const identity = event.identity;
   if (!only(identity, ['sgsd_run_id', 'session_id', 'thread_id', 'turn_id', 'root_turn_id', 'response_id', 'request_id'])
-      || !/^sgsd-[a-f0-9-]{36}$/.test(identity.sgsd_run_id || '') || identity.request_id !== null
+      || !/^(?:sgsd|coord)-[a-f0-9-]{36}$/.test(identity.sgsd_run_id || '') || identity.request_id !== null
       || !['session_id', 'thread_id', 'turn_id', 'root_turn_id', 'response_id'].every(key => atom(identity[key]))
       || event.source_event_id !== identity.response_id) return 'invalid_native_identity';
   if (!only(event.runtime, ['provider', 'model', 'model_provenance', 'response_model', 'model_provider', 'codex_version'])
       || event.runtime.provider !== 'openai' || !atom(event.runtime.model) || !atom(event.runtime.model_provider)
       || event.runtime.model_provenance !== 'thread_configuration' || event.runtime.response_model !== null) return 'invalid_native_runtime';
-  if (!only(event.scope, ['launcher_repo_id', 'role', 'cost_center', 'attribution_method'])
-      || !/^[a-f0-9]{64}$/.test(event.scope.launcher_repo_id || '') || !atom(event.scope.role)
-      || event.scope.role !== event.scope.cost_center || event.scope.attribution_method !== 'launcher_registration') return 'invalid_native_scope';
+  const coordination = /^coord-/.test(identity.sgsd_run_id || '');
+  if (!only(event.scope, ['launcher_repo_id', 'coordination_id', 'association', 'role', 'cost_center', 'attribution_method'])
+      || !atom(event.scope.role) || event.scope.role !== event.scope.cost_center) return 'invalid_native_scope';
+  if (coordination
+      ? (event.scope.launcher_repo_id !== null || !/^[a-f0-9]{64}$/.test(event.scope.coordination_id || '')
+        || event.scope.association !== 'supervised_coordination' || event.scope.attribution_method !== 'supervised_coordination')
+      : (!/^[a-f0-9]{64}$/.test(event.scope.launcher_repo_id || '') || event.scope.coordination_id !== undefined
+        || event.scope.association !== undefined || event.scope.attribution_method !== 'launcher_registration')) return 'invalid_native_scope';
   if (!only(event.usage, TOKENS) || !TOKENS.every(key => count(event.usage[key])
       || (key === 'cache_creation_tokens' && event.usage[key] === null))) return 'invalid_native_usage';
   if (!only(event.execution, ['status', 'success']) || event.execution.status !== 'response_completed'
@@ -35,14 +40,17 @@ function validateNativeEnvelope(event) {
 }
 
 function scopeReason(event, run) {
-  if (!run || event.identity?.sgsd_run_id !== run.run_id || event.scope?.launcher_repo_id !== run.project_id) return 'unregistered_run';
+  const coordination = run?.scope === 'supervised_coordination';
+  if (!run || event.identity?.sgsd_run_id !== run.run_id
+      || (coordination ? event.scope?.coordination_id !== run.coordination_id || event.scope?.association !== 'supervised_coordination'
+        : event.scope?.launcher_repo_id !== run.project_id)) return 'unregistered_run';
   if ((event.runtime?.provider && event.runtime.provider !== run.provider)
       || (event.source?.kind === 'claude_otel' && run.provider !== 'anthropic')
       || (['codex_otel', NATIVE_SOURCE].includes(event.source?.kind) && run.provider !== 'openai')) return 'provider_scope_mismatch';
   const role = event.runtime?.query_source === 'subagent' ? 'subagent' : run.role;
   if (event.scope?.role !== role || event.scope?.cost_center !== run.role
-      || event.scope?.attribution_method !== 'launcher_registration') return 'role_scope_mismatch';
-  if (event.source?.kind === NATIVE_SOURCE && run.accountingSource !== NATIVE_SOURCE) return 'native_accounting_authority_required';
+      || event.scope?.attribution_method !== (coordination ? 'supervised_coordination' : 'launcher_registration')) return 'role_scope_mismatch';
+  if (event.source?.kind === NATIVE_SOURCE && run.accountingSource !== NATIVE_SOURCE && !coordination) return 'native_accounting_authority_required';
   return null;
 }
 function applyAuthority(event, run) {

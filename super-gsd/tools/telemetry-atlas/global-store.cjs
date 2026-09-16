@@ -172,12 +172,14 @@ function createGlobalStore(root) {
   const stores = new Map();
   const spoolIntakes = new WeakMap();
   const gap = reason => { try { appendGap(path.join(root, 'sgsd-atlas-gaps.jsonl'), reason); } catch { /* fail open */ } };
-  let directory = null;
+  const directories = new Map();
+  const authority = runId => require('./supervised-coordination.cjs').resolveNativeAuthority(root, runId);
   function ingest(event, intake) {
     const invalid = validate(event);
     if (invalid) return { status: 'rejected', reason: invalid };
-    const run = readRun(root, event.identity?.sgsd_run_id);
-    if (!run || event.scope?.launcher_repo_id !== run.project_id) {
+    const run = authority(event.identity?.sgsd_run_id);
+    if (!run || (run.scope === 'supervised_coordination'
+      ? event.scope?.coordination_id !== run.coordination_id : event.scope?.launcher_repo_id !== run.project_id)) {
       gap('unregistered_run'); return { status: 'rejected', reason: 'unregistered_run' };
     }
     if (event.source.kind === NATIVE_SOURCE && (!intake || spoolIntakes.get(intake) !== run.run_id)) {
@@ -188,24 +190,29 @@ function createGlobalStore(root) {
     const scoped = applyAuthority(event, run), accounting = classifyAccounting(scoped, run);
     if (accounting.reason) { gap(accounting.reason); return { status: 'rejected', reason: accounting.reason }; }
     try {
-      let store = stores.get(run.project_id);
+      const storeId = run.source_hash;
+      let store = stores.get(storeId);
       if (!store) {
         if (stores.size >= 8) stores.delete(stores.keys().next().value);
-        store = createStore({ metricsDir: run.metrics_dir, maxIndexEntries: 25000, maxBytes: 128 * 1024 * 1024 });
+        store = createStore({ metricsDir: run.ledger_dir, maxIndexEntries: 25000, maxBytes: 128 * 1024 * 1024 });
       }
-      stores.delete(run.project_id); stores.set(run.project_id, store);
+      stores.delete(storeId); stores.set(storeId, store);
       return { ...store.ingest(scoped), accounting };
     } catch { gap('project_storage_unavailable'); return { status: 'rejected', reason: 'storage_unavailable' }; }
   }
   function spoolSources() {
     const result = [];
-    try {
-      if (!directory) directory = fs.opendirSync(path.join(root, 'runs'));
+    for (const [kind, name] of [['project', 'runs'], ['coordination', 'coordination-runs']]) try {
+      let directory = directories.get(kind);
+      if (!directory) { directory = fs.opendirSync(path.join(root, name)); directories.set(kind, directory); }
       for (let i = 0; i < 32; i++) {
         const entry = directory.readSync();
-        if (!entry) { directory.closeSync(); directory = null; break; }
-        if (!entry.isDirectory() || !RUN.test(entry.name)) continue;
-        const run = readRun(root, entry.name);
+        if (!entry) { directory.closeSync(); directories.delete(kind); break; }
+        if (!entry.isDirectory() || (kind === 'project' ? !RUN.test(entry.name) : !/^coord-[a-f0-9-]{36}$/.test(entry.name))) continue;
+        // Project spools include legacy ordinary registrations without native
+        // bindings. Keep that route compatible; coordination spools are
+        // always resolved through the stricter supervised authority.
+        const run = kind === 'project' ? readRun(root, entry.name) : authority(entry.name);
         if (run) {
           // Unserializable, receiver-local authority: the server passes this only
           // after its bounded read of this exact registered private spool route.
@@ -213,18 +220,23 @@ function createGlobalStore(root) {
           result.push({ directory: path.join(run.state_dir, 'quota-spool'), route: run, intake });
         }
       }
-    } catch { if (directory) { try { directory.closeSync(); } catch {} directory = null; } }
+    } catch { const directory = directories.get(kind); if (directory) { try { directory.closeSync(); } catch {} directories.delete(kind); } }
     return result;
   }
   return { ingest, gap, spoolSources, scopeEvent,
     resolveRoute: url => {
-      const match = /^\/runs\/(sgsd-[a-f0-9-]{36})\/v1\/(logs|metrics|events)$/.exec(url);
-      const run = match && readRun(root, match[1]);
-      return run ? { ...run, pathname: `/v1/${match[2]}` } : null;
+      const match = /^\/(runs|coordination-runs)\/((?:sgsd|coord)-[a-f0-9-]{36})\/v1\/(logs|metrics|events)$/.exec(url);
+      if (match && match[1] === 'runs' && !/^sgsd-/.test(match[2])) return null;
+      if (match && match[1] === 'coordination-runs' && !/^coord-/.test(match[2])) return null;
+      // Ordinary HTTP intake predates native authority and must continue to
+      // serve registered legacy runs. Coordination routes remain fail-closed
+      // through the supervised resolver.
+      const run = match && (match[1] === 'runs' ? readRun(root, match[2]) : authority(match[2]));
+      return run ? { ...run, pathname: `/v1/${match[3]}` } : null;
     },
     status: () => ({ healthy: true, coverage: 'partial', partition_id: 'per_project',
       reason: null, degraded_projects: [...stores.values()].filter(store => !store.status().healthy).length }),
-    close: () => { if (directory) directory.closeSync(); directory = null; stores.clear(); },
+    close: () => { for (const directory of directories.values()) directory.closeSync(); directories.clear(); stores.clear(); },
   };
 }
 module.exports = { registerRun, readRun, readCoordination, readJson, writeJson, createGlobalStore, scopeEvent, RUN, RECOVERY,
