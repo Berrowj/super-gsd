@@ -136,8 +136,12 @@ later worker failure/interruption remain eligible, without declaring that worker
 successful. Bounded polling/finalization, file checks, queue/index limits and
 spool failures can leave partial capture. Content-free gaps remain in registered
 global project/root evidence. No observation means unknown, not zero;
-`complete_coverage` stays false. Windows rollout capture is OPEN_REQUIRED and
-does not select this Linux-only authority. `SGSD_ATLAS_DISABLED=1` skips capture.
+`complete_coverage` stays false. Windows rollout capture is an explicit Root-only
+relay using the same typed native authority, private spool, persistent cursor
+and dedup path; it must be invoked locally from the exact registered
+coordination cwd with the real PID, Win32 creation time, rollout path,
+session/thread and role. The historical Windows census is evidence only and
+is never imported as Atlas events. `SGSD_ATLAS_DISABLED=1` skips capture.
 
 An operator prompt for the weekly check:
 
@@ -457,7 +461,8 @@ Rollout must preserve the pre-existing custom DEVCP `~/.local/bin/sg` before its
 first replacement. The legacy global-snapshot script currently refuses its stale
 installer contract; normal `sgsd-update` does not supply a shortcut preimage.
 Do not claim transactional rollback from that script. Windows capture is not
-verified by this Linux workflow.
+verified by this Linux workflow; Root must run the local Windows bridge and
+retain its registration/relay receipt separately.
 
 ## Restoring workspaces after a reboot (170-15)
 

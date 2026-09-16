@@ -9,17 +9,15 @@ const readline = require('node:readline');
 const { registerRun, readRun, validNativeBinding, RUN } = require('./global-store.cjs');
 const { safePath, digest } = require('./contract.cjs');
 const { registerCoordination, COORDINATION_ROLES } = require('./supervised-coordination.cjs');
+const { readBootId, readNativeProcess } = require('../codex-worker/native-process.cjs');
 
 const MAX_ROLLOUT_BYTES = 8 * 1024 * 1024;
 const MAX_ROLLOUT_LINES = 256;
-const executableVersion = executable => executable.match(/\/(\d+\.\d+\.\d+)(?:[-/]|$)/)?.[1] || null;
+const executableVersion = executable => executable.match(/[\\/](\d+\.\d+\.\d+)(?:[-\\/]|$)/)?.[1] || null;
 const fail = reason => { throw new Error(reason); };
 
-function readBootId() {
-  return fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
-}
-
-function readProcess(pid) {
+function readProcess(pid, expectedCwd, options = {}) {
+  if (process.platform === 'win32') return readNativeProcess(pid, expectedCwd, options);
   if (process.platform !== 'linux' || !Number.isSafeInteger(pid) || pid < 1) fail('codex_bridge_process_unverified');
   const base = `/proc/${pid}`;
   let stat;
@@ -83,7 +81,7 @@ function existingBindings(root, binding) {
 async function registerCurrentCodex({ root, projectDir, pid, expectedStartTime, sessionId, threadId, rolloutPath,
   processLookup = readProcess, rolloutReader = readRolloutMetadata, bootIdLookup = readBootId } = {}) {
   root = path.resolve(root); projectDir = fs.realpathSync(path.resolve(projectDir));
-  const actual = processLookup(pid);
+  const actual = processLookup(pid, projectDir, { requireInvokerCwd: process.platform === 'win32' });
   if (actual.pid !== pid || actual.start_time !== expectedStartTime || actual.cwd !== projectDir || actual.boot_id !== bootIdLookup()) fail('codex_bridge_identity_mismatch');
   if (actual.environment.SGSD_RUN_ID || actual.environment.SGSD_ATLAS_PROJECT_ID) fail('codex_bridge_process_already_scoped');
   const rollout = await rolloutReader(rolloutPath);
@@ -107,7 +105,7 @@ async function registerCurrentCoordination({ root, coordinationDir, role, pid, e
   processLookup = readProcess, rolloutReader = readRolloutMetadata, bootIdLookup = readBootId } = {}) {
   root = path.resolve(root); coordinationDir = fs.realpathSync(path.resolve(coordinationDir));
   if (!COORDINATION_ROLES.has(role)) fail('codex_bridge_coordination_role_invalid');
-  const actual = processLookup(pid);
+  const actual = processLookup(pid, coordinationDir, { requireInvokerCwd: process.platform === 'win32' });
   if (actual.pid !== pid || actual.start_time !== expectedStartTime || actual.cwd !== coordinationDir || actual.boot_id !== bootIdLookup()) fail('codex_bridge_identity_mismatch');
   if (actual.environment.SGSD_RUN_ID || actual.environment.SGSD_ATLAS_PROJECT_ID) fail('codex_bridge_process_already_scoped');
   const rollout = await rolloutReader(rolloutPath), meta = rollout.sessionMeta;

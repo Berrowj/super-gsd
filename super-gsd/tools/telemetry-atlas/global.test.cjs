@@ -718,6 +718,7 @@ test('timed-out bootstrap retains ownership until its delayed receiver publishes
     'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs', 'boot-identity.cjs', 'workspace-recovery.cjs', 'sgsd-ledger-runtime.cjs',
     'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs', 'codex-continuous-manager.cjs', 'supervised-coordination.cjs']) delete require.cache[require.resolve(`./${name}`)];
   delete require.cache[require.resolve('../codex-worker/usage.cjs')];
+  delete require.cache[require.resolve('../codex-worker/native-process.cjs')];
   const bootstrap = require('./global.cjs');
   assert.match(bootstrap.RUNTIME_FINGERPRINT, /^[a-f0-9]{64}$/, 'the delayed fixture must begin with an attested runtime closure');
   await assert.rejects(bootstrap.ensureService(f.root, 60), /timeout/);

@@ -6,6 +6,7 @@ const { NATIVE_SOURCE, atom, count } = require('../telemetry-atlas/accounting.cj
 const { readRun, readJson, writeJson } = require('../telemetry-atlas/global-store.cjs');
 const { SCOPE: COORDINATION_SCOPE, resolveNativeAuthority } = require('../telemetry-atlas/supervised-coordination.cjs');
 const { queueEvent } = require('../telemetry-atlas/quota-sampler.cjs');
+const { readBootId, readNativeProcess } = require('./native-process.cjs');
 
 // Codex rust-v0.153.2: protocol TokenUsageRecord/TokenUsage and history RolloutLine.
 // usage is per response; cumulative snapshots and embedded compaction records are not inputs.
@@ -237,14 +238,15 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
       ? registered.native_binding.coordination_dir === registered.coordination_dir
       : typeof projectDir === 'string' && fs.realpathSync(projectDir) === registered.project_dir) && validRun(registered)) run = registered;
     if (!run) throw new Error('native_usage_authority_unavailable');
-    if (process.platform !== 'linux') throw new Error('native_usage_linux_required');
+    if (!['linux', 'win32'].includes(process.platform)) throw new Error('native_usage_platform_unsupported');
     if (!path.isAbsolute(rolloutPath)) throw new Error('native_usage_path_unavailable');
     stateFile ||= path.join(run.state_dir, 'native-continuous-cursor.json');
     const current = checkedPath(rolloutPath);
     if (!validFile(current)) throw new Error('native_usage_path_unavailable');
     const descriptor = run.scope === COORDINATION_SCOPE ? run.native_binding.rollout_descriptor : null;
     if (descriptor && (descriptor.path !== rolloutPath || descriptor.dev !== current.dev || descriptor.ino !== current.ino)) throw new Error('native_usage_file_rotated');
-    const binding = run.native_binding, proc = processLookup(binding.pid);
+    const binding = run.native_binding, proc = processLookup(binding.pid,
+      run.scope === COORDINATION_SCOPE ? binding.cwd : run.project_dir);
     if (!proc || proc.start_time !== binding.start_time || proc.boot_id !== binding.boot_id
         || proc.cwd !== (run.scope === COORDINATION_SCOPE ? binding.cwd : run.project_dir)
         || proc.executable !== binding.executable || proc.boot_id !== bootIdLookup()) {
@@ -298,7 +300,8 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
     return true;
   }
   function identityStillBound() {
-    const binding = run.native_binding, proc = processLookup(binding.pid);
+    const binding = run.native_binding, proc = processLookup(binding.pid,
+      run.scope === COORDINATION_SCOPE ? binding.cwd : run.project_dir);
     return proc && proc.start_time === binding.start_time && proc.boot_id === binding.boot_id
       && proc.cwd === (run.scope === COORDINATION_SCOPE ? binding.cwd : run.project_dir)
       && proc.executable === binding.executable && proc.boot_id === bootIdLookup();
@@ -349,12 +352,4 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
   return Object.freeze({ poll, finalizeSync, close, status });
 }
 
-function readBootId() { return fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); }
-function readNativeProcess(pid) {
-  try {
-    const base = `/proc/${pid}`, stat = fs.readFileSync(`${base}/stat`, 'utf8'), index = stat.lastIndexOf(')');
-    const fields = stat.slice(index + 2).trim().split(/\s+/);
-    return { start_time: fields[19], executable: fs.readlinkSync(`${base}/exe`), cwd: fs.realpathSync(`${base}/cwd`), boot_id: readBootId() };
-  } catch { return null; }
-}
 module.exports = Object.freeze({ projectUsageRecord, createCapture, createContinuousCapture });
