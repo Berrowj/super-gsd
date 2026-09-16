@@ -8,7 +8,7 @@ const { safePath } = require('./contract.cjs');
 const { createContinuousCapture } = require('../codex-worker/usage.cjs');
 
 const DEFAULT_POLL_MS = 1000;
-const MAX_RUNS = 256;
+const MAX_RUNS = 1024;
 
 function validCursor(file) {
   try {
@@ -27,7 +27,13 @@ function validCursor(file) {
 function candidates(root) {
   const result = [];
   let entries;
-  try { entries = fs.readdirSync(path.join(root, 'runs'), { withFileTypes: true }).slice(0, MAX_RUNS); } catch { return result; }
+  try {
+    entries = fs.readdirSync(path.join(root, 'runs'), { withFileTypes: true });
+    if (entries.length > MAX_RUNS) throw new Error('continuous_candidate_scan_limit');
+  } catch (error) {
+    if (error.code === 'ENOENT') return result;
+    throw error;
+  }
   for (const entry of entries) {
     if (!entry.isDirectory() || !RUN.test(entry.name)) continue;
     const run = readRun(root, entry.name);
@@ -44,7 +50,7 @@ function createContinuousManager({ root, pollMs = DEFAULT_POLL_MS, timerSet = se
   root = path.resolve(root);
   const captures = new Map();
   const stopped = new Set();
-  let timer = null, closed = false;
+  let timer = null, closed = false, scanError = null;
   const stop = runId => {
     const capture = captures.get(runId);
     if (!capture) return;
@@ -53,7 +59,10 @@ function createContinuousManager({ root, pollMs = DEFAULT_POLL_MS, timerSet = se
   };
   function refresh() {
     if (closed) return;
-    for (const { run, cursor, cursorFile } of candidates(root)) {
+    let rows;
+    try { rows = candidates(root); scanError = null; }
+    catch (error) { scanError = error; onError(error); return; }
+    for (const { run, cursor, cursorFile } of rows) {
       if (captures.has(run.run_id) || stopped.has(run.run_id)) continue;
       try {
         const capture = captureFactory({ root, projectDir: run.project_dir, runId: run.run_id,
@@ -92,7 +101,8 @@ function createContinuousManager({ root, pollMs = DEFAULT_POLL_MS, timerSet = se
     captures.clear();
     return true;
   }
-  function status() { return { running: !closed && Boolean(timer), captures: captures.size, stopped: stopped.size }; }
+  function status() { return { running: !closed && Boolean(timer), captures: captures.size, stopped: stopped.size,
+    scan_incomplete: Boolean(scanError), scan_error: scanError?.message || null }; }
   return Object.freeze({ start, tick, refresh, close, status });
 }
 

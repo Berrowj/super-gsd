@@ -41,6 +41,17 @@ test('manager never creates a cursor for a registered run without one', t => {
   manager.start(); assert.equal(created, 0); assert.equal(unref, true); assert.equal(fs.existsSync(path.join(f.run.state_dir, 'native-continuous-cursor.json')), false); manager.close();
 });
 
+test('manager scans past irrelevant lexical predecessors and fails explicitly at the resource bound', t => {
+  const f = fixture(t);
+  for (let i = 0; i < 300; i++) fs.mkdirSync(path.join(f.root, 'runs', `irrelevant-${String(i).padStart(3, '0')}`));
+  assert.equal(require('./codex-continuous-manager.cjs').candidates(f.root).length, 1);
+  for (let i = 300; i < 1025; i++) fs.mkdirSync(path.join(f.root, 'runs', `overflow-${String(i).padStart(4, '0')}`));
+  assert.throws(() => require('./codex-continuous-manager.cjs').candidates(f.root), /continuous_candidate_scan_limit/);
+  const errors = [], manager = createContinuousManager({ root: f.root, timerSet() { return { unref() {} }; }, onError: error => errors.push(error) });
+  manager.start(); assert.equal(manager.status().scan_incomplete, true); assert.equal(manager.status().scan_error, 'continuous_candidate_scan_limit');
+  assert.equal(errors.length, 1); manager.close();
+});
+
 test('identity failure stops only that capture and performs no parent action', t => {
   const f = fixture(t), calls = [], errors = [];
   const manager = createContinuousManager({ root: f.root, timerSet(fn) { calls.push(fn); return { unref() {} }; }, onError: error => errors.push(error),
