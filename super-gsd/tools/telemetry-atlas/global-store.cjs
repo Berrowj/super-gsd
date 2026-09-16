@@ -77,7 +77,8 @@ function registerRun({ root, projectDir, provider = 'anthropic', role = 'orchest
   if (!fs.statSync(path.join(projectDir, '.planning')).isDirectory()) throw new Error('not_sgsd_project');
   if (!['anthropic', 'openai'].includes(provider) || !ROLES.has(role)) throw new Error('invalid_run_scope');
   if (native_binding !== undefined && (!validNativeBinding(native_binding, { project_id: digest(projectDir), project_dir: projectDir })
-      || provider !== native_binding.provider || accountingSource !== native_binding.accounting_source || role !== 'executor')) throw new Error('invalid_native_binding');
+      || provider !== native_binding.provider || accountingSource !== native_binding.accounting_source
+      || !['executor', 'orchestrator'].includes(role))) throw new Error('invalid_native_binding');
   privateDirectory(root);
   const projectId = digest(projectDir);
   const lineage = recovery === undefined ? undefined : validateRecovery(root, { project_id: projectId, project_dir: projectDir, provider, role }, recovery);
@@ -114,7 +115,8 @@ function readRegistration(root, runId) {
         || (run.accountingSource !== undefined && (run.accountingSource !== 'codex_rollout' || run.provider !== 'openai'))) return null;
     if (run.recovery !== undefined) recoveryShape(run, run.recovery);
     if (run.native_binding !== undefined && (!validNativeBinding(run.native_binding, { project_id: run.project_id, project_dir: run.project_dir })
-        || run.provider !== run.native_binding.provider || run.accountingSource !== run.native_binding.accounting_source || run.role !== 'executor')) return null;
+        || run.provider !== run.native_binding.provider || run.accountingSource !== run.native_binding.accounting_source
+        || !['executor', 'orchestrator'].includes(run.role))) return null;
     return Object.freeze({ ...run, state_dir: path.join(root, 'runs', runId),
       metrics_dir: path.join(root, 'projects', run.project_id, 'metrics') });
   } catch { return null; }

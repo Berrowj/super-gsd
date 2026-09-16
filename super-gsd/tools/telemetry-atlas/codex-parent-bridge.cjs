@@ -13,6 +13,7 @@ const { readBootId, readNativeProcess } = require('../codex-worker/native-proces
 
 const MAX_ROLLOUT_BYTES = 8 * 1024 * 1024;
 const MAX_ROLLOUT_LINES = 256;
+const NATIVE_PROJECT_ROLES = new Set(['executor', 'orchestrator']);
 const executableVersion = executable => executable.match(/[\\/](\d+\.\d+\.\d+)(?:[-\\/]|$)/)?.[1] || null;
 const fail = reason => { throw new Error(reason); };
 
@@ -95,9 +96,10 @@ function seedWindowsCursor(run, rolloutPath) {
   writeJson(cursorFile, cursorSeed(file, stat));
 }
 
-async function registerCurrentCodex({ root, projectDir, pid, expectedStartTime, sessionId, threadId, rolloutPath,
+async function registerCurrentCodex({ root, projectDir, role, pid, expectedStartTime, sessionId, threadId, rolloutPath,
   processLookup = readProcess, rolloutReader = readRolloutMetadata, bootIdLookup = readBootId } = {}) {
   root = path.resolve(root); projectDir = fs.realpathSync(path.resolve(projectDir));
+  if (!NATIVE_PROJECT_ROLES.has(role)) fail('codex_bridge_project_role_invalid');
   const actual = processLookup(pid, projectDir, { requireInvokerCwd: process.platform === 'win32' });
   if (actual.pid !== pid || actual.start_time !== expectedStartTime || actual.cwd !== projectDir || actual.boot_id !== bootIdLookup()) fail('codex_bridge_identity_mismatch');
   if (actual.environment.SGSD_RUN_ID || actual.environment.SGSD_ATLAS_PROJECT_ID) fail('codex_bridge_process_already_scoped');
@@ -114,7 +116,7 @@ async function registerCurrentCodex({ root, projectDir, pid, expectedStartTime, 
     if (prior.length === 1 && sameBinding(prior[0].native_binding, native_binding)) return { status: 'already_registered', run: prior[0], binding: native_binding };
     fail('codex_bridge_registration_ambiguous');
   }
-  const run = registerRun({ root, projectDir, provider: 'openai', role: 'executor', accountingSource: 'codex_rollout', native_binding });
+  const run = registerRun({ root, projectDir, provider: 'openai', role, accountingSource: 'codex_rollout', native_binding });
   seedWindowsCursor(run, rolloutPath);
   return { status: 'registered', run, binding: native_binding };
 }
@@ -138,11 +140,12 @@ async function registerCurrentCoordination({ root, coordinationDir, role, pid, e
 function values(argv) {
   const out = {}; const allowed = new Set(['--root', '--project-dir', '--coordination-dir', '--role', '--pid', '--start-time', '--session-id', '--thread-id', '--rollout-file']);
   while (argv.length) { const flag = argv.shift(); if (!allowed.has(flag) || out[flag] !== undefined || !argv.length) fail('codex_bridge_arguments_invalid'); out[flag] = argv.shift(); }
-  const coordination = out['--coordination-dir'] !== undefined || out['--role'] !== undefined;
+  const coordination = out['--coordination-dir'] !== undefined;
   if (coordination ? out['--project-dir'] !== undefined : !out['--project-dir']) fail('codex_bridge_arguments_invalid');
-  if (coordination && !out['--coordination-dir'] || !coordination && out['--role'] !== undefined) fail('codex_bridge_arguments_invalid');
+  if (coordination && !out['--coordination-dir'] || !coordination && !out['--role']) fail('codex_bridge_arguments_invalid');
   for (const flag of ['--pid', '--start-time', '--session-id', '--thread-id', '--rollout-file']) if (!out[flag]) fail('codex_bridge_arguments_invalid');
   if (coordination && !out['--role']) fail('codex_bridge_arguments_invalid');
+  if (out['--role'] && !(coordination ? COORDINATION_ROLES.has(out['--role']) : NATIVE_PROJECT_ROLES.has(out['--role']))) fail('codex_bridge_role_confusion');
   return out;
 }
 
@@ -153,7 +156,7 @@ if (require.main === module) {
     ? registerCurrentCoordination({ root, coordinationDir: args['--coordination-dir'], role: args['--role'], pid: Number(args['--pid']),
       expectedStartTime: args['--start-time'], sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file'] })
     : registerCurrentCodex({ root, projectDir: args['--project-dir'], pid: Number(args['--pid']), expectedStartTime: args['--start-time'],
-      sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file'] });
+      role: args['--role'], sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file'] });
   registration.then(result => process.stdout.write(JSON.stringify(result) + '\n')).catch(error => {
     process.stderr.write(`CODEX_BRIDGE: ${error.message}\n`); process.exitCode = 2;
   });

@@ -9,12 +9,12 @@ const { registerRun, writeJson } = require('./global-store.cjs');
 const { createContinuousManager } = require('./codex-continuous-manager.cjs');
 
 const boot = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-function fixture(t, withCursor = true) {
+function fixture(t, withCursor = true, role = 'executor') {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-continuous-manager-'));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const projectDir = path.join(temp, 'project'), rollout = path.join(temp, 'rollout.jsonl');
   fs.mkdirSync(path.join(projectDir, '.planning'), { recursive: true }); fs.writeFileSync(rollout, 'history\n', { mode: 0o600 });
-  const run = registerRun({ root: path.join(temp, 'global'), projectDir, provider: 'openai', role: 'executor', accountingSource: 'codex_rollout',
+  const run = registerRun({ root: path.join(temp, 'global'), projectDir, provider: 'openai', role, accountingSource: 'codex_rollout',
     native_binding: { schema_version: 1, provider: 'openai', accounting_source: 'codex_rollout', project_id: digest(projectDir), project_dir: projectDir,
       session_id: 'session-native', thread_id: 'thread-native', pid: 123, start_time: '456', boot_id: boot, executable: '/codex/0.154.0/bin/codex' } });
   if (withCursor) { const stat = fs.statSync(rollout); writeJson(path.join(run.state_dir, 'native-continuous-cursor.json'),
@@ -39,6 +39,13 @@ test('manager never creates a cursor for a registered run without one', t => {
   const f = fixture(t, false); let created = 0, unref = false;
   const manager = createContinuousManager({ root: f.root, timerSet() { return { unref() { unref = true; } }; }, captureFactory() { created++; } });
   manager.start(); assert.equal(created, 0); assert.equal(unref, true); assert.equal(fs.existsSync(path.join(f.run.state_dir, 'native-continuous-cursor.json')), false); manager.close();
+});
+
+test('manager admits a cursor-backed native orchestrator alongside executor runs', t => {
+  const f = fixture(t, true, 'orchestrator'); let selected;
+  const manager = createContinuousManager({ root: f.root, timerSet() { return { unref() {} }; },
+    captureFactory(options) { selected = options; return { poll() { return { healthy: true }; }, status() { return { available: true }; }, close() {} }; } });
+  manager.start(); assert.equal(selected.runId, f.run.run_id); assert.equal(f.run.role, 'orchestrator'); manager.close();
 });
 
 test('manager scans past irrelevant lexical predecessors and fails explicitly at the resource bound', t => {
