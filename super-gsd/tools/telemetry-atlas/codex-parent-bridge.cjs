@@ -120,18 +120,25 @@ async function registerCurrentCoordination({ root, coordinationDir, role, pid, e
 }
 
 function values(argv) {
-  const out = {}; const allowed = new Set(['--root', '--project-dir', '--pid', '--start-time', '--session-id', '--thread-id', '--rollout-file']);
+  const out = {}; const allowed = new Set(['--root', '--project-dir', '--coordination-dir', '--role', '--pid', '--start-time', '--session-id', '--thread-id', '--rollout-file']);
   while (argv.length) { const flag = argv.shift(); if (!allowed.has(flag) || out[flag] !== undefined || !argv.length) fail('codex_bridge_arguments_invalid'); out[flag] = argv.shift(); }
-  for (const flag of ['--project-dir', '--pid', '--start-time', '--session-id', '--thread-id', '--rollout-file']) if (!out[flag]) fail('codex_bridge_arguments_invalid');
+  const coordination = out['--coordination-dir'] !== undefined || out['--role'] !== undefined;
+  if (coordination ? out['--project-dir'] !== undefined : !out['--project-dir']) fail('codex_bridge_arguments_invalid');
+  if (coordination && !out['--coordination-dir'] || !coordination && out['--role'] !== undefined) fail('codex_bridge_arguments_invalid');
+  for (const flag of ['--pid', '--start-time', '--session-id', '--thread-id', '--rollout-file']) if (!out[flag]) fail('codex_bridge_arguments_invalid');
+  if (coordination && !out['--role']) fail('codex_bridge_arguments_invalid');
   return out;
 }
 
 if (require.main === module) {
   const args = values(process.argv.slice(2));
-  registerCurrentCodex({ root: process.env.SGSD_ATLAS_GLOBAL_ROOT || path.join(require('node:os').homedir(), '.local/state/sgsd/telemetry/global'),
-    projectDir: args['--project-dir'], pid: Number(args['--pid']), expectedStartTime: args['--start-time'],
-    sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file']
-  }).then(result => process.stdout.write(JSON.stringify(result) + '\n')).catch(error => {
+  const root = args['--root'] || process.env.SGSD_ATLAS_GLOBAL_ROOT || path.join(require('node:os').homedir(), '.local/state/sgsd/telemetry/global');
+  const registration = args['--coordination-dir'] !== undefined
+    ? registerCurrentCoordination({ root, coordinationDir: args['--coordination-dir'], role: args['--role'], pid: Number(args['--pid']),
+      expectedStartTime: args['--start-time'], sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file'] })
+    : registerCurrentCodex({ root, projectDir: args['--project-dir'], pid: Number(args['--pid']), expectedStartTime: args['--start-time'],
+      sessionId: args['--session-id'], threadId: args['--thread-id'], rolloutPath: args['--rollout-file'] });
+  registration.then(result => process.stdout.write(JSON.stringify(result) + '\n')).catch(error => {
     process.stderr.write(`CODEX_BRIDGE: ${error.message}\n`); process.exitCode = 2;
   });
 }
