@@ -4,6 +4,7 @@ const path = require('node:path');
 const { validate, canonicalize, appendGap } = require('../telemetry-atlas/contract.cjs');
 const { NATIVE_SOURCE, atom, count } = require('../telemetry-atlas/accounting.cjs');
 const { readRun, readJson, writeJson } = require('../telemetry-atlas/global-store.cjs');
+const { SCOPE: COORDINATION_SCOPE, resolveNativeAuthority } = require('../telemetry-atlas/supervised-coordination.cjs');
 const { queueEvent } = require('../telemetry-atlas/quota-sampler.cjs');
 
 // Codex rust-v0.153.2: protocol TokenUsageRecord/TokenUsage and history RolloutLine.
@@ -18,13 +19,17 @@ function projectUsageRecord(record, context = {}) {
   if (!u || !['input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_output_tokens', 'total_tokens'].every(key => count(u[key]))
       || (Object.hasOwn(u, 'cache_write_input_tokens') && !count(u.cache_write_input_tokens))) return absent('native_usage_invalid_counts');
   const run = context.run;
-  if (!run || run.provider !== 'openai' || run.accountingSource !== NATIVE_SOURCE) return absent('native_usage_authority_unavailable');
+  const coordination = run?.scope === COORDINATION_SCOPE;
+  if (!run || run.provider !== 'openai' || (coordination ? run.accountingSource !== 'supervised_coordination' : run.accountingSource !== NATIVE_SOURCE)) return absent('native_usage_authority_unavailable');
   const event = {
     schema_version: 1, source_event_id: p.response_id, occurred_at: record.timestamp, event_type: 'api_request',
     source: { kind: NATIVE_SOURCE, instance: 'native', provenance: 'provider_reported', confidence: 'exact', completeness_reason: 'http_request_identity_unavailable' },
     identity: { sgsd_run_id: run.run_id, session_id: p.session_id, thread_id: p.thread_id, turn_id: p.turn_id,
       root_turn_id: p.root_turn_id, response_id: p.response_id, request_id: null },
-    scope: { launcher_repo_id: run.project_id, role: run.role, cost_center: run.role, attribution_method: 'launcher_registration' },
+    scope: coordination
+      ? { launcher_repo_id: null, coordination_id: run.coordination_id, association: COORDINATION_SCOPE,
+        role: run.role, cost_center: run.role, attribution_method: COORDINATION_SCOPE }
+      : { launcher_repo_id: run.project_id, role: run.role, cost_center: run.role, attribution_method: 'launcher_registration' },
     runtime: { provider: run.provider, model: typeof context.model === 'string' && /^gpt-[A-Za-z0-9._-]{1,64}$/.test(context.model) ? context.model : 'unknown',
       model_provenance: 'thread_configuration', response_model: null, model_provider: atom(context.modelProvider) ? context.modelProvider : 'unknown',
       codex_version: typeof context.runtimeVersion === 'string' && /^\d+\.\d+\.\d+$/.test(context.runtimeVersion) ? context.runtimeVersion : null },
@@ -79,7 +84,7 @@ function createCapture({ root, projectDir, runId, opened, opening, runtimeVersio
   const gap = reason => {
     if (reasons.has(reason)) return;
     reasons.add(reason);
-    try { if (run && appendGap(path.join(run.metrics_dir, 'sgsd-atlas-gaps.jsonl'), reason)) return; } catch {}
+    try { if (run && appendGap(path.join(run.ledger_dir || run.metrics_dir, 'sgsd-atlas-gaps.jsonl'), reason)) return; } catch {}
     // Registration or project-sink failure must remain independently visible.
     // Never create a root from an unverified environment path.
     try { if (verifiedRoot && sameFile(verifiedRoot, checkedPath(root))) appendGap(path.join(root, 'sgsd-atlas-gaps.jsonl'), reason); } catch {}
@@ -207,7 +212,7 @@ function createCapture({ root, projectDir, runId, opened, opening, runtimeVersio
 // from its byte offset on the next bounded poll.
 function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadId, sessionId, model, modelProvider,
   runtimeVersion, stateFile, limits = {}, processLookup = readNativeProcess, bootIdLookup = readBootId,
-  queue = queueEvent, now = () => new Date().toISOString() } = {}) {
+  queue = queueEvent, now = () => new Date().toISOString(), initialCursor } = {}) {
   const maxRead = bounded(limits.readBytes, 256 * 1024, 1024 * 1024);
   const maxLine = bounded(limits.lineBytes, 1024 * 1024, 4 * 1024 * 1024);
   const maxIds = bounded(limits.ids, 4096, 16384);
@@ -218,24 +223,31 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
   const gap = reason => {
     if (reasons.has(reason)) return;
     reasons.add(reason);
-    try { if (run) appendGap(path.join(run.metrics_dir, 'sgsd-atlas-gaps.jsonl'), reason); } catch {}
+    try { if (run) appendGap(path.join(run.ledger_dir || run.metrics_dir, 'sgsd-atlas-gaps.jsonl'), reason); } catch {}
   };
   const fail = reason => { fatal = true; gap(reason); };
-  const validRun = value => value && value.provider === 'openai' && value.accountingSource === NATIVE_SOURCE
+  const validRun = value => value && value.provider === 'openai'
+    && (value.scope === COORDINATION_SCOPE ? value.accountingSource === 'supervised_coordination' : value.accountingSource === NATIVE_SOURCE)
     && value.native_binding && value.native_binding.thread_id === threadId
-    && value.native_binding.session_id === sessionId && value.native_binding.project_dir === value.project_dir;
+    && value.native_binding.session_id === sessionId
+    && (value.scope === COORDINATION_SCOPE ? value.native_binding.coordination_dir === value.coordination_dir : value.native_binding.project_dir === value.project_dir);
   try {
-    const registered = readRun(root, runId);
-    if (registered && typeof projectDir === 'string' && fs.realpathSync(projectDir) === registered.project_dir && validRun(registered)) run = registered;
+    const registered = resolveNativeAuthority(root, runId);
+    if (registered && (registered.scope === COORDINATION_SCOPE
+      ? registered.native_binding.coordination_dir === registered.coordination_dir
+      : typeof projectDir === 'string' && fs.realpathSync(projectDir) === registered.project_dir) && validRun(registered)) run = registered;
     if (!run) throw new Error('native_usage_authority_unavailable');
     if (process.platform !== 'linux') throw new Error('native_usage_linux_required');
     if (!path.isAbsolute(rolloutPath)) throw new Error('native_usage_path_unavailable');
     stateFile ||= path.join(run.state_dir, 'native-continuous-cursor.json');
     const current = checkedPath(rolloutPath);
     if (!validFile(current)) throw new Error('native_usage_path_unavailable');
+    const descriptor = run.scope === COORDINATION_SCOPE ? run.native_binding.rollout_descriptor : null;
+    if (descriptor && (descriptor.path !== rolloutPath || descriptor.dev !== current.dev || descriptor.ino !== current.ino)) throw new Error('native_usage_file_rotated');
     const binding = run.native_binding, proc = processLookup(binding.pid);
     if (!proc || proc.start_time !== binding.start_time || proc.boot_id !== binding.boot_id
-        || proc.cwd !== run.project_dir || proc.executable !== binding.executable || proc.boot_id !== bootIdLookup()) {
+        || proc.cwd !== (run.scope === COORDINATION_SCOPE ? binding.cwd : run.project_dir)
+        || proc.executable !== binding.executable || proc.boot_id !== bootIdLookup()) {
       throw new Error('native_usage_process_identity_changed');
     }
     const cursorExists = fs.existsSync(stateFile);
@@ -248,7 +260,11 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
       throw new Error('native_usage_cursor_identity_changed');
     }
     if (!state) {
-      state = { schema_version: 1, path: rolloutPath, dev: current.dev, ino: current.ino, offset: current.size,
+      if (run.scope === COORDINATION_SCOPE && (!initialCursor || initialCursor.path !== rolloutPath
+          || initialCursor.dev !== current.dev || initialCursor.ino !== current.ino || initialCursor.offset > current.size)) {
+        throw new Error('native_usage_cursor_unavailable');
+      }
+      state = initialCursor || { schema_version: 1, path: rolloutPath, dev: current.dev, ino: current.ino, offset: current.size,
         last_response_id: null, last_event_id: null, observed_at: now(), seen_event_ids: [], seen_response_ids: [] };
       writeJson(stateFile, state);
     }
@@ -284,7 +300,8 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
   function identityStillBound() {
     const binding = run.native_binding, proc = processLookup(binding.pid);
     return proc && proc.start_time === binding.start_time && proc.boot_id === binding.boot_id
-      && proc.cwd === run.project_dir && proc.executable === binding.executable && proc.boot_id === bootIdLookup();
+      && proc.cwd === (run.scope === COORDINATION_SCOPE ? binding.cwd : run.project_dir)
+      && proc.executable === binding.executable && proc.boot_id === bootIdLookup();
   }
   function poll() {
     if (finalized || fatal || !state) return status();

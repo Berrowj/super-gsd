@@ -115,7 +115,7 @@ async function registerCurrentCoordination({ root, coordinationDir, role, pid, e
       || meta.source !== 'cli' || !rollout.threadIds.includes(threadId) || threadId !== sessionId
       || executableVersion(actual.executable) !== meta.cli_version) fail('codex_bridge_rollout_mismatch');
   const result = registerCoordination({ root, coordinationDir, role, pid, startTime: actual.start_time, bootId: actual.boot_id,
-    executable: actual.executable, cwd: actual.cwd, sessionId, threadId });
+    executable: actual.executable, cwd: actual.cwd, sessionId, threadId, rolloutPath });
   return { ...result, binding: result.binding || result.native_binding };
 }
 
