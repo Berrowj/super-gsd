@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { validate, canonicalize, appendGap } = require('../telemetry-atlas/contract.cjs');
 const { NATIVE_SOURCE, atom, count } = require('../telemetry-atlas/accounting.cjs');
-const { readRun } = require('../telemetry-atlas/global-store.cjs');
+const { readRun, readJson, writeJson } = require('../telemetry-atlas/global-store.cjs');
 const { queueEvent } = require('../telemetry-atlas/quota-sampler.cjs');
 
 // Codex rust-v0.153.2: protocol TokenUsageRecord/TokenUsage and history RolloutLine.
@@ -201,4 +201,143 @@ function createCapture({ root, projectDir, runId, opened, opening, runtimeVersio
   function close() { finalized = true; awaitingFile = false; if (fd !== undefined) { fs.closeSync(fd); fd = undefined; } pendingLine = Buffer.alloc(0); }
   return Object.freeze({ bindTurn, poll, finalizeSync, close, status });
 }
-module.exports = Object.freeze({ projectUsageRecord, createCapture });
+// Capture an already-running native parent from a durable cursor. This is
+// intentionally a projector adapter, not a second telemetry system or poller.
+// The cursor contains no raw rollout bytes; an incomplete final line is reread
+// from its byte offset on the next bounded poll.
+function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadId, sessionId, model, modelProvider,
+  runtimeVersion, stateFile, limits = {}, processLookup = readNativeProcess, bootIdLookup = readBootId,
+  queue = queueEvent, now = () => new Date().toISOString() } = {}) {
+  const maxRead = bounded(limits.readBytes, 256 * 1024, 1024 * 1024);
+  const maxLine = bounded(limits.lineBytes, 1024 * 1024, 4 * 1024 * 1024);
+  const maxIds = bounded(limits.ids, 4096, 16384);
+  const reasons = new Set();
+  if (typeof rolloutPath === 'string' && path.isAbsolute(rolloutPath)) rolloutPath = path.resolve(rolloutPath);
+  let run = null, state = null, fatal = false, finalized = false, terminal = false;
+  let observed = 0, accepted = 0, duplicates = 0, readBytes = 0;
+  const gap = reason => {
+    if (reasons.has(reason)) return;
+    reasons.add(reason);
+    try { if (run) appendGap(path.join(run.metrics_dir, 'sgsd-atlas-gaps.jsonl'), reason); } catch {}
+  };
+  const fail = reason => { fatal = true; gap(reason); };
+  const validRun = value => value && value.provider === 'openai' && value.accountingSource === NATIVE_SOURCE
+    && value.native_binding && value.native_binding.thread_id === threadId
+    && value.native_binding.session_id === sessionId && value.native_binding.project_dir === value.project_dir;
+  try {
+    const registered = readRun(root, runId);
+    if (registered && typeof projectDir === 'string' && fs.realpathSync(projectDir) === registered.project_dir && validRun(registered)) run = registered;
+    if (!run) throw new Error('native_usage_authority_unavailable');
+    if (process.platform !== 'linux') throw new Error('native_usage_linux_required');
+    if (!path.isAbsolute(rolloutPath)) throw new Error('native_usage_path_unavailable');
+    stateFile ||= path.join(run.state_dir, 'native-continuous-cursor.json');
+    const current = checkedPath(rolloutPath);
+    if (!validFile(current)) throw new Error('native_usage_path_unavailable');
+    const binding = run.native_binding, proc = processLookup(binding.pid);
+    if (!proc || proc.start_time !== binding.start_time || proc.boot_id !== binding.boot_id
+        || proc.cwd !== run.project_dir || proc.executable !== binding.executable || proc.boot_id !== bootIdLookup()) {
+      throw new Error('native_usage_process_identity_changed');
+    }
+    const cursorExists = fs.existsSync(stateFile);
+    try { state = readJson(stateFile, 32768); } catch { if (cursorExists) throw new Error('native_usage_cursor_invalid'); }
+    if (state && (state.schema_version !== 1 || state.path !== rolloutPath || state.dev !== current.dev || state.ino !== current.ino
+      || !Number.isSafeInteger(state.offset) || state.offset < 0 || state.offset > current.size
+      || !Array.isArray(state.seen_event_ids) || !Array.isArray(state.seen_response_ids)
+      || state.seen_event_ids.length > maxIds || state.seen_response_ids.length > maxIds
+      || state.seen_event_ids.some(value => !atom(value)) || state.seen_response_ids.some(value => !atom(value)))) {
+      throw new Error('native_usage_cursor_identity_changed');
+    }
+    if (!state) {
+      state = { schema_version: 1, path: rolloutPath, dev: current.dev, ino: current.ino, offset: current.size,
+        last_response_id: null, last_event_id: null, observed_at: now(), seen_event_ids: [], seen_response_ids: [] };
+      writeJson(stateFile, state);
+    }
+  } catch (error) { fail(/^native_usage_[a-z_]+$/.test(error.message) ? error.message : 'native_usage_path_unavailable'); }
+
+  function status() {
+    return { healthy: !fatal && reasons.size === 0, available: Boolean(run && state) && !fatal,
+      terminal_interval: terminal, complete_coverage: false, offset: state?.offset ?? 0,
+      observed_responses: observed, accepted_observations: accepted, duplicate_observations: duplicates,
+      read_bytes: readBytes, last_response_id: state?.last_response_id ?? null, last_event_id: state?.last_event_id ?? null,
+      observed_at: state?.observed_at ?? null, reasons: [...reasons] };
+  }
+  const persist = () => { state.observed_at = now(); writeJson(stateFile, state); };
+  function remember(list, value) { if (!list.includes(value)) list.push(value); while (list.length > maxIds) list.shift(); }
+  function line(text) {
+    if (Buffer.byteLength(text) > maxLine) { gap('native_usage_line_limit'); return true; }
+    let row; try { row = JSON.parse(text); } catch { gap('native_usage_invalid_line'); return true; }
+    if (row?.type !== 'token_usage_record') return true;
+    const payload = row.payload;
+    if (payload?.thread_id !== threadId || payload?.session_id !== sessionId) { gap('native_usage_identity_mismatch'); return true; }
+    const projected = projectUsageRecord(row, { run, threadId, turnId: payload.turn_id, model, modelProvider, runtimeVersion });
+    if (projected.reason) { gap(projected.reason); return true; }
+    if (!projected.event) return true;
+    const event = projected.event, canonical = canonicalize(event);
+    if (state.seen_event_ids.includes(canonical.event_id) && state.seen_response_ids.includes(payload.response_id)) { duplicates++; return true; }
+    observed++;
+    let written = false; try { written = queue(event, run.state_dir); } catch {}
+    if (!written) { gap('native_usage_spool_unavailable'); return false; }
+    accepted++; remember(state.seen_event_ids, canonical.event_id); remember(state.seen_response_ids, payload.response_id);
+    state.last_response_id = payload.response_id; state.last_event_id = canonical.event_id;
+    return true;
+  }
+  function identityStillBound() {
+    const binding = run.native_binding, proc = processLookup(binding.pid);
+    return proc && proc.start_time === binding.start_time && proc.boot_id === binding.boot_id
+      && proc.cwd === run.project_dir && proc.executable === binding.executable && proc.boot_id === bootIdLookup();
+  }
+  function poll() {
+    if (finalized || fatal || !state) return status();
+    if (!identityStillBound()) { fail('native_usage_process_identity_changed'); return status(); }
+    let current; try { current = checkedPath(rolloutPath); } catch { fail('native_usage_file_changed'); return status(); }
+    if (!validFile(current)) { fail('native_usage_file_changed'); return status(); }
+    if (current.dev !== state.dev || current.ino !== state.ino) { fail('native_usage_file_rotated'); return status(); }
+    if (current.size < state.offset) { fail('native_usage_file_truncated'); return status(); }
+    if (current.size === state.offset) return status();
+    const length = Math.min(maxRead, current.size - state.offset), buffer = Buffer.alloc(length);
+    let n;
+    try {
+      const fd = fs.openSync(rolloutPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+      try {
+        const opened = fs.fstatSync(fd);
+        if (!validFile(opened) || !sameFile(opened, current) || opened.size < state.offset) throw new Error('native_usage_file_changed');
+        n = fs.readSync(fd, buffer, 0, length, state.offset);
+        const after = fs.fstatSync(fd), pathAfter = checkedPath(rolloutPath);
+        if (!validFile(after) || !sameFile(after, opened) || !sameFile(pathAfter, opened) || after.size < state.offset + n) throw new Error('native_usage_file_changed');
+      } finally { fs.closeSync(fd); }
+    }
+    catch { fail('native_usage_file_changed'); return status(); }
+    readBytes += n;
+    const chunk = buffer.subarray(0, n), lastNewline = chunk.lastIndexOf(10);
+    if (lastNewline < 0) { gap('native_usage_incomplete_line'); return status(); }
+    const complete = chunk.subarray(0, lastNewline + 1).toString('utf8');
+    let progressed = 0;
+    for (const text of complete.split('\n')) {
+      const bytes = Buffer.byteLength(text) + 1;
+      if (!text) continue;
+      if (!line(text)) break;
+      progressed += bytes;
+    }
+    if (progressed) { state.offset += progressed; persist(); }
+    if (lastNewline + 1 < n) gap('native_usage_incomplete_line');
+    return status();
+  }
+  function finalizeSync({ terminalStatus } = {}) {
+    if (finalized) return status();
+    poll(); terminal = Boolean(terminalStatus); finalized = true;
+    if (terminal) { try { persist(); } catch { gap('native_usage_cursor_unavailable'); } }
+    return status();
+  }
+  function close() { finalized = true; }
+  return Object.freeze({ poll, finalizeSync, close, status });
+}
+
+function readBootId() { return fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); }
+function readNativeProcess(pid) {
+  try {
+    const base = `/proc/${pid}`, stat = fs.readFileSync(`${base}/stat`, 'utf8'), index = stat.lastIndexOf(')');
+    const fields = stat.slice(index + 2).trim().split(/\s+/);
+    return { start_time: fields[19], executable: fs.readlinkSync(`${base}/exe`), cwd: fs.realpathSync(`${base}/cwd`), boot_id: readBootId() };
+  } catch { return null; }
+}
+module.exports = Object.freeze({ projectUsageRecord, createCapture, createContinuousCapture });
