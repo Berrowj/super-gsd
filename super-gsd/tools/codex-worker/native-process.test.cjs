@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeWindowsProcess, uuidFromBoot } = require('./native-process.cjs');
+const { normalizeWindowsProcess, uuidFromBoot, WINDOWS_QUERY, WINDOWS_BOOT_QUERY } = require('./native-process.cjs');
 
 test('normalizes the observed Windows Root process shape without Linux path assumptions', () => {
   const boot = '2026-09-14T21:00:00.0000000Z';
@@ -24,4 +24,14 @@ test('Windows process normalization rejects missing or non-Windows identity fiel
   assert.throws(() => normalizeWindowsProcess({ pid: 35196, start_time: '2026-09-14T21:22:39Z',
     executable: 'C:\\codex.exe', boot_time: '2026-09-14T21:00:00.0000000Z' },
     { pid: 35196, cwd: 'C:\\known' }), /codex_bridge_process_unverified/);
+});
+
+test('PowerShell accepts typed System.DateTime and only sends DMTF strings through compatibility conversion', () => {
+  assert.match(WINDOWS_QUERY, /\$value -is \[DateTime\]/);
+  assert.match(WINDOWS_QUERY, /\$value -is \[DateTimeOffset\]/);
+  assert.match(WINDOWS_QUERY, /\^\\d\{14\}\\\.\\d\{6\}\[\+\-\]\\d\{3\}\$/);
+  assert.match(WINDOWS_QUERY, /Convert-WmiDateTime \$p\.CreationDate/);
+  assert.match(WINDOWS_QUERY, /yyyyMMddHHmmssfffffff/);
+  assert.match(WINDOWS_BOOT_QUERY, /Convert-WmiDateTime \$os\.LastBootUpTime/);
+  assert.match(WINDOWS_BOOT_QUERY, /yyyy-MM-dd/);
 });

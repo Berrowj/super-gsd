@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { registerCurrentCodex, cursorSeed } = require('./codex-parent-bridge.cjs');
+const { registerCurrentCodex, cursorSeed, trustedWindowsExecutableVersion, observedExecutableVersion } = require('./codex-parent-bridge.cjs');
 const { readRun, registerRun, writeJson } = require('./global-store.cjs');
 const { digest } = require('./contract.cjs');
 const { createContinuousManager } = require('./codex-continuous-manager.cjs');
@@ -103,4 +103,26 @@ test('requires explicit ordinary roles and rejects coordination/project role con
     '--role', 'pm-delivery', '--pid', '12001', '--start-time', '987654', '--session-id', 'session-123', '--thread-id', 'session-123',
     '--rollout-file', f.rolloutPath], { encoding: 'utf8' });
   assert.equal(bad.status, 1); assert.match(bad.stderr, /codex_bridge_role_confusion/);
+});
+
+test('derives the actual deep Windows Codex executable version from its bounded package evidence', () => {
+  const executable = 'C:\\Users\\jack.berrow\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe';
+  const packageFile = 'C:\\Users\\jack.berrow\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\package.json';
+  const lstat = file => { assert.equal(file, packageFile); return { isFile: () => true, isSymbolicLink: () => false, nlink: 1, size: 112 }; };
+  const readFile = (file, encoding) => { assert.equal(file, packageFile); assert.equal(encoding, 'utf8'); return JSON.stringify({ name: '@openai/codex', version: '0.154.0' }); };
+  assert.equal(trustedWindowsExecutableVersion(executable, { lstat, readFile }), '0.154.0');
+  assert.equal(trustedWindowsExecutableVersion(executable.replace('codex.exe', 'other.exe'), { lstat, readFile }), null);
+  assert.equal(trustedWindowsExecutableVersion(executable, { lstat: () => ({ isFile: () => true, isSymbolicLink: () => true, nlink: 1, size: 112 }), readFile }), null);
+  assert.equal(trustedWindowsExecutableVersion(executable, { lstat, readFile: () => JSON.stringify({ name: '@openai/codex', version: '0.155.0' }) }), '0.155.0');
+  assert.equal(trustedWindowsExecutableVersion(executable, { lstat, readFile: () => JSON.stringify({ name: '@openai/codex-win32-x64', version: '0.154.0' }) }), null);
+  const numericPrefix = executable.replace('Users\\jack.berrow', 'Users\\123.456.789');
+  assert.equal(observedExecutableVersion(numericPrefix, { lstat: () => { throw new Error('package_missing'); }, readFile }), null);
+});
+
+test('Windows cursor ownership compares only comparable runtime values', () => {
+  const { ownerMismatch } = require('./codex-parent-bridge.cjs');
+  assert.equal(ownerMismatch({ uid: 0 }, null), false);
+  assert.equal(ownerMismatch({ uid: 0 }, () => undefined), false);
+  assert.equal(ownerMismatch({ uid: 0 }, () => 0), false);
+  assert.equal(ownerMismatch({ uid: 0 }, () => 1000), true);
 });

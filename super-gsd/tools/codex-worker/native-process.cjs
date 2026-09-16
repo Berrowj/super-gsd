@@ -10,19 +10,21 @@ const { execFileSync } = require('node:child_process');
 
 const WINDOWS_QUERY = [
   "$ErrorActionPreference = 'Stop'",
+  'function Convert-WmiDateTime([object] $value) { if ($value -is [DateTime]) { return $value.ToUniversalTime() }; if ($value -is [DateTimeOffset]) { return $value.UtcDateTime }; if ($value -is [string] -and $value -match \'^\\d{14}\\.\\d{6}[+-]\\d{3}$\') { return [Management.ManagementDateTimeConverter]::ToDateTime($value).ToUniversalTime() }; throw \'unsupported_wmi_datetime\' }',
   '$targetPid = [int]$env:SGSD_NATIVE_PID',
   '$p = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $targetPid)',
   '$os = Get-CimInstance Win32_OperatingSystem',
   'if ($null -eq $p -or $null -eq $os -or [string]::IsNullOrWhiteSpace($p.ExecutablePath)) { exit 3 }',
-  '$created = [Management.ManagementDateTimeConverter]::ToDateTime($p.CreationDate).ToUniversalTime().ToString("yyyyMMddHHmmssfffffff")',
-  '$boot = [Management.ManagementDateTimeConverter]::ToDateTime($os.LastBootUpTime).ToUniversalTime().ToString("o")',
+  '$created = (Convert-WmiDateTime $p.CreationDate).ToString("yyyyMMddHHmmssfffffff", [Globalization.CultureInfo]::InvariantCulture)',
+  '$boot = (Convert-WmiDateTime $os.LastBootUpTime).ToString("yyyy-MM-dd\'T\'HH:mm:ss.fffffff\'Z\'", [Globalization.CultureInfo]::InvariantCulture)',
   '[pscustomobject]@{ pid = [int]$p.ProcessId; start_time = $created; executable = $p.ExecutablePath; boot_time = $boot } | ConvertTo-Json -Compress',
 ].join('; ');
 const WINDOWS_BOOT_QUERY = [
   "$ErrorActionPreference = 'Stop'",
+  'function Convert-WmiDateTime([object] $value) { if ($value -is [DateTime]) { return $value.ToUniversalTime() }; if ($value -is [DateTimeOffset]) { return $value.UtcDateTime }; if ($value -is [string] -and $value -match \'^\\d{14}\\.\\d{6}[+-]\\d{3}$\') { return [Management.ManagementDateTimeConverter]::ToDateTime($value).ToUniversalTime() }; throw \'unsupported_wmi_datetime\' }',
   '$os = Get-CimInstance Win32_OperatingSystem',
   'if ($null -eq $os) { exit 3 }',
-  '[Management.ManagementDateTimeConverter]::ToDateTime($os.LastBootUpTime).ToUniversalTime().ToString("o")',
+  '(Convert-WmiDateTime $os.LastBootUpTime).ToString("yyyy-MM-dd\'T\'HH:mm:ss.fffffff\'Z\'", [Globalization.CultureInfo]::InvariantCulture)',
 ].join('; ');
 
 function fail(reason) { throw new Error(reason); }
@@ -82,4 +84,5 @@ function readNativeProcess(pid, expectedCwd, options = {}) {
     return { start_time: fields[19], executable: fs.readlinkSync(`${base}/exe`), cwd: fs.realpathSync(`${base}/cwd`), boot_id: readBootId() };
   } catch { return null; }
 }
-module.exports = Object.freeze({ normalizeWindowsProcess, readWindowsBootId, readWindowsProcess, readBootId, readNativeProcess, uuidFromBoot });
+module.exports = Object.freeze({ normalizeWindowsProcess, readWindowsBootId, readWindowsProcess, readBootId, readNativeProcess, uuidFromBoot,
+  WINDOWS_QUERY, WINDOWS_BOOT_QUERY });
