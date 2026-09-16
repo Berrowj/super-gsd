@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { audit } = require('./audit.cjs');
+const { audit, coverageCensus } = require('./audit.cjs');
 const { registerRun, createGlobalStore, scopeEvent } = require('./global-store.cjs');
 const { canonicalize } = require('./contract.cjs');
 const { createLedgerRuntime, capturePaths } = require('./sgsd-ledger-runtime.cjs');
@@ -35,6 +35,50 @@ test('empty registration is unavailable, never complete or zero-as-pass', async 
   assert.equal(result.complete_coverage, false);
   assert.equal(result.projects[0].runs[0].coverage, 'unavailable');
   assert.deepEqual(snapshot(f.root), before);
+});
+
+test('bounded coverage census separates observed Linux sources from unknown Root API usage', t => {
+  const f = fixture(t);
+  let result = coverageCensus({ root: f.root });
+  assert.equal(result.status, 'INCOMPLETE');
+  assert.equal(result.complete_coverage, false);
+  assert.equal(result.runs.registered, 1);
+  assert.equal(result.runs.roles.orchestrator, 1);
+  assert.equal(result.api_usage.root_api.status, 'unknown');
+  assert.equal(result.api_usage.root_api.api_events, null);
+  assert.equal(result.api_usage.windows_native.status, 'unknown');
+  assert.ok(result.gaps.includes('root_api_usage_unknown'));
+
+  assert.equal(f.store.ingest(event(f.run)).status, 'accepted');
+  result = coverageCensus({ root: f.root });
+  assert.equal(result.events.rows, 1);
+  assert.equal(result.api_usage.codex_otel.status, 'observed');
+  assert.equal(result.api_usage.codex_otel.api_events, 1);
+  assert.equal(result.api_usage.root_api.status, 'unknown');
+});
+
+test('coverage enumeration caps retain partial counts without classifying the cap as ledger corruption', t => {
+  const f = fixture(t), otherProject = path.join(path.dirname(f.root), 'other-project');
+  fs.mkdirSync(path.join(otherProject, '.planning'), { recursive: true });
+  const otherRun = registerRun({ root: f.root, projectDir: otherProject, provider: 'openai' });
+  assert.equal(f.store.ingest(event(f.run, 'req-cap-a')).status, 'accepted');
+  assert.equal(f.store.ingest(event(otherRun, 'req-cap-b')).status, 'accepted');
+
+  const runCapped = coverageCensus({ root: f.root, limits: { runs: 1, projects: 1024, rows: 250000 } });
+  assert.equal(runCapped.runs.registered, 1);
+  assert.equal(runCapped.events.limited, true);
+  assert.equal(runCapped.events.malformed_files, 0);
+  assert.ok(runCapped.gaps.includes('coverage_scan_limited'));
+
+  const projectCapped = coverageCensus({ root: f.root, limits: { runs: 1024, projects: 1, rows: 250000 } });
+  assert.equal(projectCapped.runs.registered, 2);
+  assert.equal(projectCapped.events.limited, true);
+  assert.equal(projectCapped.events.malformed_files, 0);
+
+  const rowCapped = coverageCensus({ root: f.root, limits: { runs: 1024, projects: 1024, rows: 1 } });
+  assert.equal(rowCapped.events.rows, 1);
+  assert.equal(rowCapped.events.limited, true);
+  assert.equal(rowCapped.events.malformed_files, 0);
 });
 test('canonical corruption and duplicates fail a read-only audit', async t => {
   const f = fixture(t); f.store.ingest(event(f.run));

@@ -15,6 +15,106 @@ function names(directory, max = 10000) {
   finally { stream.closeSync(); }
   return entries;
 }
+
+function boundedNames(directory, max) {
+  safePath(path.join(directory, '.atlas-read-check'));
+  if (!fs.existsSync(directory)) return { entries: [], limited: false };
+  const entries = []; let limited = false; const stream = fs.opendirSync(directory);
+  try {
+    let entry;
+    while ((entry = stream.readSync())) {
+      if (entries.length >= max) { limited = true; break; }
+      entries.push(entry);
+    }
+  } finally { stream.closeSync(); }
+  return { entries, limited };
+}
+
+const COVERAGE_LIMITS = Object.freeze({ runs: 10000, projects: 1024, rows: 250000 });
+const increment = (map, key) => { const name = typeof key === 'string' && key ? key : 'unknown'; map[name] = (map[name] || 0) + 1; };
+
+/**
+ * Read-only, bounded census for operator status checks. It counts observed
+ * metadata from existing ledgers, not spend, and never infers Root/Windows
+ * API usage from a Linux collector that cannot see that runtime.
+ */
+function coverageCensus({ root = rootPath(), now = Date.now(), limits = {} } = {}) {
+  root = path.resolve(root);
+  const maxRuns = Number.isInteger(limits.runs) && limits.runs > 0 ? Math.min(limits.runs, COVERAGE_LIMITS.runs) : COVERAGE_LIMITS.runs;
+  const maxProjects = Number.isInteger(limits.projects) && limits.projects > 0 ? Math.min(limits.projects, COVERAGE_LIMITS.projects) : COVERAGE_LIMITS.projects;
+  const maxRows = Number.isInteger(limits.rows) && limits.rows > 0 ? Math.min(limits.rows, COVERAGE_LIMITS.rows) : COVERAGE_LIMITS.rows;
+  const result = {
+    schema_version: 1, generated_at: new Date(now).toISOString(), status: 'INCOMPLETE',
+    complete_coverage: false, limits: { runs: maxRuns, projects: maxProjects, rows: maxRows },
+    runs: { registered: 0, with_events: 0, roles: {}, providers: {}, accounting_sources: {} },
+    events: { rows: 0, malformed_files: 0, limited: false, types: {}, source_kinds: {}, roles: {} },
+    api_usage: {
+      claude_otel: { status: 'unavailable', api_events: 0 },
+      codex_rollout: { status: 'unavailable', api_events: 0 },
+      codex_otel: { status: 'unavailable', api_events: 0 },
+      root_api: { status: 'unknown', api_events: null, tokens: null,
+        reason: 'windows_root_codex_api_not_visible_to_linux_collector' },
+      windows_native: { status: 'unknown', reason: 'supported_windows_usage_receipt_not_present_in_linux_root' },
+    },
+    gaps: ['root_api_usage_unknown', 'windows_native_usage_unknown'],
+  };
+  const runById = new Map();
+  const runListing = boundedNames(path.join(root, 'runs'), maxRuns);
+  result.events.limited ||= runListing.limited;
+  for (const entry of runListing.entries) {
+    if (!entry.isDirectory() || !RUN.test(entry.name)) continue;
+    let run;
+    try { run = readRun(root, entry.name); } catch { run = null; }
+    if (!run) continue;
+    result.runs.registered++;
+    increment(result.runs.roles, run.role);
+    increment(result.runs.providers, run.provider);
+    increment(result.runs.accounting_sources, run.accountingSource || 'legacy');
+    runById.set(run.run_id, { events: 0 });
+  }
+  let projectCount = 0;
+  try {
+    const projectListing = boundedNames(path.join(root, 'projects'), maxProjects);
+    result.events.limited ||= projectListing.limited;
+    for (const entry of projectListing.entries) {
+      if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
+      projectCount++;
+      const evidence = path.join(root, 'projects', entry.name, 'metrics');
+      const fileListing = boundedNames(evidence, 512);
+      result.events.limited ||= fileListing.limited;
+      for (const file of fileListing.entries.filter(item => /^sgsd-atlas-events-.*\.jsonl$/.test(item.name))) {
+        if (!file.isFile()) continue;
+        const parsed = scan(path.join(evidence, file.name), row => {
+          if (result.events.rows >= maxRows) throw Object.assign(new Error('coverage_limit'), { code: 'INDEX_LIMIT' });
+          result.events.rows++;
+          if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+          const source = row.source?.kind || 'unknown';
+          increment(result.events.types, row.event_type);
+          increment(result.events.source_kinds, source);
+          increment(result.events.roles, row.scope?.role);
+          const run = runById.get(row.identity?.sgsd_run_id);
+          if (run) run.events++;
+          if (row.event_type === 'api_request' && result.api_usage[source]) result.api_usage[source].api_events++;
+        });
+        if (parsed.corrupt || parsed.malformed_tail) result.events.malformed_files++;
+      }
+    }
+  } catch (error) {
+    if (error.code === 'INDEX_LIMIT') result.events.limited = true;
+    else result.events.malformed_files++;
+  }
+  result.runs.with_events = [...runById.values()].filter(run => run.events > 0).length;
+  const native = result.api_usage.codex_rollout.api_events;
+  const codexMetadata = result.events.source_kinds.codex_otel || 0;
+  result.api_usage.codex_rollout.status = native ? 'observed' : 'unavailable';
+  result.api_usage.claude_otel.status = result.api_usage.claude_otel.api_events ? 'observed' : 'unavailable';
+  result.api_usage.codex_otel.status = result.api_usage.codex_otel.api_events ? 'observed'
+    : codexMetadata ? 'coverage_only' : 'unavailable';
+  if (result.events.limited) result.gaps.push('coverage_scan_limited');
+  if (result.events.malformed_files) result.gaps.push('malformed_ledger_rows');
+  return result;
+}
+
 async function audit({ root = rootPath(), now = Date.now() } = {}) {
   root = path.resolve(root);
   const result = { schema_version: 1, generated_at: new Date(now).toISOString(), root,
@@ -171,9 +271,15 @@ async function audit({ root = rootPath(), now = Date.now() } = {}) {
 }
 if (require.main === module) {
   const index = process.argv.indexOf('--root');
-  audit({ root: index < 0 ? rootPath() : process.argv[index + 1] }).then(result => {
-    process.stdout.write(JSON.stringify(result, null, process.argv.includes('--json') ? 0 : 2) + '\n');
-    process.exitCode = result.status === 'FAIL' ? 1 : result.status === 'WARN' ? 10 : 0;
-  }).catch(() => { process.stdout.write('{"status":"FAIL","reason":"audit_unavailable"}\n'); process.exitCode = 1; });
+  if (process.argv.includes('--coverage-only')) {
+    try {
+      const result = coverageCensus({ root: index < 0 ? rootPath() : process.argv[index + 1] });
+      process.stdout.write(JSON.stringify(result, null, process.argv.includes('--json') ? 0 : 2) + '\n');
+      process.exitCode = 10;
+    } catch { process.stdout.write('{"status":"FAIL","reason":"coverage_unavailable"}\n'); process.exitCode = 1; }
+  } else audit({ root: index < 0 ? rootPath() : process.argv[index + 1] }).then(result => {
+      process.stdout.write(JSON.stringify(result, null, process.argv.includes('--json') ? 0 : 2) + '\n');
+      process.exitCode = result.status === 'FAIL' ? 1 : result.status === 'WARN' ? 10 : 0;
+    }).catch(() => { process.stdout.write('{"status":"FAIL","reason":"audit_unavailable"}\n'); process.exitCode = 1; });
 }
-module.exports = { audit };
+module.exports = { audit, coverageCensus };
