@@ -221,6 +221,7 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
   if (typeof rolloutPath === 'string' && path.isAbsolute(rolloutPath)) rolloutPath = path.resolve(rolloutPath);
   let run = null, state = null, fatal = false, finalized = false, terminal = false;
   let observed = 0, accepted = 0, duplicates = 0, readBytes = 0;
+  let readOffset = 0, pendingLine = Buffer.alloc(0), pendingComplete = false;
   const gap = reason => {
     if (reasons.has(reason)) return;
     reasons.add(reason);
@@ -270,13 +271,14 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
         last_response_id: null, last_event_id: null, observed_at: now(), seen_event_ids: [], seen_response_ids: [] };
       writeJson(stateFile, state);
     }
+    readOffset = state.offset;
   } catch (error) { fail(/^native_usage_[a-z_]+$/.test(error.message) ? error.message : 'native_usage_path_unavailable'); }
 
   function status() {
     return { healthy: !fatal && reasons.size === 0, available: Boolean(run && state) && !fatal,
       terminal_interval: terminal, complete_coverage: false, offset: state?.offset ?? 0,
       observed_responses: observed, accepted_observations: accepted, duplicate_observations: duplicates,
-      read_bytes: readBytes, last_response_id: state?.last_response_id ?? null, last_event_id: state?.last_event_id ?? null,
+      read_bytes: readBytes, buffered_bytes: pendingLine.length, last_response_id: state?.last_response_id ?? null, last_event_id: state?.last_event_id ?? null,
       observed_at: state?.observed_at ?? null, reasons: [...reasons] };
   }
   const persist = () => { state.observed_at = now(); writeJson(stateFile, state); };
@@ -312,34 +314,43 @@ function createContinuousCapture({ root, projectDir, runId, rolloutPath, threadI
     let current; try { current = checkedPath(rolloutPath); } catch { fail('native_usage_file_changed'); return status(); }
     if (!validFile(current)) { fail('native_usage_file_changed'); return status(); }
     if (current.dev !== state.dev || current.ino !== state.ino) { fail('native_usage_file_rotated'); return status(); }
-    if (current.size < state.offset) { fail('native_usage_file_truncated'); return status(); }
-    if (current.size === state.offset) return status();
-    const length = Math.min(maxRead, current.size - state.offset), buffer = Buffer.alloc(length);
+    if (current.size < state.offset || current.size < readOffset) { fail('native_usage_file_truncated'); return status(); }
+    let progressed = 0;
+    if (pendingComplete) {
+      if (!line(pendingLine.toString('utf8'))) return status();
+      progressed += pendingLine.length + 1; pendingLine = Buffer.alloc(0); pendingComplete = false;
+    }
+    if (current.size === readOffset) {
+      if (progressed) { state.offset += progressed; persist(); }
+      return status();
+    }
+    const readStart = readOffset, length = Math.min(maxRead, current.size - readStart), buffer = Buffer.alloc(length);
     let n;
     try {
       const fd = fs.openSync(rolloutPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
       try {
         const opened = fs.fstatSync(fd);
-        if (!validFile(opened) || !sameFile(opened, current) || opened.size < state.offset) throw new Error('native_usage_file_changed');
-        n = fs.readSync(fd, buffer, 0, length, state.offset);
+        if (!validFile(opened) || !sameFile(opened, current) || opened.size < readStart) throw new Error('native_usage_file_changed');
+        n = fs.readSync(fd, buffer, 0, length, readStart);
         const after = fs.fstatSync(fd), pathAfter = checkedPath(rolloutPath);
-        if (!validFile(after) || !sameFile(after, opened) || !sameFile(pathAfter, opened) || after.size < state.offset + n) throw new Error('native_usage_file_changed');
+        if (!validFile(after) || !sameFile(after, opened) || !sameFile(pathAfter, opened) || after.size < readStart + n) throw new Error('native_usage_file_changed');
       } finally { fs.closeSync(fd); }
     }
     catch { fail('native_usage_file_changed'); return status(); }
     readBytes += n;
-    const chunk = buffer.subarray(0, n), lastNewline = chunk.lastIndexOf(10);
-    if (lastNewline < 0) { gap('native_usage_incomplete_line'); return status(); }
-    const complete = chunk.subarray(0, lastNewline + 1).toString('utf8');
-    let progressed = 0;
-    for (const text of complete.split('\n')) {
-      const bytes = Buffer.byteLength(text) + 1;
-      if (!text) continue;
-      if (!line(text)) break;
-      progressed += bytes;
+    const chunk = buffer.subarray(0, n);
+    let consumed = 0;
+    while (consumed < n && !fatal) {
+      const newline = chunk.indexOf(10, consumed), end = newline < 0 ? n : newline;
+      const part = chunk.subarray(consumed, end);
+      if (pendingLine.length + part.length > maxLine) { fail('native_usage_line_limit'); break; }
+      if (part.length) pendingLine = Buffer.concat([pendingLine, part]);
+      if (newline < 0) { consumed = n; break; }
+      if (!line(pendingLine.toString('utf8'))) { pendingComplete = true; consumed = newline + 1; break; }
+      progressed += pendingLine.length + 1; pendingLine = Buffer.alloc(0); consumed = newline + 1;
     }
+    readOffset = readStart + consumed;
     if (progressed) { state.offset += progressed; persist(); }
-    if (lastNewline + 1 < n) gap('native_usage_incomplete_line');
     return status();
   }
   function finalizeSync({ terminalStatus } = {}) {

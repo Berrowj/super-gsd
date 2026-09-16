@@ -7,6 +7,7 @@ const path = require('node:path');
 const { digest } = require('../../tools/telemetry-atlas/contract.cjs');
 const { registerRun } = require('../../tools/telemetry-atlas/global-store.cjs');
 const api = require('../../tools/codex-worker/usage.cjs');
+const { createContinuousManager } = require('../../tools/telemetry-atlas/codex-continuous-manager.cjs');
 
 const boot = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 function row(response = 'resp-1', turn = 'turn-1', thread = 'thread-native') {
@@ -32,7 +33,7 @@ function fixture(t, initial = '') {
   const capture = options => api.createContinuousCapture({ root, projectDir, runId: run.run_id, rolloutPath: file,
     threadId: 'thread-native', sessionId: 'session-native', runtimeVersion: '0.154.0', stateFile: path.join(run.state_dir, 'cursor.json'),
     processLookup, bootIdLookup: () => boot, queue: (event) => { queue.push(event); return true; }, ...options });
-  return { temp, file, run, queue, capture };
+  return { temp, file, run, queue, capture, processLookup };
 }
 const append = (f, value) => fs.appendFileSync(f.file, typeof value === 'string' ? value : JSON.stringify(value) + '\n');
 
@@ -47,14 +48,95 @@ test('continuous capture persists an EOF boundary, resumes from cursor, and dedu
   assert.equal(cursor.last_response_id, 'two'); assert.equal(cursor.last_event_id.length, 64);
 });
 
-test('continuous capture retains incomplete lines and classifies rotation and truncation', t => {
+test('continuous capture resumes incomplete lines without becoming unhealthy and classifies rotation and truncation', t => {
   const f = fixture(t), capture = f.capture(); append(f, JSON.stringify(row('partial')).slice(0, 20));
-  capture.poll(); assert.match(readGaps(f), /native_usage_incomplete_line/); assert.equal(f.queue.length, 0);
+  const partial = capture.poll(); assert.equal(partial.healthy, true); assert.equal(partial.reasons.length, 0); assert.equal(f.queue.length, 0);
   fs.appendFileSync(f.file, JSON.stringify(row('partial')).slice(20) + '\n'); capture.poll(); assert.equal(f.queue.length, 1);
   fs.renameSync(f.file, f.file + '.old'); fs.writeFileSync(f.file, JSON.stringify(row('replacement')) + '\n');
   assert.match(capture.poll().reasons.join(','), /native_usage_file_rotated/);
   const truncated = fixture(t, JSON.stringify(row('old')) + '\n'), second = truncated.capture();
   fs.truncateSync(truncated.file, 0); assert.match(second.poll().reasons.join(','), /native_usage_file_truncated/);
+});
+
+test('ordinary capture drains a multi-chunk backlog, retains a split record and resumes an appended tail through the manager', t => {
+  const f = fixture(t, JSON.stringify(row('historic')) + '\n'), seed = f.capture({ stateFile: path.join(f.run.state_dir, 'native-continuous-cursor.json') }); seed.close();
+  const chunkSize = 256 * 1024, split = JSON.stringify(row('split-boundary'));
+  let prefix = '', prefixRows = 0;
+  for (let index = 0; Buffer.byteLength(prefix) + Buffer.byteLength(split) < chunkSize - 32; index++) {
+    prefix += JSON.stringify(row(`backlog-${index}`)) + '\n';
+    prefixRows++;
+  }
+  const splitAt = chunkSize - Buffer.byteLength(prefix) - 8;
+  assert.ok(splitAt > 0 && splitAt < Buffer.byteLength(split));
+  const firstChunk = prefix + split.slice(0, splitAt);
+  const middle = split.slice(splitAt) + '\n' + [row('after-split-1'), row('after-split-2')]
+    .map(value => JSON.stringify(value) + '\n').join('');
+  const tail = JSON.stringify(row('appended-tail'));
+  append(f, firstChunk + middle + tail.slice(0, 19));
+  assert.ok(Buffer.byteLength(firstChunk + middle + tail.slice(0, 19)) > chunkSize);
+  let tick;
+  const manager = createContinuousManager({ root: path.join(f.temp, 'atlas'), timerSet(fn) { tick = fn; return { unref() {} }; },
+    captureFactory(options) { return api.createContinuousCapture({ ...options, processLookup: f.processLookup, bootIdLookup: () => boot,
+      runtimeVersion: '0.154.0', queue: event => { f.queue.push(event); return true; } }); } });
+  t.after(() => manager.close()); manager.start(); assert.equal(manager.status().captures, 1);
+  tick();
+  assert.equal(manager.status().captures, 1);
+  let cursor = JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8'));
+  assert.equal(cursor.offset < fs.statSync(f.file).size, true);
+  assert.equal(f.queue.some(event => event.identity.response_id === 'split-boundary'), false);
+  tick();
+  assert.equal(manager.status().captures, 1);
+  cursor = JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8'));
+  assert.equal(cursor.last_response_id, 'after-split-2');
+  assert.equal(cursor.offset < fs.statSync(f.file).size, true);
+  assert.equal(f.queue.some(event => event.identity.response_id === 'split-boundary'), true);
+  append(f, tail.slice(19) + '\n'); tick();
+  assert.equal(manager.status().captures, 1);
+  const ids = f.queue.map(event => event.identity.response_id);
+  assert.deepEqual(ids, Array.from({ length: prefixRows }, (_, index) => `backlog-${index}`)
+    .concat(['split-boundary', 'after-split-1', 'after-split-2', 'appended-tail']));
+  assert.equal(ids.filter(value => value === 'appended-tail').length, 1);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8')).last_response_id, 'appended-tail');
+});
+
+test('ordinary capture advances through one newline-free record larger than maxRead within maxLine', t => {
+  const f = fixture(t, JSON.stringify(row('historic')) + '\n'), seed = f.capture({ stateFile: path.join(f.run.state_dir, 'native-continuous-cursor.json') }); seed.close();
+  const large = JSON.stringify({ ...row('oversized'), padding: 'x'.repeat(300 * 1024) });
+  assert.ok(Buffer.byteLength(large) > 256 * 1024 && Buffer.byteLength(large) < 1024 * 1024);
+  append(f, large);
+  let tick, active;
+  const manager = createContinuousManager({ root: path.join(f.temp, 'atlas'), timerSet(fn) { tick = fn; return { unref() {} }; },
+    captureFactory(options) { active = api.createContinuousCapture({ ...options, processLookup: f.processLookup, bootIdLookup: () => boot,
+      runtimeVersion: '0.154.0', queue: event => { f.queue.push(event); return true; } }); return active; } });
+  t.after(() => manager.close()); manager.start(); assert.equal(manager.status().captures, 1);
+  const durableOffset = JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8')).offset;
+  tick(); assert.equal(manager.status().captures, 1); assert.equal(active.status().buffered_bytes, 256 * 1024);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8')).offset, durableOffset);
+  tick(); assert.equal(manager.status().captures, 1); assert.ok(active.status().buffered_bytes > 256 * 1024);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8')).offset, durableOffset);
+  append(f, '\n'); tick();
+  assert.equal(manager.status().captures, 1);
+  assert.deepEqual(f.queue.map(event => event.identity.response_id), ['oversized']);
+  const cursor = JSON.parse(fs.readFileSync(path.join(f.run.state_dir, 'native-continuous-cursor.json'), 'utf8'));
+  assert.equal(cursor.last_response_id, 'oversized'); assert.equal(cursor.offset, fs.statSync(f.file).size);
+});
+
+test('ordinary capture fails closed when a newline-free record exceeds maxLine', t => {
+  const f = fixture(t, JSON.stringify(row('historic')) + '\n'), capture = f.capture();
+  append(f, JSON.stringify({ ...row('too-long'), padding: 'x'.repeat(1024 * 1024) }));
+  assert.equal(capture.poll().healthy, true);
+  let stopped;
+  for (let attempt = 0; attempt < 5 && stopped?.healthy !== false; attempt++) stopped = capture.poll();
+  assert.equal(stopped.healthy, false); assert.match(stopped.reasons.join(','), /native_usage_line_limit/);
+});
+
+test('completed malformed ordinary records remain unhealthy and fail closed', t => {
+  const f = fixture(t), capture = f.capture();
+  append(f, '{"malformed":\n');
+  const status = capture.poll();
+  assert.equal(status.healthy, false);
+  assert.match(status.reasons.join(','), /native_usage_invalid_line/);
 });
 
 test('continuous capture retries spool delivery, fences process identity, and finalizes terminal interval', t => {
