@@ -160,7 +160,7 @@ function validReceipt(value, projectId) {
 }
 
 function scanReceipts(file, projectId, limits, onReceipt) {
-  const result = { corrupt: false, raced: false, limited: false, physical: 0 };
+  const result = { corrupt: false, raced: false, limited: false, physical: 0, physicalBySource: new Map() };
   if (!fs.existsSync(file)) return result;
   const before = fs.lstatSync(file, { bigint: true });
   if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n
@@ -185,6 +185,8 @@ function scanReceipts(file, projectId, limits, onReceipt) {
     }
     for (const receipt of batch.receipts) {
       result.physical++;
+      if (HEX.test(receipt?.source_path_sha256 || ''))
+        result.physicalBySource.set(receipt.source_path_sha256, (result.physicalBySource.get(receipt.source_path_sha256) || 0) + 1);
       if (!validReceipt(receipt, projectId)) result.corrupt = true;
       else onReceipt(receipt);
     }
@@ -326,11 +328,9 @@ function canonicalEvents(paths, projectId, limits) {
 
 function reconcileReceipts(state, receipts, scanned, stateRaced) {
   if (!state) return { status: receipts.size ? (stateRaced ? 'incomplete' : 'mismatch') : 'unavailable', durable_records: null,
-    unique_receipts: receipts.size };
-  const bySource = new Map();
-  for (const receipt of receipts.values())
-    bySource.set(receipt.source_path_sha256, (bySource.get(receipt.source_path_sha256) || 0) + 1);
-  let missing = state.counters.records > receipts.size, ahead = receipts.size > state.counters.records;
+    physical_receipt_rows: scanned.physical, unique_receipts: receipts.size };
+  const bySource = new Map(scanned.physicalBySource);
+  let missing = state.counters.records > scanned.physical, ahead = scanned.physical > state.counters.records;
   for (const source of Object.values(state.sources || {})) {
     const observed = bySource.get(source.source_path_sha256) || 0;
     missing ||= source.counters.records > observed;
@@ -342,7 +342,9 @@ function reconcileReceipts(state, receipts, scanned, stateRaced) {
   const stable = !stateRaced && !scanned.corrupt && !scanned.raced && !scanned.limited;
   const status = !stable ? 'incomplete' : missing || (ahead && !pending) ? 'mismatch'
     : ahead ? 'pending_commit' : 'matched';
-  return { status, durable_records: state.counters.records, unique_receipts: receipts.size };
+  const physicalSourceCounts = Object.fromEntries(scanned.physicalBySource);
+  return { status, durable_records: state.counters.records, physical_receipt_rows: scanned.physical,
+    physical_source_counts: physicalSourceCounts, unique_receipts: receipts.size };
 }
 
 function verifyCanonical(receipts, canonical, root, projectId) {
@@ -513,8 +515,12 @@ function projectReport(root, registered, options, findings) {
       const compatibleDisposition = dispositions.size === 1
         || (dispositions.size === 2 && dispositions.has('duplicate')
           && (dispositions.has('accepted') || dispositions.has('conflict')));
-      const normalizedPrior = { ...prior, disposition: compatibleDisposition ? 'stored' : prior.disposition };
-      const normalizedReceipt = { ...receipt, disposition: compatibleDisposition ? 'stored' : receipt.disposition };
+      const comparable = value => {
+        const { observed_at, ...immutable } = value;
+        return { ...immutable, disposition: compatibleDisposition ? 'stored' : value.disposition };
+      };
+      const normalizedPrior = comparable(prior);
+      const normalizedReceipt = comparable(receipt);
       if (!compatibleDisposition || digest(normalizedPrior) !== digest(normalizedReceipt)) replayConflict = true;
       return;
     }

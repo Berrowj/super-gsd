@@ -123,6 +123,16 @@ function writeReceipts(f, items, repeat = false) {
   fs.writeFileSync(f.receipts, repeat ? line + line : line);
 }
 
+function writeReceiptBatches(f, items) {
+  const lines = [];
+  for (let start = 0; start < items.length; start += 32) {
+    const receipts = items.slice(start, start + 32);
+    lines.push(JSON.stringify({ schema_version: 1, batch_id: digest(receipts.map(item => item.receipt_id)),
+      project_id: f.projectId, committed_at: '2026-09-10T11:59:01.000Z', receipts }));
+  }
+  fs.writeFileSync(f.receipts, `${lines.join('\n')}\n`);
+}
+
 function writeCanonical(f, items, occurredAt = null) {
   const rows = items.filter(item => ['accepted', 'duplicate'].includes(item.disposition)).map(item => canonicalize({
     schema_version: 1,
@@ -151,13 +161,13 @@ test('report is content-free, occurrence-counted and explicit about idle, proven
   const genericPath = '.planning/metrics/private-canary.jsonl';
   const workerPath = '.planning/metrics/worker-events.jsonl';
   writeState(f, [
-    sourceState(f, gatePath, 'gate_value', { counters: { accepted: 1, duplicate: 1, conflict: 0, rejected: 0, excluded: 0, gaps: 0, records: 1, bytes_read: 60 } }),
-    sourceState(f, mudaPath, 'muda', { counters: { accepted: 3, duplicate: 0, conflict: 0, rejected: 0, excluded: 1, gaps: 0, records: 4, bytes_read: 120 } }),
+    sourceState(f, gatePath, 'gate_value', { counters: { accepted: 1, duplicate: 1, conflict: 0, rejected: 0, excluded: 0, gaps: 0, records: 2, bytes_read: 60 } }),
+    sourceState(f, mudaPath, 'muda', { counters: { accepted: 3, duplicate: 0, conflict: 0, rejected: 0, excluded: 1, gaps: 0, records: 8, bytes_read: 120 } }),
     sourceState(f, genericPath, 'generic_metric', { pending_bytes: 11, lag_ms: null, last_observed_at: null,
-      last_reason: 'malformed_json', counters: { accepted: 0, duplicate: 0, conflict: 0, rejected: 1, excluded: 0, gaps: 1, records: 1, bytes_read: 40 } }),
+      last_reason: 'malformed_json', counters: { accepted: 0, duplicate: 0, conflict: 0, rejected: 1, excluded: 0, gaps: 1, records: 2, bytes_read: 40 } }),
     sourceState(f, workerPath, 'worker', { pending_bytes: 5, lag_ms: 2000, last_reason: 'processing_budget',
       counters: { accepted: 0, duplicate: 0, conflict: 0, rejected: 0, excluded: 0, gaps: 1, records: 0, bytes_read: 0 } }),
-  ], { accepted: 4, duplicate: 1, rejected: 1, excluded: 1, gaps: 1, records: 6, bytes_read: 220 });
+  ], { accepted: 4, duplicate: 1, rejected: 1, excluded: 1, gaps: 1, records: 12, bytes_read: 220 });
 
   const gate = receipt(f, { relativePath: gatePath });
   const mudaDetail = { ...receipt(f, { family: 'muda', relativePath: mudaPath }).detail,
@@ -378,7 +388,7 @@ test('accepted receipts require matching canonical evidence and replayed receipt
   assert.ok(report.findings.some(row => row.reason === 'canonical_event_missing'));
 
   writeCanonical(f, [accepted]);
-  const changed = { ...accepted, disposition: 'duplicate' };
+  const changed = { ...accepted, disposition: 'duplicate', observed_at: '2026-09-10T12:01:00.000Z' };
   const first = { schema_version: 1, batch_id: digest([accepted.receipt_id]), project_id: f.projectId,
     committed_at: NOW, receipts: [accepted] };
   const second = { schema_version: 1, batch_id: digest([changed.receipt_id]), project_id: f.projectId,
@@ -391,6 +401,14 @@ test('accepted receipts require matching canonical evidence and replayed receipt
 
   const impossibleTransition = { ...accepted, disposition: 'conflict' };
   fs.appendFileSync(f.receipts, JSON.stringify({ ...second, receipts: [impossibleTransition] }) + '\n');
+  report = operationReport({ root: f.root, now: Date.parse(NOW) });
+  assert.equal(report.status, 'FAIL');
+  assert.ok(report.findings.some(row => row.reason === 'receipt_replay_conflict'));
+  fs.writeFileSync(f.receipts, `${JSON.stringify(first)}\n${JSON.stringify(second)}\n`);
+
+  const changedDetail = { ...changed, detail: { ...changed.detail, sequence: 99 } };
+  changedDetail.detail_sha256 = digest(changedDetail.detail);
+  fs.appendFileSync(f.receipts, JSON.stringify({ ...second, receipts: [changedDetail] }) + '\n');
   report = operationReport({ root: f.root, now: Date.parse(NOW) });
   assert.equal(report.status, 'FAIL');
   assert.ok(report.findings.some(row => row.reason === 'receipt_replay_conflict'));
@@ -671,6 +689,45 @@ test('bounded enumeration and durable state counts prevent coordinated receipt a
   report = operationReport({ root: f.root, now: Date.parse(NOW) });
   assert.equal(report.status, 'FAIL');
   assert.ok(report.findings.some(row => row.reason === 'capture_receipt_count_mismatch'));
+});
+
+test('physical receipt rows reconcile separately from unique observations and compatible replay time', t => {
+  const f = fixture(t, 'PHYSICAL_REPLAY_RECONCILIATION_FIXTURE');
+  const gatePath = '.planning/metrics/gate-value-log.jsonl';
+  const mudaPath = '.planning/metrics/muda-log.jsonl';
+  const gate = Array.from({ length: 925 }, (_, index) => receipt(f, { relativePath: gatePath,
+    offset: index * 6, sourceRecordSha: sha(`gate-${index}`) }));
+  const muda = Array.from({ length: 75 }, (_, index) => receipt(f, { relativePath: mudaPath,
+    offset: index * 6, sourceRecordSha: sha(`muda-${index}`) }));
+  const replayed = gate.slice(0, 75).map(item => ({ ...item, disposition: 'duplicate',
+    observed_at: '2026-09-10T12:01:00.000Z' }));
+  writeState(f, [sourceState(f, gatePath, 'gate_value', { counters: {
+    accepted: 925, duplicate: 75, conflict: 0, rejected: 0, excluded: 0, gaps: 0, records: 1000, bytes_read: 6000,
+  } }), sourceState(f, mudaPath, 'muda', { counters: {
+    accepted: 75, duplicate: 0, conflict: 0, rejected: 0, excluded: 0, gaps: 0, records: 75, bytes_read: 450,
+  } })], { accepted: 1000, duplicate: 75, records: 1075, bytes_read: 6450 });
+  writeReceiptBatches(f, [...gate, ...muda, ...replayed]);
+  writeCanonical(f, [...gate, ...muda]);
+  const report = operationReport({ root: f.root, now: Date.parse(NOW) });
+  assert.equal(report.projects[0].receipt_rows, 1075);
+  assert.equal(report.projects[0].observations, 1000);
+  assert.equal(report.projects[0].receipt_replays, 75);
+  assert.equal(report.projects[0].receipt_reconciliation.status, 'matched', JSON.stringify(report.findings));
+  assert.equal(report.projects[0].receipt_reconciliation.physical_receipt_rows, 1075);
+  assert.equal(report.projects[0].receipt_reconciliation.unique_receipts, 1000);
+  assert.equal(report.projects[0].receipt_reconciliation.physical_source_counts[sha(gatePath)], 1000);
+  assert.equal(report.projects[0].receipt_reconciliation.physical_source_counts[sha(mudaPath)], 75);
+  assert.ok(!report.findings.some(row => row.reason === 'capture_receipt_count_mismatch'));
+  assert.ok(!report.findings.some(row => row.reason === 'receipt_replay_conflict'));
+
+  const evidenceChanged = { ...replayed[0], detail: { ...replayed[0].detail, sequence: 2 } };
+  evidenceChanged.detail_sha256 = digest(evidenceChanged.detail);
+  fs.appendFileSync(f.receipts, JSON.stringify({ schema_version: 1,
+    batch_id: digest([evidenceChanged.receipt_id]), project_id: f.projectId,
+    committed_at: '2026-09-10T12:02:00.000Z', receipts: [evidenceChanged] }) + '\n');
+  const changedReport = operationReport({ root: f.root, now: Date.parse(NOW) });
+  assert.equal(changedReport.status, 'FAIL');
+  assert.ok(changedReport.findings.some(row => row.reason === 'receipt_replay_conflict'));
 });
 
 test('state generation changing before a stable receipt scan is an incomplete live snapshot, not corruption', t => {
