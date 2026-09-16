@@ -228,3 +228,31 @@ test('catalogue uses config selection and returns bounded manifest transfer meta
   assert.match(catalogue.bundles[0].manifest.sha256, /^[a-f0-9]{64}$/);
   assert.equal(catalogue.bundles[0].files.length, result.manifest.files.length);
 });
+
+test('exports supervised coordination as typed peer evidence without rollout or project reclassification', async t => {
+  const f = fixture(t), clarity = gitRoot(f.clarity);
+  const coordinationDir = path.join(f.base, 'pm-delivery'); fs.mkdirSync(coordinationDir, { recursive: true });
+  fs.writeFileSync(path.join(coordinationDir, 'CHARTER.md'), '# PM Delivery\n');
+  fs.writeFileSync(path.join(coordinationDir, 'ASSIGNMENT.json'), JSON.stringify({ name: 'pm-delivery', title: 'PM Delivery',
+    session: 'pm-session', index: 1, workers: [] }));
+  const rolloutPath = path.join(coordinationDir, 'rollout.jsonl'); fs.writeFileSync(rolloutPath, '{}\n');
+  const process = { pid: 12002, start_time: '987655', boot_id: '11111111-1111-4111-8111-111111111111',
+    executable: '/codex/0.154.0/bin/codex', cwd: coordinationDir, environment: {} };
+  const { registerCurrentCoordination } = require('./codex-parent-bridge.cjs');
+  const registered = await registerCurrentCoordination({ root: f.root, coordinationDir, role: 'pm-delivery', pid: process.pid,
+    expectedStartTime: process.start_time, sessionId: 'pm-session', threadId: 'pm-session', rolloutPath,
+    processLookup: () => process, bootIdLookup: () => process.boot_id,
+    rolloutReader: async () => ({ sessionMeta: { session_id: 'pm-session', cwd: coordinationDir,
+      model_provider: 'openai', source: 'cli', cli_version: '0.154.0' }, threadIds: ['pm-session'] }) });
+  const ledger = mkdir(path.join(f.root, 'coordination-ledger', registered.run.coordination_id));
+  fs.writeFileSync(path.join(ledger, 'sgsd-atlas-events-pm.jsonl'), JSON.stringify({ runtime: { model_provider: 'openai' },
+    identity: { response_id: 'pm-response-1' }, usage: { input_tokens: 7, output_tokens: 2 } }) + '\n');
+  const result = await evidence.createBundle({ root: f.root, projectDirs: [clarity],
+    now: Date.UTC(2026, 8, 10, 6, 15), auditReport: WARN });
+  const registration = byRole(result.manifest, 'coordination_registration');
+  const events = byRole(result.manifest, 'coordination_event_ledger');
+  assert.ok(registration); assert.ok(events); assert.equal(registration.project_id, null); assert.equal(events.project_id, null);
+  assert.match(payload(result.directory, registration).toString(), /supervised_coordination/);
+  assert.doesNotMatch(payload(result.directory, registration).toString(), /rollout_descriptor|cursor_seed|rollout\.jsonl/);
+  assert.equal(evidence.verifyBundle({ directory: result.directory }).verified, true);
+});

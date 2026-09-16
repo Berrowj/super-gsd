@@ -54,6 +54,29 @@ function localStatus(root=clientRoot()){
   return {...saved,copy_overdue:!saved.last_verified_at||Date.now()-Date.parse(saved.last_verified_at)>30*3600000,
     contact_stale:!saved.last_contact_at||Date.now()-Date.parse(saved.last_contact_at)>10*60000};
 }
+function readVerifiedPeerBundles({root=clientRoot()}={}){
+  root=path.resolve(root);const findings=[],bundles=[];
+  let c;
+  try {
+    if(!fs.existsSync(path.join(root,'config.json')))throw new Error('peer_origin_unconfigured');
+    c=config(root);remoteCommand(c,'catalogue');
+    if(!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$/.test(c.host))throw new Error('peer_origin_untrusted');
+  }catch(error){return {schema_version:1,bundles:[],findings:[{reason:error.message}]};}
+  const saved=localStatus(root);
+  if(saved.status!=='verified'||!ID.test(saved.bundle_id||''))
+    return {schema_version:1,bundles:[],findings:[{reason:'peer_copy_unverified'}]};
+  const receipt=optional(path.join(root,'receipts',saved.bundle_id+'.json'),16384);
+  const directory=path.join(root,'snapshots',saved.bundle_id),manifestFile=path.join(directory,'manifest.json');
+  try{
+    safePath(manifestFile);const manifest=readJson(manifestFile,2*1024*1024),checked=require('./monitor-evidence.cjs').verifyBundle({directory});
+    if(checked.bundle_id!==saved.bundle_id||checked.verified!==true||fileDigest(manifestFile)!==saved.manifest_sha256
+      ||!receipt||receipt.status!=='verified'||receipt.bundle_id!==saved.bundle_id
+      ||receipt.manifest_sha256!==saved.manifest_sha256)throw new Error('peer_copy_binding_invalid');
+    bundles.push({bundle_id:saved.bundle_id,directory,manifest,verified:checked,
+      origin:{transport:'configured_ssh',host:c.host,remote_root:c.remote_root,trust:'configured_transport_and_root'}});
+  }catch(error){findings.push({reason:error.message==='peer_copy_binding_invalid'?error.message:'peer_bundle_unreadable'});}
+  return {schema_version:1,bundles,findings};
+}
 function directoryBytes(root){
   let total=0,count=0;const queue=[root];
   while(queue.length){const dir=queue.pop();safePath(path.join(dir,'.check'));for(const e of fs.readdirSync(dir,{withFileTypes:true})){if(++count>50000)throw new Error('local_inventory_limit');const p=path.join(dir,e.name),s=fs.lstatSync(p);if(s.isSymbolicLink())throw new Error('unsafe_local_symlink');if(s.isDirectory())queue.push(p);else {safePath(p);total+=s.size;if(total>MAX_LOCAL)throw new Error('local_capacity_exceeded');}}}
@@ -128,4 +151,4 @@ async function cli(argv=process.argv.slice(2)){
   throw new Error('unknown_client_command');
 }
 if(require.main===module)cli().then(result=>{process.stdout.write(JSON.stringify(result)+'\n');if(result.status==='failed')process.exitCode=1;}).catch(error=>{process.stdout.write(JSON.stringify({schema_version:1,status:'failed',reason:error.message,last_verified_at:null,copy_overdue:true})+'\n');process.exitCode=1;});
-module.exports={clientRoot,remoteCommand,validateCatalogue,localStatus,pull,openCockpit,cli};
+module.exports={clientRoot,remoteCommand,validateCatalogue,localStatus,readVerifiedPeerBundles,pull,openCockpit,cli};
