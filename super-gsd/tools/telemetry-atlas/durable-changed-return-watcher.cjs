@@ -10,10 +10,13 @@ const path = require('node:path');
 const HEX = /^[a-f0-9]{64}$/;
 const ATOM = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+const PANE = /^%[0-9]+$/;
+const WINDOW = /^@[0-9]+$/;
 const KINDS = new Set(['question', 'return', 'ready']);
 const PMS = new Set(['pm-delivery', 'pm-automation']);
 const TARGET_KINDS = new Set(['managed_worker', 'native_pane']);
-const DISPOSITIONS = new Set(['executing', 'deferred', 'awaiting_named_dependency', 'genuinely_blocked', 'completed', 'acknowledged', 'applied']);
+const ROUTES = new Set(['worker_to_pm', 'pm_to_root', 'root_to_pm', 'pm_to_worker', 'pm_to_deploy', 'deploy_to_pm', 'deploy_to_root']);
+const DISPOSITIONS = new Set(['executing', 'deferred', 'awaiting_named_dependency', 'genuinely_blocked', 'completed', 'delivered', 'awaiting_ack', 'acknowledged', 'applied']);
 const NEXT_ACTIONS = new Set(['wake_owner', 'await_dependency', 'none']);
 const MAX_LINE = 512 * 1024;
 const MAX_STATE = 2 * 1024 * 1024;
@@ -36,16 +39,25 @@ function validateSource(source) {
 
 function validateEvent(event, source) {
   if (!plain(event)) return 'invalid_event';
-  const required = ['event_id', 'kind', 'lane', 'plan', 'task', 'owner', 'owner_epoch', 'source_path', 'source_sha256', 'observed_at', 'disposition', 'next_action'];
-  if (Object.keys(event).some(key => !required.includes(key) && key !== 'pointer')) return 'unknown_event_field';
+  const required = ['event_id', 'kind', 'lane', 'plan', 'task', 'source_owner', 'route', 'owner', 'owner_epoch', 'source_path', 'source_sha256', 'observed_at', 'disposition', 'next_action', 'artifact_path', 'artifact_sha256'];
+  if (Object.keys(event).some(key => !required.includes(key) && !['pointer', 'target_worker_id'].includes(key))) return 'unknown_event_field';
   if (required.some(key => !Object.hasOwn(event, key))) return 'missing_event_field';
-  if (!ATOM.test(event.event_id || '') || !KINDS.has(event.kind) || !ATOM.test(event.lane || '')
+  if (!ATOM.test(event.event_id || '') || !KINDS.has(event.kind) || !ATOM.test(event.lane || '') || !ATOM.test(event.source_owner || '') || !ROUTES.has(event.route)
       || !ATOM.test(event.plan || '') || !ATOM.test(event.task || '') || !ATOM.test(event.owner || '')
       || !ATOM.test(event.owner_epoch || '') || !absolute(event.source_path) || !HEX.test(event.source_sha256 || '')
-      || !iso(event.observed_at) || !DISPOSITIONS.has(event.disposition) || !NEXT_ACTIONS.has(event.next_action)) return 'invalid_event_field';
+      || !iso(event.observed_at) || !DISPOSITIONS.has(event.disposition) || !NEXT_ACTIONS.has(event.next_action)
+      || !absolute(event.artifact_path) || !HEX.test(event.artifact_sha256 || '')) return 'invalid_event_field';
   if (validateSource(source)) return 'invalid_source';
   if (path.resolve(event.source_path) !== path.resolve(source.path) || event.source_sha256 !== source.sha256 || event.lane !== source.lane) return 'event_source_mismatch';
-  if (event.kind === 'ready' ? event.owner !== 'deploy' : !PMS.has(event.owner)) return 'event_owner_mismatch';
+  const routeOkay = event.route === 'worker_to_pm' ? event.source_owner.startsWith('worker.') && PMS.has(event.owner)
+    : event.route === 'pm_to_root' ? PMS.has(event.source_owner) && event.owner === 'root'
+    : event.route === 'root_to_pm' ? event.source_owner === 'root' && PMS.has(event.owner)
+    : event.route === 'pm_to_worker' ? PMS.has(event.source_owner) && event.owner === `${event.source_owner}.worker.${event.target_worker_id || ''}`
+    : event.route === 'pm_to_deploy' ? PMS.has(event.source_owner) && event.owner === 'deploy'
+    : event.route === 'deploy_to_pm' ? event.source_owner === 'deploy' && PMS.has(event.owner)
+    : event.source_owner === 'deploy' && event.owner === 'root';
+  if (!routeOkay || (event.kind === 'ready' && !['pm_to_deploy', 'deploy_to_pm'].includes(event.route))) return 'event_route_mismatch';
+  if (event.route === 'pm_to_worker' && !UUID.test(event.target_worker_id || '')) return 'missing_worker_target';
   if (event.next_action === 'wake_owner' && !safeText(event.pointer || '')) return 'missing_safe_pointer';
   if (event.next_action !== 'wake_owner' && event.pointer !== undefined) return 'unexpected_pointer';
   if (Buffer.byteLength(JSON.stringify(event)) > MAX_LINE) return 'event_too_large';
@@ -58,10 +70,13 @@ function validateBinding(binding) {
     const mailbox = binding.mailbox;
     if (!plain(mailbox) || !absolute(mailbox.project) || !UUID.test(mailbox.worker_id || '')
         || !ATOM.test(mailbox.instance || '') || !ATOM.test(mailbox.thread_id || '') || !ATOM.test(mailbox.turn_id || '')) return 'invalid_mailbox_binding';
+    if (binding.parent_owner !== undefined && (!PMS.has(binding.parent_owner) || binding.owner !== `${binding.parent_owner}.worker.${mailbox.worker_id}`)) return 'invalid_worker_ownership';
   } else {
     const identity = binding.identity;
     if (!plain(identity) || !Number.isSafeInteger(identity.pid) || identity.pid < 1 || !ATOM.test(String(identity.start || ''))
-        || !absolute(identity.cwd) || !ATOM.test(identity.runtime || '') || !ATOM.test(identity.session || '') || !ATOM.test(identity.pane || '')) return 'invalid_native_binding';
+        || !Number.isSafeInteger(identity.pane_pid) || identity.pane_pid < 1 || !ATOM.test(String(identity.pane_start || ''))
+        || !absolute(identity.cwd) || !ATOM.test(identity.runtime || '') || !ATOM.test(identity.session || '') || !PANE.test(identity.pane || '')
+        || (identity.window !== undefined && !WINDOW.test(identity.window)) || !ATOM.test(identity.thread || '') || !absolute(identity.intake_path || '')) return 'invalid_native_binding';
   }
   return null;
 }
@@ -76,6 +91,9 @@ function bindingFor(event, bindings) {
   const error = validateBinding(binding);
   if (error) return { error };
   if (binding.epoch !== event.owner_epoch) return { error: 'owner_epoch_mismatch' };
+  if (event.route === 'pm_to_worker' && binding.parent_owner !== event.source_owner) return { error: 'worker_owner_mismatch' };
+  if (event.route === 'root_to_pm' && !PMS.has(binding.owner)) return { error: 'root_target_not_pm' };
+  if (event.route === 'pm_to_root' && binding.owner !== 'root') return { error: 'pm_target_not_root' };
   return { binding };
 }
 
@@ -112,13 +130,37 @@ function writeState(file, value) {
   try { fs.renameSync(temp, file); } finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
 }
 
+function readPrefix(file, length) {
+  if (!length) return Buffer.alloc(0);
+  const fd = fs.openSync(file, 'r'), output = Buffer.alloc(length);
+  try { let offset = 0, read; while (offset < length && (read = fs.readSync(fd, output, offset, length - offset, offset)) > 0) offset += read; return output.subarray(0, offset); }
+  finally { fs.closeSync(fd); }
+}
+
+function readLine(file, start, size) {
+  const fd = fs.openSync(file, 'r'), parts = [], chunkSize = 64 * 1024;
+  let position = start, lineLength = 0, tooLarge = false;
+  try {
+    while (position < size) {
+      const length = Math.min(chunkSize, size - position), chunk = Buffer.alloc(length), read = fs.readSync(fd, chunk, 0, length, position);
+      if (!read) break;
+      const view = chunk.subarray(0, read), newline = view.indexOf(0x0a), count = newline < 0 ? read : newline;
+      lineLength += count;
+      if (lineLength > MAX_LINE) tooLarge = true;
+      else if (count) parts.push(view.subarray(0, count));
+      position += newline < 0 ? read : newline + 1;
+      if (newline >= 0) return { end: position, tooLarge, bytes: tooLarge ? null : Buffer.concat(parts, lineLength) };
+    }
+    return { partial: true };
+  } finally { fs.closeSync(fd); }
+}
+
 function sourceStat(file, prior = null) {
   const info = fs.lstatSync(file);
   if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) throw new Error('event_source_unreadable');
-  const data = fs.readFileSync(file);
-  const prefix_length = Number.isSafeInteger(prior?.prefix_length) ? prior.prefix_length : Math.min(data.length, 4096);
+  const prefix_length = Number.isSafeInteger(prior?.prefix_length) ? prior.prefix_length : Math.min(info.size, 4096);
   return { dev: info.dev, ino: info.ino, size: info.size, mtime_ms: info.mtimeMs,
-    prefix_length, prefix_sha256: digest(data.subarray(0, prefix_length)), data };
+    prefix_length, prefix_sha256: digest(readPrefix(file, prefix_length)) };
 }
 
 function sourceMeta(snapshot, offset, deferredOffset) {
@@ -137,7 +179,9 @@ function sourceError(state, source, reason) {
 function identitySame(expected, actual) {
   if (!plain(actual)) return false;
   return actual.pid === expected.pid && String(actual.start) === String(expected.start) && actual.cwd === expected.cwd
-    && actual.runtime === expected.runtime && actual.session === expected.session && actual.pane === expected.pane;
+      && actual.runtime === expected.runtime && actual.session === expected.session && actual.pane === expected.pane
+    && actual.window === expected.window && actual.thread === expected.thread && actual.intake_path === expected.intake_path
+    && actual.pane_pid === expected.pane_pid && String(actual.pane_start) === String(expected.pane_start);
 }
 
 function resultFor(record, state) {
@@ -178,6 +222,17 @@ function createDurableChangedReturnWatcher({ root, sources, bindings, mailbox = 
 
   function reconcile(state, actions) {
     for (const record of Object.values(state.events)) {
+      if (record.state === 'awaiting_ack' && record.kind === 'native_pane' && native) {
+        const guard = typeof native === 'function' ? native(record.binding, record) : native;
+        let claim = null;
+        try { claim = guard?.applied?.(record); } catch { claim = null; }
+        if (claim?.status === 'applied' && claim.event_id === record.event_id && claim.owner_epoch === record.owner_epoch
+            && claim.pid === record.binding.identity.pid && String(claim.start) === String(record.binding.identity.start)
+            && claim.thread === record.binding.identity.thread) {
+          record.state = 'applied'; record.reason = 'native_intake_applied'; record.applied_at = now(); persistAppliedReceipt(state, record); actions.push(resultFor(record, state));
+        }
+        continue;
+      }
       if (record.state !== 'acknowledged' || record.kind !== 'managed_worker' || !mailbox || typeof mailbox.receipt !== 'function') continue;
       let receipt;
       try { receipt = mailbox.receipt(record.binding.mailbox.project, record.binding.mailbox.worker_id, record.command_id); }
@@ -236,7 +291,7 @@ function createDurableChangedReturnWatcher({ root, sources, bindings, mailbox = 
         try { current = mailbox.read(binding.mailbox.project, binding.mailbox.worker_id); } catch { current = null; }
         if (!current || current.project !== binding.mailbox.project || current.worker_id !== binding.mailbox.worker_id
             || current.instance !== binding.mailbox.instance || current.thread_id !== binding.mailbox.thread_id || current.turn_id !== binding.mailbox.turn_id
-            || current.owner !== event.owner) { record.state = 'genuinely_blocked'; record.reason = 'managed_identity_mismatch'; return { terminal: true, result: resultFor(record, state) }; }
+            || current.owner !== (binding.parent_owner || event.owner)) { record.state = 'genuinely_blocked'; record.reason = 'managed_identity_mismatch'; return { terminal: true, result: resultFor(record, state) }; }
       }
       try {
         const queued = mailbox.submit(binding.mailbox.project, binding.mailbox.worker_id, 'steer', { text: event.pointer, owner: event.owner });
@@ -267,7 +322,7 @@ function createDurableChangedReturnWatcher({ root, sources, bindings, mailbox = 
     try { enter = guard.sendEnter(event.pointer); }
     catch { record.state = 'uncertain'; record.reason = 'uncertain_after_enter'; return { terminal: true, result: resultFor(record, state) }; }
     if (enter?.status !== 'sent') { record.state = 'uncertain'; record.reason = enter?.reason || 'uncertain_after_enter'; return { terminal: true, result: resultFor(record, state) }; }
-    record.state = 'applied'; record.reason = 'native_enter_sent'; record.applied_at = now(); persistAppliedReceipt(state, record);
+    record.state = 'awaiting_ack'; record.reason = 'native_enter_sent';
     return { terminal: true, result: resultFor(record, state) };
   }
 
@@ -287,11 +342,11 @@ function createDurableChangedReturnWatcher({ root, sources, bindings, mailbox = 
       const forced = Boolean(cursor.deferred_offset !== undefined);
       if (!forced && cursor.dev === snap.dev && cursor.ino === snap.ino && cursor.size === snap.size && cursor.mtime_ms === snap.mtime_ms) continue;
       let offset = cursor.offset || 0, blocked = false;
-      while (offset < snap.data.length) {
-        const newline = snap.data.indexOf(0x0a, offset);
-        if (newline < 0) break;
-        const lineBytes = snap.data.subarray(offset, newline), end = newline + 1;
-        if (lineBytes.length > MAX_LINE) { findings.push(recordFinding(state, source, null, 'event_line_too_large', offset)); offset = end; continue; }
+      while (offset < snap.size) {
+        const line = readLine(source.path, offset, snap.size);
+        if (line.partial) break;
+        const { bytes: lineBytes, end } = line;
+        if (line.tooLarge) { findings.push(recordFinding(state, source, null, 'event_line_too_large', offset)); offset = end; continue; }
         const text = lineBytes.toString('utf8').trim();
         if (!text) { offset = end; continue; }
         let event;

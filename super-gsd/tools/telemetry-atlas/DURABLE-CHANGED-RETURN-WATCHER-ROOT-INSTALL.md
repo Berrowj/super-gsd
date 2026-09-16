@@ -16,15 +16,21 @@ Managed destinations call the existing
 `super-gsd/tools/codex-worker/mailbox.cjs` `submit(..., 'steer', ...)` and
 `receipt(...)` functions. Native destinations use the runner's strict
 no-shell `tmux` transport: exact PID/start/cwd/session/pane membership,
-`pane_pid` and `codex` command, primary `rollout-*.jsonl` identity, idle
+`pane_pid`/`pane_start` and `codex` command, primary `rollout-*.jsonl` identity, idle
 rollout state, exact empty composer, approval/copy/mode/dead guards, literal
 recheck, and pointer-bound pre-Enter recheck. Any mismatch defers or fails
-closed; no shell text, model call, or worker launch is available.
+closed; no shell text, model call, or worker launch is available. Successful
+native literal/Enter is `delivered`/`awaiting_ack`; it becomes `applied` only
+after an exact intake claim matches event ID, owner epoch, native PID/start and
+thread. On Linux it also requires the native process to remain descended from
+the pinned pane shell; pane-shell start and native process start are separate
+identity fields.
 
 ## Required config and identity pinning
 
 Root writes one mode-600 JSON file. Every value below is required except the
-optional native `window` field. Do not copy identity from an event payload.
+optional native `window` field. Native `thread` and `intake_path` are required
+for an applied receipt. Do not copy identity from an event payload.
 
 ```json
 {
@@ -37,13 +43,21 @@ optional native `window` field. Do not copy identity from an event payload.
     {"path": "/absolute/pm-automation/DURABLE-RETURN-EVENTS.jsonl", "sha256": "<64-hex-source-registration-hash>", "lane": "pm-automation"},
     {"path": "/absolute/deploy/DURABLE-RETURN-EVENTS.jsonl", "sha256": "<64-hex-source-registration-hash>", "lane": "deploy"}
   ],
+  "producers": [
+    {"type": "mailbox", "project": "/absolute/pm-delivery-project", "workerId": "<worker-uuid>", "owner": "pm-delivery", "ownerEpoch": "<owner-epoch>", "lane": "pm-delivery", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "plan": "<existing-plan>", "task": "<existing-task>"},
+    {"type": "ledger", "inputPath": "/absolute/pm-delivery/existing-response-ledger.jsonl", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "lane": "pm-delivery", "sourceOwner": "pm-delivery", "route": "pm_to_root", "owner": "root", "ownerEpoch": "<root-epoch>"},
+    {"type": "ledger", "inputPath": "/absolute/deploy/existing-ready-result-ledger.jsonl", "outputPath": "/absolute/deploy/DURABLE-RETURN-EVENTS.jsonl", "lane": "deploy", "sourceOwner": "deploy", "route": "deploy_to_pm", "owner": "pm-delivery", "ownerEpoch": "<pm-epoch>", "defaultKind": "return"},
+    {"type": "inbox", "inputPath": "/absolute/root/inbox/pm-automation-root-cutover-alex-qa-1051.json", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "lane": "root", "sourceOwner": "root", "route": "root_to_pm", "owner": "pm-delivery", "ownerEpoch": "<pm-epoch>", "plan": "<existing-plan>", "task": "<existing-task>"}
+  ],
   "bindings": [
     {"owner": "pm-delivery", "epoch": "<owner-epoch>", "kind": "managed_worker",
       "mailbox": {"project": "/absolute/pm-delivery-project", "worker_id": "<worker-uuid>", "instance": "<instance>", "thread_id": "<thread>", "turn_id": "<turn>"}},
     {"owner": "pm-automation", "epoch": "<owner-epoch>", "kind": "managed_worker",
       "mailbox": {"project": "/absolute/pm-automation-project", "worker_id": "<worker-uuid>", "instance": "<instance>", "thread_id": "<thread>", "turn_id": "<turn>"}},
+    {"owner": "root", "epoch": "<root-epoch>", "kind": "native_pane",
+      "identity": {"pid": 1, "start": "<native-start>", "pane_pid": 2, "pane_start": "<pane-start>", "cwd": "/absolute/root", "runtime": "codex", "session": "<tmux-session>", "pane": "%<digits>", "window": "@<digits>", "thread": "<thread>", "intake_path": "/absolute/root/NATIVE-INTAKE.jsonl"}},
     {"owner": "deploy", "epoch": "<release-owner-epoch>", "kind": "native_pane",
-      "identity": {"pid": 1, "start": "<native-start>", "cwd": "/absolute/deploy", "runtime": "codex", "session": "<tmux-session>", "pane": "<pane-id>", "window": "<window-id>"}}
+      "identity": {"pid": 1, "start": "<native-start>", "pane_pid": 2, "pane_start": "<pane-start>", "cwd": "/absolute/deploy", "runtime": "codex", "session": "<tmux-session>", "pane": "%<digits>", "window": "@<digits>", "thread": "<thread>", "intake_path": "/absolute/deploy/NATIVE-INTAKE.jsonl"}}
   ]
 }
 ```
@@ -55,12 +69,35 @@ mailbox `read/list` path and copies `project`, `worker_id`, `instance`,
 process/rollout/pane before writing the config. A changed owner epoch requires
 a new binding and new event epoch; old bindings are never silently stolen.
 
+The executable invokes the declared producers before each bounded watcher
+poll. `mailbox` producers project existing pending worker questions and
+`wrapper-result.json` returns. `ledger` producers incrementally map existing
+PM response and Deploy ready/result JSONL rows only when they already contain
+stable ID/time/plan/task/disposition/artifact path/artifact hash/pointer
+fields. The `inbox` producer reads the existing Root durable inbox object at
+`/absolute/root/inbox/pm-automation-root-cutover-alex-qa-1051.json`, verifies
+its `event_id`, `observed_at`, `source_path` and `source_hash` against the
+source artifact, and emits only a pointer-bound `root_to_pm` return. Its
+`question`/`result` values are not copied into the wake. All producers append
+to the declared durable-return source with a bounded cursor/event-ID ledger;
+they do not manufacture a relay message.
+
+The retained native shell ancestry is pinned independently. The current
+Linux census examples are DCE `%8` (pane PID `2908759`, native PID `3410299`),
+Opps `%0` (`2906284` → `3413253`), Email `%12` (`2935274` → `918077`), and
+SQL `%16` (`2936262` → `3417853`). Root must refresh start times and ancestry
+at installation; these values are evidence of the distinct pane/native shape,
+not permission to wake a pane.
+
 Each source line is a bounded JSON object with exactly these fields:
-`event_id`, `kind` (`question|return|ready`), `lane`, `plan`, `task`, `owner`,
-`owner_epoch`, `source_path`, `source_sha256`, `observed_at`, `disposition`,
-`next_action`, and, only for `wake_owner`, a short safe `pointer`. `question`
-and `return` owners are `pm-delivery` or `pm-automation`; `ready` owner is
-`deploy`. Sources are append-only and must end records with a newline.
+`event_id`, `kind` (`question|return|ready`), `lane`, `plan`, `task`,
+`source_owner`, `route`, `owner`, `owner_epoch`, `source_path`,
+`source_sha256`, `observed_at`, `disposition`, `next_action`,
+`artifact_path`, `artifact_sha256`, and, only for `wake_owner`, a short safe
+`pointer`. Supported routes are `worker_to_pm`, `pm_to_root`, `root_to_pm`,
+`pm_to_worker`, `pm_to_deploy`, `deploy_to_pm`, and `deploy_to_root`; each is
+validated against the source/target ownership relationship and exact binding.
+Sources are append-only and must end records with a newline.
 
 ## Bounded scheduler and one-time command sequence
 
@@ -96,7 +133,9 @@ managed/native send is recovered as uncertain unless the existing mailbox
 receipt or an explicitly provided reconciliation hook proves applied; it is
 never replayed blindly. Managed receipts remain `acknowledged` until
 `mailbox.receipt` returns `applied`. Native delivery records literal and
-Enter separately, with `Enter` withheld after any post-literal uncertainty.
+Enter separately, remains `awaiting_ack` after Enter, and requires the bound
+native intake claim before `applied`; `Enter` is withheld after any
+post-literal uncertainty.
 Applied rows are retained in `state.receipts` with event ID, owner epoch,
 route, applied time and wake count.
 
@@ -104,7 +143,10 @@ route, applied time and wake count.
 
 Root owns installation, service transition, identity refresh, runtime wake and
 any cross-PM arbitration. This source does not perform those actions. The
-current exact unsupported boundary is Windows native rollout discovery:
+Codex-only adapter also does not claim Claude-owned lanes: Design `%4` and
+quote diagnosis `%57` remain their existing Claude/native external-hold or
+completed lanes, with existing owner handling unchanged. The current exact
+unsupported boundary is Windows native rollout discovery:
 `durable-changed-return-runner.cjs` requires Linux `/proc` to prove the
 primary `rollout-*.jsonl` for a native pane; the existing Windows process
 identity adapter does not expose an equivalent supported rollout-FD mapping.

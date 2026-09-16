@@ -10,6 +10,7 @@ const { execFileSync } = require('node:child_process');
 const mailbox = require('../codex-worker/mailbox.cjs');
 const { readNativeProcess } = require('../codex-worker/native-process.cjs');
 const { createDurableChangedReturnWatcher } = require('./durable-changed-return-watcher.cjs');
+const { createDurableReturnProducer } = require('./durable-return-producer.cjs');
 
 const MAX_CAPTURE = 1024 * 1024;
 const ANSI = /\x1b\[[0-?]*[ -/]*[@-~]/g;
@@ -20,6 +21,22 @@ function tmux(args) {
   catch (error) { const failure = new Error('native_tmux_unavailable'); failure.cause = error; throw failure; }
 }
 
+function firstLine(file, limit = 65536) {
+  const fd = fs.openSync(file, 'r'), buffer = Buffer.alloc(64 * 1024), pieces = [];
+  let total = 0;
+  try {
+    let position = 0, read, foundNewline = false;
+    while (total < limit && (read = fs.readSync(fd, buffer, 0, Math.min(buffer.length, limit - total), position)) > 0) {
+      const view = buffer.subarray(0, read), end = view.indexOf(0x0a), count = end < 0 ? read : end;
+      if (count) pieces.push(Buffer.from(view.subarray(0, count)));
+      total += count; position += read;
+      if (end >= 0) { foundNewline = true; break; }
+    }
+    if (!foundNewline && total >= limit) throw new Error('native_rollout_header_too_large');
+    return Buffer.concat(pieces, total).toString('utf8');
+  } finally { fs.closeSync(fd); }
+}
+
 function primaryRollout(pid, cwd) {
   if (process.platform !== 'linux') throw new Error('native_rollout_platform_unsupported');
   const directory = `/proc/${pid}/fd`, candidates = new Map();
@@ -27,7 +44,7 @@ function primaryRollout(pid, cwd) {
     try {
       const file = fs.realpathSync(path.join(directory, entry));
       if (!path.basename(file).startsWith('rollout-') || path.extname(file) !== '.jsonl') continue;
-      const first = fs.readFileSync(file, { encoding: 'utf8', flag: 'r' }).slice(0, 65536).split('\n')[0];
+      const first = firstLine(file).split('\n')[0];
       const payload = JSON.parse(first).payload || {};
       if (payload.source === 'cli' && payload.originator === 'codex-tui' && payload.cwd === cwd && payload.id) candidates.set(file, payload.id);
     } catch {}
@@ -41,6 +58,23 @@ function tailEvents(file) {
   try { fs.readSync(fd, buffer, 0, size, info.size - size); } finally { fs.closeSync(fd); }
   if (buffer.length && !buffer.toString('utf8').endsWith('\n')) return null;
   return buffer.toString('utf8').split('\n').filter(Boolean).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
+}
+
+function intakeApplied(file, record, identity) {
+  if (!file) return { status: 'awaiting_ack' };
+  try {
+    const info = fs.lstatSync(file); if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) return { status: 'awaiting_ack' };
+    const size = Math.min(info.size, MAX_CAPTURE), fd = fs.openSync(file, 'r'), buffer = Buffer.alloc(size);
+    try { fs.readSync(fd, buffer, 0, size, info.size - size); } finally { fs.closeSync(fd); }
+    for (const line of buffer.toString('utf8').split('\n').filter(Boolean)) {
+      try {
+        const row = JSON.parse(line);
+        if (row.status === 'applied' && row.event_id === record.event_id && row.owner_epoch === record.owner_epoch
+            && row.pid === identity.pid && String(row.start) === String(identity.start) && row.thread === identity.thread) return row;
+      } catch {}
+    }
+  } catch {}
+  return { status: 'awaiting_ack' };
 }
 
 function rolloutState(events) {
@@ -78,6 +112,9 @@ function createNativePaneTransport(identity) {
   function exactProcess() {
     const actual = readNativeProcess(identity.pid, identity.cwd);
     if (!actual || String(actual.start_time) !== String(identity.start) || actual.cwd !== identity.cwd) return false;
+    const pane = readNativeProcess(identity.pane_pid, identity.cwd);
+    if (!pane || String(pane.start_time) !== String(identity.pane_start) || pane.cwd !== identity.cwd) return false;
+    if (process.platform === 'linux' && !processAncestry(identity.pid).includes(identity.pane_pid)) return false;
     return true;
   }
   function snapshot(pointer) {
@@ -92,7 +129,7 @@ function createNativePaneTransport(identity) {
       const member = membership.find(row => row.startsWith(`${identity.pane}|`));
       if (!member || (identity.window && member !== `${identity.pane}|${identity.window}`)) return { identity: null, ready: false, reason: 'native_pane_membership_changed' };
       fields = tmux(['display-message', '-p', '-t', identity.pane, '#{pane_pid}\t#{pane_current_path}\t#{pane_current_command}\t#{pane_in_mode}\t#{pane_dead}\t#{pane_width}\t#{cursor_x}\t#{cursor_y}\t#{pane_id}']).trim().split('\t');
-      if (fields.length !== 9 || fields[0] !== String(identity.pid) || fields[1] !== identity.cwd
+      if (fields.length !== 9 || fields[0] !== String(identity.pane_pid) || fields[1] !== identity.cwd
           || fields[2] !== identity.runtime || fields[8] !== identity.pane) return { identity: null, ready: false, reason: 'native_pane_identity_mismatch' };
       const screen = tmux(['capture-pane', '-p', '-e', '-t', identity.pane]);
       const snap = { identity, command: fields[2], cwd: fields[1], mode: fields[3], dead: fields[4], width: Number(fields[5]),
@@ -122,6 +159,7 @@ function createNativePaneTransport(identity) {
       tmux(['send-keys', '-t', identity.pane, 'Enter']);
       return { status: 'sent' };
     },
+    applied(record) { return intakeApplied(identity.intake_path, record, identity); },
   });
 }
 
@@ -132,10 +170,57 @@ function readConfig(file) {
   return config;
 }
 
+function processStart(pid) {
+  if (process.platform !== 'linux') return String(pid);
+  try { const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8'); return stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/)[19]; }
+  catch { throw new Error('watcher_process_identity_unavailable'); }
+}
+
+function processParent(pid) {
+  if (process.platform !== 'linux') return null;
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const fields = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/);
+    const parent = Number(fields[1]);
+    if (!Number.isSafeInteger(parent) || parent < 0) throw new Error('watcher_process_ancestry_unavailable');
+    return parent;
+  } catch { throw new Error('watcher_process_ancestry_unavailable'); }
+}
+
+function processAncestry(pid) {
+  if (process.platform !== 'linux') return [pid];
+  const chain = [], seen = new Set(); let current = pid;
+  while (current > 0 && !seen.has(current) && chain.length < 64) {
+    chain.push(current); seen.add(current);
+    const parent = processParent(current); if (!parent || parent === current) break; current = parent;
+  }
+  return chain;
+}
+
 function lock(file) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  let fd; try { fd = fs.openSync(file, 'wx', 0o600); } catch { throw new Error('watcher_already_running'); }
-  fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() }) + '\n');
+  let fd;
+  try { fd = fs.openSync(file, 'wx', 0o600); }
+  catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    let bytes, owner;
+    try { bytes = fs.readFileSync(file); owner = JSON.parse(bytes.toString('utf8')); }
+    catch { throw new Error('watcher_lock_unverifiable'); }
+    if (!Number.isSafeInteger(owner?.pid) || owner.pid < 1 || typeof owner.start !== 'string' || !owner.start) throw new Error('watcher_lock_unverifiable');
+    let live = false;
+    try {
+      process.kill(owner.pid, 0);
+      if (process.platform === 'linux') {
+        const stat = fs.readFileSync(`/proc/${owner.pid}/stat`, 'utf8'), actual = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/)[19];
+        if (actual === owner.start) live = true;
+      } else live = true;
+    } catch (probeError) { if (!['ESRCH', 'ENOENT'].includes(probeError.code)) throw new Error('watcher_lock_unverifiable'); }
+    if (live) throw new Error('watcher_already_running');
+    if (!fs.existsSync(file) || !fs.readFileSync(file).equals(bytes)) throw new Error('watcher_already_running');
+    try { fs.unlinkSync(file); } catch (unlinkError) { if (unlinkError.code !== 'ENOENT') throw new Error('watcher_lock_unverifiable'); }
+    try { fd = fs.openSync(file, 'wx', 0o600); } catch { throw new Error('watcher_already_running'); }
+  }
+  fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, start: processStart(process.pid), started_at: new Date().toISOString() }) + '\n');
   return () => { try { fs.closeSync(fd); } catch {} try { fs.unlinkSync(file); } catch {} };
 }
 
@@ -146,7 +231,19 @@ function createRunner(config) {
       const key = JSON.stringify(binding.identity); if (!native.has(key)) native.set(key, createNativePaneTransport(binding.identity));
       return native.get(key);
     } });
-  return watcher;
+  const producer = createDurableReturnProducer({ mailbox });
+  const producers = (Array.isArray(config.producers) ? config.producers : []).map(spec => {
+    if (spec?.type === 'mailbox') return () => producer.projectMailbox(spec);
+    if (spec?.type === 'ledger') return () => producer.projectLedger(spec);
+    if (spec?.type === 'inbox') return () => producer.projectInbox(spec);
+    throw new Error('runner_producer_invalid');
+  });
+  const poll = () => {
+    const producerResults = [];
+    for (const emit of producers) { try { producerResults.push(emit()); } catch (error) { producerResults.push({ emitted: 0, status: 'producer_blocked', reason: error.message }); } }
+    return { ...watcher.poll(), producer_results: producerResults };
+  };
+  return Object.freeze({ ...watcher, poll, producer_count: producers.length });
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -171,4 +268,4 @@ function main(argv = process.argv.slice(2)) {
 
 if (require.main === module) { try { const code = main(); if (Number.isInteger(code)) process.exitCode = code; } catch (error) { process.stderr.write(`DURABLE_RETURN_WATCHER: ${error.message}\n`); process.exitCode = 2; } }
 
-module.exports = Object.freeze({ createNativePaneTransport, createRunner, main, primaryRollout, rolloutState, composerReady });
+module.exports = Object.freeze({ createNativePaneTransport, createRunner, firstLine, main, primaryRollout, rolloutState, composerReady });
