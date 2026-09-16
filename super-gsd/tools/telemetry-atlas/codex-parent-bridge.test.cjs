@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { registerCurrentCodex } = require('./codex-parent-bridge.cjs');
+const { registerCurrentCodex, cursorSeed } = require('./codex-parent-bridge.cjs');
 const { readRun } = require('./global-store.cjs');
 const { digest } = require('./contract.cjs');
 
@@ -61,4 +61,11 @@ test('reads the bounded metadata prefix without rejecting a large rollout file',
   const f = fixture(t); fs.truncateSync(f.rolloutPath, 9 * 1024 * 1024);
   const result = await registerCurrentCodex(options(f));
   assert.equal(result.status, 'registered');
+});
+
+test('builds a Windows EOF cursor seed without copying rollout content', () => {
+  const seed = cursorSeed('C:\\Users\\jackberrow\\.codex\\sessions\\rollout.jsonl', { dev: 17, ino: 23, size: 381885826 }, '2026-09-16T04:39:00.000Z');
+  assert.deepEqual(seed, { schema_version: 1, path: 'C:\\Users\\jackberrow\\.codex\\sessions\\rollout.jsonl', dev: 17, ino: 23,
+    offset: 381885826, last_response_id: null, last_event_id: null, observed_at: '2026-09-16T04:39:00.000Z',
+    seen_event_ids: [], seen_response_ids: [] });
 });

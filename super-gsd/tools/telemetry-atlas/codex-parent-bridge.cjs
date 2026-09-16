@@ -6,7 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
-const { registerRun, readRun, validNativeBinding, RUN } = require('./global-store.cjs');
+const { registerRun, readRun, writeJson, validNativeBinding, RUN } = require('./global-store.cjs');
 const { safePath, digest } = require('./contract.cjs');
 const { registerCoordination, COORDINATION_ROLES } = require('./supervised-coordination.cjs');
 const { readBootId, readNativeProcess } = require('../codex-worker/native-process.cjs');
@@ -78,6 +78,23 @@ function existingBindings(root, binding) {
   return result;
 }
 
+function cursorSeed(file, stat, observedAt = new Date().toISOString()) {
+  return { schema_version: 1, path: file, dev: stat.dev, ino: stat.ino, offset: stat.size,
+    last_response_id: null, last_event_id: null, observed_at: observedAt, seen_event_ids: [], seen_response_ids: [] };
+}
+
+function seedWindowsCursor(run, rolloutPath) {
+  if (process.platform !== 'win32') return;
+  const cursorFile = path.join(run.state_dir, 'native-continuous-cursor.json');
+  if (fs.existsSync(cursorFile)) return;
+  const file = path.resolve(rolloutPath); safePath(file);
+  const stat = fs.lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || Number.isSafeInteger(stat.uid) && stat.uid !== process.getuid?.()) {
+    fail('codex_bridge_rollout_unavailable');
+  }
+  writeJson(cursorFile, cursorSeed(file, stat));
+}
+
 async function registerCurrentCodex({ root, projectDir, pid, expectedStartTime, sessionId, threadId, rolloutPath,
   processLookup = readProcess, rolloutReader = readRolloutMetadata, bootIdLookup = readBootId } = {}) {
   root = path.resolve(root); projectDir = fs.realpathSync(path.resolve(projectDir));
@@ -98,6 +115,7 @@ async function registerCurrentCodex({ root, projectDir, pid, expectedStartTime, 
     fail('codex_bridge_registration_ambiguous');
   }
   const run = registerRun({ root, projectDir, provider: 'openai', role: 'executor', accountingSource: 'codex_rollout', native_binding });
+  seedWindowsCursor(run, rolloutPath);
   return { status: 'registered', run, binding: native_binding };
 }
 
@@ -141,4 +159,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = Object.freeze({ registerCurrentCodex, registerCurrentCoordination, readRolloutMetadata });
+module.exports = Object.freeze({ registerCurrentCodex, registerCurrentCoordination, readRolloutMetadata, cursorSeed });
