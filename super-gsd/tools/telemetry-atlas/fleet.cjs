@@ -103,6 +103,14 @@ function processIdentity(value) {
       || !absolute(value.executable)) fail('fleet_process_unverified');
   return { pid: value.pid, start_time: value.start_time, executable: value.executable };
 }
+function executableMatches(expected, actual) {
+  const deleted = ' (deleted)';
+  return actual === expected || (actual.endsWith(deleted) && actual.slice(0, -deleted.length) === expected);
+}
+function identityMatches(expected, actual) {
+  return expected.pid === actual.pid && expected.start_time === actual.start_time
+    && executableMatches(expected.executable, actual.executable);
+}
 function tmuxMetadata(value) {
   if (value === undefined || value === null) return null;
   if (!plain(value)) fail('fleet_tmux_invalid');
@@ -211,7 +219,7 @@ function processState(claim, dependencies) {
   try { identity = processIdentity(actual); } catch { return 'unknown'; }
   if (identity.pid !== claim.identity.pid) return 'unknown';
   if (identity.start_time !== claim.identity.start_time) return 'reused';
-  return identity.executable === claim.identity.executable && scopeMatches(actual, claim) ? 'alive' : 'unknown';
+  return identityMatches(claim.identity, identity) && scopeMatches(actual, claim) ? 'alive' : 'unknown';
 }
 function ownedClaim(root, p, run) {
   const id = coordinator(root, p);
@@ -235,7 +243,8 @@ function bind({ root, runId, projectDir, pid, sessionId = null, tmux = null } = 
     const identity = processIdentity(actual);
     if (!scopeMatches(actual, run)) fail('fleet_process_scope_mismatch');
     if (claim.status === 'bound') {
-      if (digest([claim.identity, claim.session_id, claim.tmux]) !== digest([identity, sessionId, selectedTmux])) fail('fleet_binding_conflict');
+      if (!identityMatches(claim.identity, identity)
+          || digest([claim.session_id, claim.tmux]) !== digest([sessionId, selectedTmux])) fail('fleet_binding_conflict');
       return claim;
     }
     const bound = { ...claim, status: 'bound', identity, session_id: sessionId, tmux: selectedTmux, bound_at: new Date().toISOString() };
