@@ -8,6 +8,8 @@ const { NATIVE_SOURCE, scopeReason, applyAuthority, classifyAccounting } = requi
 const RUN = /^sgsd-[a-f0-9-]{36}$/;
 const ROLES = new Set(['orchestrator', 'executor', 'reviewer', 'planner', 'verifier', 'narrator', 'board', 'recovery', 'observer']);
 const RECOVERY = /^recovery-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+const NATIVE_ID = /^[A-Za-z0-9._:-]{1,160}$/;
+const BOOT_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const CONTEXT_PATH = /^\.planning\/(?:STATE\.md|HANDOFF\.json|ORCHESTRATOR-CHECKPOINT\.md|analyses\/[A-Za-z0-9_-]{1,120}fleet-handover[A-Za-z0-9_.-]{0,100}\.md)$/;
 function validContextRefs(refs) {
   return Array.isArray(refs) && refs.length <= 8 && new Set(refs.map(row => row?.path)).size === refs.length
@@ -15,6 +17,22 @@ function validContextRefs(refs) {
       && Object.keys(row).length === 3 && Object.keys(row).every(key => ['path', 'sha256', 'bytes'].includes(key))
       && typeof row.path === 'string' && CONTEXT_PATH.test(row.path) && !row.path.includes('..')
       && /^[a-f0-9]{64}$/.test(row.sha256) && Number.isSafeInteger(row.bytes) && row.bytes >= 0 && row.bytes <= 1024 * 1024);
+}
+function validNativeBinding(value, expected = {}) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === 11
+    && Object.keys(value).every(key => ['schema_version', 'provider', 'accounting_source', 'project_id', 'project_dir',
+      'session_id', 'thread_id', 'pid', 'start_time', 'boot_id', 'executable'].includes(key))
+    && value.schema_version === 1 && value.provider === 'openai' && value.accounting_source === 'codex_rollout'
+    && typeof value.project_id === 'string' && /^[a-f0-9]{64}$/.test(value.project_id)
+    && typeof value.project_dir === 'string' && path.isAbsolute(value.project_dir) && !/[\x00-\x1f\x7f]/.test(value.project_dir)
+    && NATIVE_ID.test(value.session_id || '') && NATIVE_ID.test(value.thread_id || '')
+    && Number.isSafeInteger(value.pid) && value.pid > 0 && value.pid <= 2147483647
+    && typeof value.start_time === 'string' && /^\d{1,32}$/.test(value.start_time)
+    && BOOT_ID.test(value.boot_id || '') && typeof value.executable === 'string' && path.isAbsolute(value.executable)
+    && !/[\x00-\x1f\x7f]/.test(value.executable)
+    && (expected.project_id === undefined || value.project_id === expected.project_id)
+    && (expected.project_dir === undefined || value.project_dir === expected.project_dir);
 }
 function recoveryShape(scope, recovery) {
   if (!recovery || typeof recovery !== 'object' || Array.isArray(recovery)
@@ -48,7 +66,7 @@ function writeJson(file, value) {
     fs.renameSync(temporary, file);
   } finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); }
 }
-function registerRun({ root, projectDir, provider = 'anthropic', role = 'orchestrator', accountingSource, recovery }) {
+function registerRun({ root, projectDir, provider = 'anthropic', role = 'orchestrator', accountingSource, recovery, native_binding }) {
   if (accountingSource !== undefined && (accountingSource !== 'codex_rollout' || provider !== 'openai')) throw new Error('invalid_accounting_source');
   projectDir = fs.realpathSync(path.resolve(projectDir));
   while (!fs.existsSync(path.join(projectDir, '.planning'))) {
@@ -58,6 +76,8 @@ function registerRun({ root, projectDir, provider = 'anthropic', role = 'orchest
   }
   if (!fs.statSync(path.join(projectDir, '.planning')).isDirectory()) throw new Error('not_sgsd_project');
   if (!['anthropic', 'openai'].includes(provider) || !ROLES.has(role)) throw new Error('invalid_run_scope');
+  if (native_binding !== undefined && (!validNativeBinding(native_binding, { project_id: digest(projectDir), project_dir: projectDir })
+      || provider !== native_binding.provider || accountingSource !== native_binding.accounting_source || role !== 'executor')) throw new Error('invalid_native_binding');
   privateDirectory(root);
   const projectId = digest(projectDir);
   const lineage = recovery === undefined ? undefined : validateRecovery(root, { project_id: projectId, project_dir: projectDir, provider, role }, recovery);
@@ -69,6 +89,7 @@ function registerRun({ root, projectDir, provider = 'anthropic', role = 'orchest
   const stateDir = path.join(root, 'runs', runId);
   const run = Object.freeze({ ...registration, run_id: runId, provider, role, registered_at: new Date().toISOString(),
     ...(accountingSource === undefined ? {} : { accountingSource }),
+    ...(native_binding === undefined ? {} : { native_binding }),
     ...(lineage === undefined ? {} : { recovery: lineage }),
     state_dir: stateDir, metrics_dir: path.join(projectState, 'metrics') });
   // Registration is local authority. Neither telemetry bodies nor URLs can supply a disk path.
@@ -92,6 +113,8 @@ function readRegistration(root, runId) {
         || !['anthropic','openai'].includes(run.provider)
         || (run.accountingSource !== undefined && (run.accountingSource !== 'codex_rollout' || run.provider !== 'openai'))) return null;
     if (run.recovery !== undefined) recoveryShape(run, run.recovery);
+    if (run.native_binding !== undefined && (!validNativeBinding(run.native_binding, { project_id: run.project_id, project_dir: run.project_dir })
+        || run.provider !== run.native_binding.provider || run.accountingSource !== run.native_binding.accounting_source || run.role !== 'executor')) return null;
     return Object.freeze({ ...run, state_dir: path.join(root, 'runs', runId),
       metrics_dir: path.join(root, 'projects', run.project_id, 'metrics') });
   } catch { return null; }
@@ -198,4 +221,4 @@ function createGlobalStore(root) {
     close: () => { if (directory) directory.closeSync(); directory = null; stores.clear(); },
   };
 }
-module.exports = { registerRun, readRun, readJson, writeJson, createGlobalStore, scopeEvent, RUN, RECOVERY, validContextRefs, validateRecovery, flushRunRegistration };
+module.exports = { registerRun, readRun, readJson, writeJson, createGlobalStore, scopeEvent, RUN, RECOVERY, validContextRefs, validNativeBinding, validateRecovery, flushRunRegistration };
