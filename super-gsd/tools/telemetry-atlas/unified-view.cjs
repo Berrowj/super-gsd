@@ -131,7 +131,7 @@ function localData(snapshot, now) {
 function roleCoverage(observations, key, fallback = 'unknown') {
   const match = key === 'root' ? observations.find(row => row.source === 'local' && row.role === 'orchestrator')
     : key === 'pm_delivery' ? observations.find(row => row.source === 'peer' && row.role === 'pm-delivery')
-    : observations.find(row => row.role === 'executor');
+    : observations.find(row => row.source === 'peer' && row.role === 'executor');
   return match ? { status: match.state, source: match.source, provenance: match.provenance,
     observed_at: match.observed_at, run_id: match.run_id, coordination_id: match.coordination_id }
     : { status: fallback, source: null, provenance: null, observed_at: null, run_id: null, coordination_id: null };

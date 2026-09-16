@@ -26,7 +26,8 @@ test('unified view keeps Root local and verified PM/worker peer observations dis
   const eventsRow = file(directory, '3'.repeat(64) + '.jsonl', JSON.stringify(event) + '\n' + JSON.stringify(event) + '\n' + JSON.stringify(altered) + '\n');
   const view = buildUnifiedView({ now, localSnapshot: { generated_at: new Date(now).toISOString(), projects: [{ project_id: projectId,
     project_dir: '/local/root', classification: 'configured', native: { last_received_at: new Date(now).toISOString() },
-    runs: [{ run_id: 'root-run', role: 'orchestrator', last_received_at: new Date(now).toISOString() }] }] },
+    runs: [{ run_id: 'local-worker', role: 'executor', last_received_at: new Date(now).toISOString() },
+      { run_id: 'root-run', role: 'orchestrator', last_received_at: new Date(now).toISOString() }] }] },
     peerBundles: [{ bundle_id: 'atlas-20260916T094000Z-1234abcd', verified: { verified: true }, origin: { transport: 'configured_ssh',
       trust: 'configured_transport_and_root', host: 'devcp', remote_root: '/global' }, manifest: { capture_status: 'complete', audit_status: 'WARN',
       files: [{ ...pmRow, source_role: 'coordination_registration' }, { ...workerRow, source_role: 'run_registration' },
@@ -34,6 +35,7 @@ test('unified view keeps Root local and verified PM/worker peer observations dis
   assert.equal(view.coverage.root.status, 'observed'); assert.equal(view.coverage.root.source, 'local');
   assert.equal(view.coverage.pm_delivery.status, 'observed'); assert.equal(view.coverage.pm_delivery.source, 'peer');
   assert.equal(view.coverage.worker.status, 'observed'); assert.equal(view.coverage.worker.source, 'peer');
+  assert.equal(view.coverage.worker.run_id, worker.run_id); assert.equal(view.coverage.worker.provenance, 'verified_peer_bundle');
   assert.equal(view.local_observations.every(row => row.source === 'local'), true);
   assert.equal(view.peer_observations.every(row => row.source === 'peer'), true);
   assert.equal(view.api_usage.root.status, 'unknown'); assert.equal(view.api_usage.root.input_tokens, null);
