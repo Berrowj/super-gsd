@@ -90,6 +90,19 @@ test('native busy composer defers and retries only after the guard is ready', t 
   assert.equal(calls.literal, 1); assert.equal(calls.enter, 1); assert.ok(identity.cwd);
 });
 
+test('native post-literal settling waits for the exact pointer before one Enter', t => {
+  const fixture = makeRoot(); t.after(fixture.cleanup);
+  const binding = nativeBinding(fixture.root), calls = { observe: 0, literal: 0, enter: 0 }, row = event(fixture.source, { kind: 'ready', source_owner: 'pm-delivery', route: 'pm_to_deploy', owner: 'deploy' });
+  let postChecks = 0, now = 0, sleeps = 0;
+  const native = { observe(expected, after) { calls.observe++; if (!after) return { identity: expected, ready: true }; postChecks++; return { identity: expected, ready: postChecks > 1, pointer: after.pointer }; },
+    sendLiteral() { calls.literal++; return { status: 'sent' }; }, sendEnter() { calls.enter++; return { status: 'sent' }; } };
+  const watcher = createDurableChangedReturnWatcher({ root: fixture.root, sources: [fixture.source], bindings: [binding], native,
+    clock: () => now, sleep: milliseconds => { sleeps++; now += milliseconds; }, settleMs: 100, settleStepMs: 25 });
+  append(fixture.source, row); const result = watcher.poll();
+  assert.equal(result.actions[0].state, 'awaiting_ack'); assert.equal(calls.literal, 1); assert.equal(calls.enter, 1);
+  assert.equal(postChecks, 2); assert.equal(sleeps, 1);
+});
+
 test('native identity mismatch fails closed without literal or Enter', t => {
   const fixture = makeRoot(); t.after(fixture.cleanup);
   const binding = nativeBinding(fixture.root), calls = { literal: 0, enter: 0 };
@@ -106,7 +119,9 @@ test('native uncertain post-literal outcome is retained and never replayed', t =
   const binding = nativeBinding(fixture.root), calls = { literal: 0, enter: 0 };
   const native = { observe(expected, after) { return { identity: expected, ready: !after }; },
     sendLiteral() { calls.literal++; return { status: 'sent' }; }, sendEnter() { calls.enter++; return { status: 'sent' }; } };
-  const watcher = createDurableChangedReturnWatcher({ root: fixture.root, sources: [fixture.source], bindings: [binding], native });
+  let now = 0;
+  const watcher = createDurableChangedReturnWatcher({ root: fixture.root, sources: [fixture.source], bindings: [binding], native,
+    clock: () => now, sleep: milliseconds => { now += milliseconds; }, settleMs: 50, settleStepMs: 25 });
   append(fixture.source, event(fixture.source, { kind: 'ready', source_owner: 'pm-delivery', route: 'pm_to_deploy', owner: 'deploy' }));
   assert.equal(watcher.poll().actions[0].state, 'uncertain'); assert.equal(calls.literal, 1); assert.equal(calls.enter, 0);
   const restarted = createDurableChangedReturnWatcher({ root: fixture.root, sources: [fixture.source], bindings: [binding], native });
@@ -234,6 +249,28 @@ test('native Enter is delivered, then applied only from exact owned intake evide
   assert.equal(watcher.poll().actions[0].state, 'awaiting_ack');
   assert.equal(watcher.poll().actions.at(-1).state, 'applied');
   assert.equal(watcher.status().counts.applied, 1); assert.equal(Object.keys(JSON.parse(fs.readFileSync(watcher.statePath, 'utf8')).receipts).length, 1);
+});
+
+test('three uncertain native rows remain held until exact intake claims reconcile without replay', t => {
+  const fixture = makeRoot(); t.after(fixture.cleanup);
+  const binding = nativeBinding(fixture.root), identity = identityFrom(binding), calls = { literal: 0, enter: 0 };
+  const rows = ['uncertain-native-row-1', 'uncertain-native-row-2', 'uncertain-native-row-3'].map(event_id => event(fixture.source, { event_id, kind: 'ready', source_owner: 'pm-delivery', route: 'pm_to_deploy', owner: 'deploy' }));
+  let claim = null;
+  const native = { observe(expected, after) { return { identity: expected, ready: !after, pointer: after?.pointer }; },
+    sendLiteral() { calls.literal++; return { status: 'sent' }; }, sendEnter() { calls.enter++; return { status: 'sent' }; }, applied() { return claim; } };
+  const watcher = createDurableChangedReturnWatcher({ root: fixture.root, sources: [fixture.source], bindings: [binding], native, settleMs: 0 });
+  rows.forEach(row => append(fixture.source, row));
+  assert.deepEqual(watcher.poll().actions.map(result => result.state), ['uncertain', 'uncertain', 'uncertain']);
+  assert.equal(calls.literal, 3); assert.equal(calls.enter, 0); assert.equal(watcher.status().counts.uncertain, 3);
+  const exact = row => ({ status: 'applied', event_id: row.event_id, owner_epoch: binding.epoch, pid: identity.pid, start: identity.start, thread: identity.thread });
+  claim = { ...exact(rows[0]), event_id: 'wrong-event' }; watcher.poll();
+  claim = { ...exact(rows[1]), owner_epoch: 'cross-owner-epoch' }; watcher.poll();
+  claim = { ...exact(rows[2]), pid: identity.pid + 1, thread: 'cross-session' }; watcher.poll();
+  assert.equal(watcher.status().counts.uncertain, 3); assert.equal(calls.literal, 3); assert.equal(calls.enter, 0);
+  claim = exact(rows[0]); assert.equal(watcher.poll().actions.at(-1).state, 'applied');
+  claim = exact(rows[1]); assert.equal(watcher.poll().actions.at(-1).state, 'applied');
+  claim = exact(rows[2]); assert.equal(watcher.poll().actions.at(-1).state, 'applied');
+  assert.equal(watcher.status().counts.applied, 3); assert.equal(calls.literal, 3); assert.equal(calls.enter, 0);
 });
 
 test('mailbox producer projects an existing worker question and wrapper return into one durable reply source', t => {

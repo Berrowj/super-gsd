@@ -20,6 +20,9 @@ const DISPOSITIONS = new Set(['executing', 'deferred', 'awaiting_named_dependenc
 const NEXT_ACTIONS = new Set(['wake_owner', 'await_dependency', 'none']);
 const MAX_LINE = 512 * 1024;
 const MAX_STATE = 2 * 1024 * 1024;
+const SETTLE_MS = 500;
+const SETTLE_STEP_MS = 25;
+const WAIT_VIEW = new Int32Array(new SharedArrayBuffer(4));
 
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
   && [Object.prototype, null].includes(Object.getPrototypeOf(value));
@@ -31,6 +34,7 @@ const fingerprint = value => digest(stable(value));
 const absolute = value => typeof value === 'string' && path.isAbsolute(value) && value.length <= 4096;
 const safeText = value => typeof value === 'string' && value.length > 0 && value.length <= 512
   && !/[\r\n\u0000-\u001f\u007f]/.test(value);
+const boundedWait = milliseconds => { if (milliseconds > 0) Atomics.wait(WAIT_VIEW, 0, 0, milliseconds); };
 
 function validateSource(source) {
   if (!plain(source) || !absolute(source.path) || !HEX.test(source.sha256 || '') || !ATOM.test(source.lane || '')) return 'invalid_source';
@@ -202,13 +206,15 @@ function persistAppliedReceipt(state, record) {
   };
 }
 
-function createDurableChangedReturnWatcher({ root, sources, bindings, mailbox = null, native = null, statePath = null, now = () => new Date().toISOString() } = {}) {
+function createDurableChangedReturnWatcher({ root, sources, bindings, mailbox = null, native = null, statePath = null, now = () => new Date().toISOString(), clock = () => Date.now(), sleep = boundedWait, settleMs = SETTLE_MS, settleStepMs = SETTLE_STEP_MS } = {}) {
   if (!absolute(root)) throw new Error('watcher_root_required');
   root = path.resolve(root);
   if (!Array.isArray(sources) || !sources.length || sources.some(validateSource)) throw new Error('watcher_sources_required');
   if (!Array.isArray(bindings)) throw new Error('watcher_bindings_required');
   for (const binding of bindings) { const error = validateBinding(binding); if (error) throw new Error(error); }
   statePath = path.resolve(statePath || path.join(root, '.planning', 'atlas', 'durable-changed-return-watcher.json'));
+  const settleWindow = Number.isFinite(settleMs) ? Math.min(2000, Math.max(0, settleMs)) : SETTLE_MS;
+  const settleStep = Number.isFinite(settleStepMs) ? Math.min(250, Math.max(1, settleStepMs)) : SETTLE_STEP_MS;
   let closed = false;
 
   function save(state) { writeState(statePath, state); }
@@ -224,7 +230,7 @@ function createDurableChangedReturnWatcher({ root, sources, bindings, mailbox = 
 
   function reconcile(state, actions) {
     for (const record of Object.values(state.events)) {
-      if (record.state === 'awaiting_ack' && record.kind === 'native_pane' && native) {
+      if (['uncertain', 'awaiting_ack'].includes(record.state) && record.kind === 'native_pane' && native) {
         const guard = typeof native === 'function' ? native(record.binding, record) : native;
         let claim = null;
         try { claim = guard?.applied?.(record); } catch { claim = null; }
@@ -315,8 +321,13 @@ function createDurableChangedReturnWatcher({ root, sources, bindings, mailbox = 
     catch (error) { record.state = 'uncertain'; record.reason = 'uncertain_after_literal'; return { terminal: true, result: resultFor(record, state) }; }
     if (literal?.status !== 'sent') { record.state = literal?.status === 'uncertain' ? 'uncertain' : 'genuinely_blocked'; record.reason = literal?.reason || 'native_literal_not_sent'; return { terminal: true, result: resultFor(record, state) }; }
     record.state = 'literal_sent'; record.wake_count = 1; record.reason = 'literal_sent'; save(state);
-    let checked;
-    try { checked = guard.observe(binding.identity, { pointer: event.pointer }); } catch { checked = { ready: false, reason: 'native_post_literal_observe_failed' }; }
+    let checked, deadline = clock() + settleWindow;
+    do {
+      try { checked = guard.observe(binding.identity, { pointer: event.pointer }); } catch { checked = { ready: false, reason: 'native_post_literal_observe_failed' }; }
+      if (!identitySame(binding.identity, checked?.identity) || (checked.pointer !== undefined && checked.pointer !== event.pointer) || checked.ready === true) break;
+      const remaining = deadline - clock(); if (remaining <= 0) break;
+      sleep(Math.min(settleStep, remaining));
+    } while (true);
     if (!identitySame(binding.identity, checked?.identity) || checked.ready !== true || (checked.pointer !== undefined && checked.pointer !== event.pointer)) {
       record.state = 'uncertain'; record.reason = 'uncertain_before_enter'; return { terminal: true, result: resultFor(record, state) };
     }
