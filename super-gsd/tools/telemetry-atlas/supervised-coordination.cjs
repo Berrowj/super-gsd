@@ -37,9 +37,10 @@ function coordinationFiles(directory, role) {
     if (!ownedFile(current, 128 * 1024)) fail('coordination_authority_missing');
     const charterText = fs.readFileSync(charter, 'utf8'), currentText = fs.readFileSync(current, 'utf8');
     if (!/single release owner/i.test(charterText)) fail('coordination_charter_invalid');
-    const match = /^Owner:\s+deploy\s+\(([^)\r\n]+)\)/m.exec(currentText);
-    if (!match || !NATIVE_ID.test(match[1])) fail('coordination_epoch_invalid');
-    return { directory, charter, current, assignment: null, assignmentValue: null, epoch: match[1] };
+    const match = /^Owner:\s+deploy\s+\((?:`([^`\r\n]+)`|([A-Za-z0-9._:-]{1,160}))\)/m.exec(currentText);
+    const epoch = match?.[1] || match?.[2];
+    if (!epoch || !NATIVE_ID.test(epoch)) fail('coordination_epoch_invalid');
+    return { directory, charter, current, assignment: null, assignmentValue: null, epoch };
   }
   if (!COORDINATION_ROLES.has(role) || role === 'deploy' || !ownedFile(assignment, 64 * 1024)) fail('coordination_authority_missing');
   let value;

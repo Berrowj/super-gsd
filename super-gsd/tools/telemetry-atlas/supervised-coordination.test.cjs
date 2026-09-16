@@ -7,7 +7,7 @@ const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 const { registerCurrentCoordination } = require('./codex-parent-bridge.cjs');
 const { readRun, readCoordination, validCoordinationBinding } = require('./global-store.cjs');
-const { COORDINATION_RUN } = require('./supervised-coordination.cjs');
+const { COORDINATION_RUN, coordinationFiles } = require('./supervised-coordination.cjs');
 const { candidates } = require('./codex-continuous-manager.cjs');
 const { processIdentity } = require('./lifecycle.cjs');
 
@@ -80,7 +80,7 @@ test('supported coordination CLI registers representative PM1, PM2 and Deploy ar
     fs.writeFileSync(path.join(directory, 'CHARTER.md'), item.role === 'deploy' ? '# Deploy\nYou are the single release owner.\n' : `# ${item.title}\n`);
     if (item.role === 'deploy') fs.writeFileSync(path.join(directory, 'CURRENT.md'), '# Current\nOwner: deploy (deploy-20260915-1789483598);\n');
     else fs.writeFileSync(path.join(directory, 'ASSIGNMENT.json'), JSON.stringify({ name: item.name, title: item.title, session: item.session, index: 9, workers: [] }));
-    const executable = path.join(f.root, 'codex', '0.154.0', 'bin', 'codex'); fs.mkdirSync(path.dirname(executable), { recursive: true });
+    const executable = path.join(f.root, 'codex', '0.154.0', 'bin', `codex-${item.role}`); fs.mkdirSync(path.dirname(executable), { recursive: true });
     fs.copyFileSync('/usr/bin/sleep', executable); fs.chmodSync(executable, 0o755);
     const child = spawn(executable, ['60'], { cwd: directory, env: { ...process.env, SGSD_RUN_ID: '', SGSD_ATLAS_PROJECT_ID: '' }, stdio: 'ignore' });
     try {
@@ -99,4 +99,14 @@ test('supported coordination CLI registers representative PM1, PM2 and Deploy ar
       assert.equal(readRun(f.root, receipt.run.run_id), null);
     } finally { child.kill('SIGTERM'); }
   }
+});
+
+test('parses the actual Deploy Markdown owner epoch without an assignment artifact', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-deploy-authority-')), charter = path.join(root, 'CHARTER.md'), current = path.join(root, 'CURRENT.md');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(charter, '# Deploy worker contract\nYou are the single release owner.\n');
+  fs.writeFileSync(current, '## Owner\nOwner: deploy (`deploy-20260915-1789483598`);\n');
+  const authority = coordinationFiles(root, 'deploy');
+  assert.equal(authority.epoch, 'deploy-20260915-1789483598');
+  assert.equal(authority.assignment, null);
 });
