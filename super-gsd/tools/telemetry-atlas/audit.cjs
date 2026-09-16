@@ -31,14 +31,73 @@ function boundedNames(directory, max) {
 }
 
 const COVERAGE_LIMITS = Object.freeze({ runs: 10000, projects: 1024, rows: 250000 });
+const MAX_EXPECTED_ROSTER = 1024;
 const increment = (map, key) => { const name = typeof key === 'string' && key ? key : 'unknown'; map[name] = (map[name] || 0) + 1; };
+const validRosterValue = value => typeof value === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(value);
+const validProjectId = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+
+function rosterCoverage(expected, runById) {
+  if (expected === undefined) return {
+    status: 'unknown', complete: false, expected: 0, matched: 0, unknown: 0,
+    by_kind: {}, entries: [], gaps: ['expected_roster_not_supplied'],
+  };
+  if (!Array.isArray(expected)) return {
+    status: 'unknown', complete: false, expected: 0, matched: 0, unknown: 0,
+    by_kind: {}, entries: [], gaps: ['invalid_expected_roster'],
+  };
+  const limited = expected.length > MAX_EXPECTED_ROSTER;
+  const entries = expected.slice(0, MAX_EXPECTED_ROSTER);
+  const rosterIds = new Map(), runIds = new Map();
+  for (const item of entries) {
+    if (item && typeof item === 'object') {
+      if (validRosterValue(item.roster_id)) rosterIds.set(item.roster_id, (rosterIds.get(item.roster_id) || 0) + 1);
+      if (typeof item.run_id === 'string') runIds.set(item.run_id, (runIds.get(item.run_id) || 0) + 1);
+    }
+  }
+  const result = { status: 'unknown', complete: false, expected: entries.length, matched: 0, unknown: 0,
+    by_kind: {}, entries: [], gaps: limited ? ['expected_roster_limited'] : [] };
+  for (const item of entries) {
+    const value = item && typeof item === 'object' ? item : {};
+    const kind = validRosterValue(value.kind) ? value.kind : 'unknown';
+    const bucket = result.by_kind[kind] ||= { expected: 0, matched: 0, unknown: 0 };
+    bucket.expected++;
+    const entry = { roster_id: value.roster_id ?? null, kind, run_id: value.run_id ?? null,
+      ...(value.task_id !== undefined ? { task_id: value.task_id } : {}), status: 'unknown', reason: null };
+    let reason = null;
+    if (!validRosterValue(value.roster_id) || !validRosterValue(value.kind) || !RUN.test(value.run_id || '')) reason = 'expected_identity_missing_or_invalid';
+    else if (rosterIds.get(value.roster_id) > 1 || runIds.get(value.run_id) > 1) reason = 'expected_identity_ambiguous';
+    else if (value.project_id !== undefined && !validProjectId(value.project_id)) reason = 'expected_project_invalid';
+    else if (value.role !== undefined && !validRosterValue(value.role)) reason = 'expected_role_invalid';
+    else if (value.task_id !== undefined && !validRosterValue(value.task_id)) reason = 'expected_task_invalid';
+    const run = reason ? null : runById.get(value.run_id);
+    if (!reason && !run) reason = 'observed_run_missing';
+    if (!reason && value.project_id !== undefined && value.project_id !== run.project_id) reason = 'project_mismatch';
+    if (!reason && value.role !== undefined && value.role !== run.role) reason = 'role_mismatch';
+    if (!reason) {
+      entry.status = 'observed'; delete entry.reason;
+      entry.observed = { project_id: run.project_id, provider: run.provider, role: run.role,
+        registered_at: run.registered_at, event_count: run.events, api_event_count: run.api_events,
+        first_event_at: run.first_event_at, last_event_at: run.last_event_at,
+        source_kinds: { ...run.source_kinds } };
+      result.matched++; bucket.matched++;
+    } else {
+      entry.reason = reason; result.unknown++; bucket.unknown++;
+      if (!result.gaps.includes(reason)) result.gaps.push(reason);
+    }
+    result.entries.push(entry);
+  }
+  if (result.expected === 0 && !result.gaps.includes('empty_expected_roster')) result.gaps.push('empty_expected_roster');
+  result.status = result.expected > 0 && result.unknown === 0 && !limited ? 'observed' : 'unknown';
+  result.complete = result.status === 'observed';
+  return result;
+}
 
 /**
  * Read-only, bounded census for operator status checks. It counts observed
  * metadata from existing ledgers, not spend, and never infers Root/Windows
  * API usage from a Linux collector that cannot see that runtime.
  */
-function coverageCensus({ root = rootPath(), now = Date.now(), limits = {} } = {}) {
+function coverageCensus({ root = rootPath(), now = Date.now(), limits = {}, roster } = {}) {
   root = path.resolve(root);
   const maxRuns = Number.isInteger(limits.runs) && limits.runs > 0 ? Math.min(limits.runs, COVERAGE_LIMITS.runs) : COVERAGE_LIMITS.runs;
   const maxProjects = Number.isInteger(limits.projects) && limits.projects > 0 ? Math.min(limits.projects, COVERAGE_LIMITS.projects) : COVERAGE_LIMITS.projects;
@@ -70,7 +129,8 @@ function coverageCensus({ root = rootPath(), now = Date.now(), limits = {} } = {
     increment(result.runs.roles, run.role);
     increment(result.runs.providers, run.provider);
     increment(result.runs.accounting_sources, run.accountingSource || 'legacy');
-    runById.set(run.run_id, { events: 0 });
+    runById.set(run.run_id, { project_id: run.project_id, provider: run.provider, role: run.role,
+      registered_at: run.registered_at, events: 0, api_events: 0, first_event_at: null, last_event_at: null, source_kinds: {} });
   }
   let projectCount = 0;
   try {
@@ -93,7 +153,16 @@ function coverageCensus({ root = rootPath(), now = Date.now(), limits = {} } = {
           increment(result.events.source_kinds, source);
           increment(result.events.roles, row.scope?.role);
           const run = runById.get(row.identity?.sgsd_run_id);
-          if (run) run.events++;
+          if (run) {
+            run.events++;
+            increment(run.source_kinds, source);
+            const timestamp = Date.parse(row.occurred_at);
+            if (Number.isFinite(timestamp)) {
+              if (!run.first_event_at || timestamp < Date.parse(run.first_event_at)) run.first_event_at = new Date(timestamp).toISOString();
+              if (!run.last_event_at || timestamp > Date.parse(run.last_event_at)) run.last_event_at = new Date(timestamp).toISOString();
+            }
+            if (row.event_type === 'api_request') run.api_events++;
+          }
           if (row.event_type === 'api_request' && result.api_usage[source]) result.api_usage[source].api_events++;
         });
         if (parsed.corrupt || parsed.malformed_tail) result.events.malformed_files++;
@@ -112,6 +181,8 @@ function coverageCensus({ root = rootPath(), now = Date.now(), limits = {} } = {
     : codexMetadata ? 'coverage_only' : 'unavailable';
   if (result.events.limited) result.gaps.push('coverage_scan_limited');
   if (result.events.malformed_files) result.gaps.push('malformed_ledger_rows');
+  result.roster = rosterCoverage(roster, runById);
+  for (const gap of result.roster.gaps) if (!result.gaps.includes(`roster_${gap}`)) result.gaps.push(`roster_${gap}`);
   return result;
 }
 
