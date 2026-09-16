@@ -41,6 +41,8 @@ test('verified WARN bundle copies once; a later tampered transfer retains the ea
   let tamper=false,copies=0;const acknowledged=[];
   const transport={json(command,receipt){if(command==='snapshot')return {schema_version:1,status:'WARN'};if(command==='catalogue'){const result=evidence.catalogue({root:remote});for(const b of result.bundles)b.remote_directory='/fixture/monitor/exports/'+b.bundle_id;return result;}acknowledged.push(receipt);return receipt;},copy(dir,names,dest){copies++;const source=path.join(remote,'monitor/exports',dir.split('/').pop());for(const name of names){fs.copyFileSync(path.join(source,name),path.join(dest,name));if(tamper&&name!=='manifest.json')fs.appendFileSync(path.join(dest,name),'tamper');}}};
   const good=await api.pull({root,transport});assert.equal(good.status,'verified',good.reason);assert.equal(good.audit_status,'WARN');assert.equal(acknowledged.length,1);
+  const peer=api.readVerifiedPeerBundles({root});assert.equal(peer.bundles.length,1);assert.equal(peer.findings.length,0);
+  assert.deepEqual(peer.bundles[0].origin,{transport:'configured_ssh',host:'devcp',remote_root:'/fixture',trust:'configured_transport_and_root'});
   const exhausted=await api.pull({root,budgetMs:0,transport});assert.equal(exhausted.reason,'pull_time_budget_exceeded');assert.equal(exhausted.last_verified_at,good.last_verified_at);
   const count=copies;assert.equal((await api.pull({root,transport})).copied_bundles,0);assert.equal(copies,count);
   await evidence.createBundle({root:remote,projectDirs:[project],now:Date.UTC(2026,8,10,7),auditReport});tamper=true;

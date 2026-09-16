@@ -50,6 +50,14 @@ test('renderer escapes source text and separates transfer verdict from capture',
   assert.ok(html.includes('verified')); assert.ok(html.includes('WARN'));
   assert.ok(html.includes('unobserved')); assert.ok(!html.includes('0 tokens'));
 });
+test('renderer exposes the bounded unified view with Root API unknown', () => {
+  const html=api.renderAtlasPanel({schema_version:1,generated_at:new Date().toISOString(),status:'WARN',projects:[],findings:[],
+    unified_view:{coverage:{root:{status:'observed',source:'local'},pm_delivery:{status:'observed',source:'peer'},worker:{status:'unknown',source:null}},
+      api_usage:{root:{status:'unknown',reason:'root_api_identity_unobserved'},peer:{status:'unknown',reason:'peer_native_usage_unobserved'}},
+      dedup:{duplicates:1,conflicts:0},local_observations:[],peer_observations:[],findings:[{reason:'windows_relay_unavailable'}]}});
+  assert.match(html,/Unified Root \/ PM \/ worker view/); assert.match(html,/Root API usage/);
+  assert.match(html,/root_api_identity_unobserved/); assert.match(html,/windows_relay_unavailable/);
+});
 test('malformed nested snapshots fail visibly without throwing from the renderer',t=>{
   const root=fixture(t),file=path.join(root,'monitor/latest.json');
   for(const malformed of [{projects:[null]},{findings:[null]},{projects:[{operational:{families:{muda:null}}}]},{projects:[{capacity:{native:null}}]},{unmatched_sessions:[null]}]){

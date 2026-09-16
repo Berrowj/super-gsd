@@ -17,7 +17,9 @@ const REGISTRATION_ROLES = new Set(['orchestrator', 'executor', 'reviewer', 'pla
 const ROLES = new Set(['project_registration', 'run_registration', 'native_event_ledger',
   'native_partition_manifest', 'native_gap_ledger', 'operational_event_ledger', 'operational_receipts',
   'operational_state', 'operational_partition_manifest', 'operational_gap_ledger', 'global_gap_ledger',
-  'monitor_incidents', 'monitor_audit']);
+  'monitor_incidents', 'monitor_audit', 'coordination_registration', 'coordination_event_ledger',
+  'coordination_partition_manifest', 'coordination_gap_ledger', 'coordination_operational_receipts',
+  'coordination_operational_state']);
 const EXPORT_LIMIT = 10 * 1024 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 512 * 1024 * 1024;
 const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
@@ -52,6 +54,7 @@ function expectedPayloadName(row) {
   let descriptor;
   if (row.source_role === 'project_registration') descriptor = `${row.source_role}:${row.project_id}`;
   else if (row.source_role === 'run_registration') descriptor = `${row.source_role}:${row.source_relative_path.split('/')[1]}`;
+  else if (row.source_role.startsWith('coordination_')) descriptor = `${row.source_role}:${row.source_relative_path}`;
   else if (row.project_id !== null) descriptor = `${row.source_role}:${row.project_id}:${path.posix.basename(row.source_relative_path)}`;
   else descriptor = row.source_role;
   return payloadName(descriptor, extension);
@@ -337,6 +340,49 @@ function addRunRegistrations(context, root, selected) {
     } catch { context.incomplete = true; context.findings.push({ reason: 'unsafe_run_registration' }); }
   }
 }
+function addCoordinationEvidence(context, root) {
+  let listed;
+  try { listed = entries(path.join(root, 'coordination-runs'), MAX_ENTRIES); }
+  catch { context.incomplete = true; context.findings.push({ reason: 'coordination_inventory_unavailable' }); return; }
+  let readCoordination;
+  try { readCoordination = require('./supervised-coordination.cjs').readCoordination; } catch { readCoordination = null; }
+  for (const entry of listed) {
+    if (!entry.isDirectory() || !/^coord-[a-f0-9-]{36}$/.test(entry.name)) {
+      context.incomplete = true; context.findings.push({ reason: 'unsafe_coordination_entry' }); continue;
+    }
+    try {
+      const value = readCoordination?.(root, entry.name);
+      if (!value) throw new Error('invalid_coordination_registration');
+      const binding = value.native_binding;
+      const sanitized = { schema_version: 1, scope: value.scope, provider: value.provider,
+        accountingSource: value.accountingSource, coordination_id: value.coordination_id,
+        authority_epoch: value.authority_epoch, role: value.role, run_id: value.run_id,
+        registered_at: value.registered_at, native_binding: { schema_version: 1,
+          scope: binding.scope, provider: binding.provider, accounting_source: binding.accounting_source,
+          coordination_id: binding.coordination_id, authority_epoch: binding.authority_epoch,
+          role: binding.role, pid: binding.pid, start_time: binding.start_time, boot_id: binding.boot_id,
+          executable: binding.executable, cwd: binding.cwd, session_id: binding.session_id,
+          thread_id: binding.thread_id } };
+      const source = jsonWithStat(path.join(root, 'coordination-runs', entry.name, 'registration.json'));
+      writeSynthetic(context, `coordination_registration:coordination-runs/${entry.name}/registration.json`, 'coordination_registration',
+        `coordination-runs/${entry.name}/registration.json`, null, source, sanitized);
+      const ledger = path.join(root, 'coordination-ledger', value.coordination_id);
+      if (!fs.existsSync(ledger)) continue;
+      let files;
+      try { files = entries(ledger, MAX_FILES); } catch { context.incomplete = true; context.findings.push({ reason: 'coordination_ledger_unavailable' }); continue; }
+      const exact = { 'sgsd-atlas-manifest.jsonl': 'coordination_partition_manifest',
+        'sgsd-atlas-gaps.jsonl': 'coordination_gap_ledger', 'sgsd-ledger-receipts.jsonl': 'coordination_operational_receipts',
+        'sgsd-ledger-state.json': 'coordination_operational_state' };
+      for (const file of files) {
+        const event = /^sgsd-atlas-events-[A-Za-z0-9._-]{1,96}\.jsonl$/.test(file.name);
+        const role = event ? 'coordination_event_ledger' : exact[file.name];
+        if (!role || !file.isFile()) { context.incomplete = true; context.findings.push({ reason: 'unsafe_coordination_source' }); continue; }
+        copySource(context, { file: path.join(ledger, file.name), descriptor: `${role}:coordination/${value.coordination_id}/${file.name}`,
+          role, relative: `coordination/${value.coordination_id}/${file.name}`, projectId: null, jsonl: file.name.endsWith('.jsonl') });
+      }
+    } catch { context.incomplete = true; context.findings.push({ reason: 'unsafe_coordination_registration' }); }
+  }
+}
 function runAudit(root, now) {
   const result = spawnSync(process.execPath, [path.join(__dirname, 'audit.cjs'), '--root', root, '--json'],
     { encoding: 'utf8', timeout: EXPORT_TIMEOUT_MS, maxBuffer: MAX_AUDIT_BYTES });
@@ -432,6 +478,7 @@ async function createBundle(options = {}) {
       discover(context, path.join(project.state_dir, 'operational'), project.project_id, 'operational');
     }
     addRunRegistrations(context, root, selected.included);
+    addCoordinationEvidence(context, root);
     for (const optional of [
       { file: path.join(root, 'sgsd-atlas-gaps.jsonl'), role: 'global_gap_ledger', relative: 'sgsd-atlas-gaps.jsonl' },
       { file: path.join(root, 'monitor', 'incidents.jsonl'), role: 'monitor_incidents', relative: 'monitor/incidents.jsonl' }])
@@ -578,4 +625,4 @@ if (require.main === module) cli().then(code => { process.exitCode = code; }).ca
   process.exitCode = 1;
 });
 module.exports = Object.freeze({ createBundle, verifyBundle, catalogue, cli,
-  BUNDLE_ID_PATTERN: BUNDLE, PAYLOAD_NAME_PATTERN: PAYLOAD });
+  BUNDLE_ID_PATTERN: BUNDLE, PAYLOAD_NAME_PATTERN: PAYLOAD, expectedPayloadName });

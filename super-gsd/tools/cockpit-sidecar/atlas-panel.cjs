@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { rootPath } = require('../telemetry-atlas/global.cjs');
 const { safePath } = require('../telemetry-atlas/contract.cjs');
+const { readVerifiedPeerBundles } = require('../telemetry-atlas/monitor-client.cjs');
+const { buildUnifiedView } = require('../telemetry-atlas/unified-view.cjs');
 const MAX_BYTES = 2 * 1024 * 1024;
 const STALE_MS = 180000;
 const arr = value => Array.isArray(value) ? value : [];
@@ -18,7 +20,10 @@ function nestedShape(s){
       &&optionalObject(p.native?.summary)&&optionalObject(p.native?.summary?.interval)
       &&(p.runs===undefined||objects(p.runs))
       &&(p.capacity==null||Object.values(p.capacity).every(obj))
-      &&(p.operational?.families===undefined||obj(p.operational.families)&&Object.values(p.operational.families).every(obj)));
+      &&(p.operational?.families===undefined||obj(p.operational.families)&&Object.values(p.operational.families).every(obj)))
+    &&(s.unified_view===undefined||obj(s.unified_view)
+      &&objects(s.unified_view.local_observations||[])&&objects(s.unified_view.peer_observations||[])
+      &&objects(s.unified_view.findings||[]));
 }
 const esc = value => String(value ?? 'unknown').replace(/[&<>"']/g,
   ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -46,7 +51,9 @@ function readAtlasSnapshot({ root = rootPath(), now = Date.now() } = {}) {
       || !nestedShape(body)
       || !Number.isFinite(Date.parse(body.generated_at))) return unavailable;
     const age=now-Date.parse(body.generated_at), stale=age>STALE_MS || age < -60000;
-    return {...body,complete_coverage:false,monitor_status:stale?'stale':'fresh',
+    const peer=readVerifiedPeerBundles({root}),unified=buildUnifiedView({localSnapshot:body,
+      peerBundles:peer.bundles,peerFindings:peer.findings,now});
+    return {...body,unified_view:unified,complete_coverage:false,monitor_status:stale?'stale':'fresh',
       checked_at:new Date(now).toISOString(),age_ms:Math.max(0,age),
       status:stale && body.status!=='FAIL'?'WARN':body.status,
       findings:stale?[...body.findings,{severity:'WARN',reason:'monitor_snapshot_stale'}]:body.findings};
@@ -76,6 +83,18 @@ function renderAtlasPanel(s = {}) {
       +(runs?'<div class="atlas-scroll"><table><thead><tr><th>Run</th><th>Provider / role</th><th>Native coverage</th><th>Last received</th></tr></thead><tbody>'+runs+'</tbody></table></div>':'<p>No matched runs observed.</p>')+'</details>';
   }).join('');
   const unmatched=arr(s.unmatched_sessions).slice(0,200).map(r=>'<li>PID '+esc(r.pid)+' · '+esc(r.cwd)+' · '+esc(r.reason||'unmatched')+'</li>').join('');
+  const unified=s.unified_view;
+  const roleRows=unified?Object.entries({Root:unified.coverage?.root,PM:unified.coverage?.pm_delivery,Worker:unified.coverage?.worker})
+    .map(([name,row])=>'<li>'+esc(name)+' · '+pill(row?.status||'unknown')+' · '+esc(row?.source||'unobserved')
+      +' · '+esc(row?.provenance||'no identity-bound evidence')+'</li>').join(''):'';
+  const unifiedBlock=unified?'<details open><summary>Unified Root / PM / worker view</summary>'
+    +'<p class="atlas-muted">Local and verified peer observations remain separate; peer origin is configured authenticated transport.</p>'
+    +'<ul>'+roleRows+'</ul>'
+    +'<p>Root API usage: '+pill(unified.api_usage?.root?.status||'unknown')+' · '+esc(unified.api_usage?.root?.reason||'unobserved')
+      +'<br>Peer API usage: '+pill(unified.api_usage?.peer?.status||'unknown')+' · '+esc(unified.api_usage?.peer?.reason||'unobserved')
+      +' · dedup '+esc(count(unified.dedup?.duplicates||0))+' · conflicts '+esc(count(unified.dedup?.conflicts||0))+'</p>'
+    +(arr(unified.findings).length?'<p class="atlas-muted">Unified gaps: '+arr(unified.findings).slice(0,20).map(f=>esc(f.reason)).join(' · ')+'</p>':'')
+    +'</details>':'';
   return '<div class="atlas-panel" data-atlas-status="'+esc(s.status||'WARN')+'">'
     +'<style>.atlas-panel{margin-top:24px;border:1px solid #a1adb8;border-left:5px solid #b57c29;border-radius:8px;padding:20px;color:inherit;overflow-wrap:anywhere}.atlas-panel h3{margin:0 0 10px}.atlas-panel p{margin:10px 0}.atlas-panel [data-notice]{font-weight:700;color:#bc7928}.atlas-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,215px),1fr));gap:16px;margin:16px 0}.atlas-stat b,.atlas-stat small,.atlas-stat strong{display:block}.atlas-stat b{font-size:12px;text-transform:uppercase;opacity:.75}.atlas-stat strong{margin:6px 0;font-size:17px}.atlas-muted,.atlas-stat small{opacity:.8;font-size:12px}.atlas-pill{display:inline-block;border:1px solid currentColor;border-radius:12px;padding:2px 7px;font-size:11px}.atlas-project{border-top:1px solid #94a3b866;padding:14px 0}.atlas-project summary{cursor:pointer;font-weight:700}.atlas-scroll{overflow:auto}.atlas-panel table{width:100%;border-collapse:collapse;font-size:12px}.atlas-panel th,.atlas-panel td{text-align:left;padding:8px;border-bottom:1px solid #94a3b844}.atlas-panel ul{padding-left:20px}.atlas-panel li{margin:5px 0}</style>'
     +'<h3>Atlas · collection health '+pill(s.status||'WARN')+'</h3><p data-notice>Coverage is partial. Observed usage is not a complete bill.</p>'
@@ -86,6 +105,7 @@ function renderAtlasPanel(s = {}) {
     +cell('Session coverage','Partial / unknown','Unmatched processes: '+arr(s.unmatched_sessions).length)+'</div>'
     +'<p class="atlas-muted">A verified copy can contain an audit WARN or FAIL. Transfer integrity and capture integrity are separate.</p>'
     +(findingRows?'<details open><summary>Current collection findings</summary><ul>'+findingRows+'</ul></details>':'<p>No current findings reported; complete fleet coverage is not established.</p>')
+    +unifiedBlock
     +(projects||'<p>No monitored projects available.</p>')
     +'<p class="atlas-muted">Display bounds: first 100 projects/findings, 30 families per project and 200 runs/unmatched rows. The private snapshot retains the bounded monitor inventory.</p>'
     +(unmatched?'<details open><summary>Unmatched sessions · attachment unproven</summary><ul>'+unmatched+'</ul></details>':'')+'</div>';
