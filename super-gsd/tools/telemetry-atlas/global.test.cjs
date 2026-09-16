@@ -22,6 +22,11 @@ function fixture(t) {
   });
   return { root: receiverRoot, projects };
 }
+function copyRuntime(runtime) {
+  fs.cpSync(__dirname, runtime, { recursive: true });
+  fs.cpSync(runtime, path.join(path.dirname(runtime), 'telemetry-atlas'), { recursive: true });
+  fs.cpSync(path.join(__dirname, '..', 'codex-worker'), path.join(path.dirname(runtime), 'codex-worker'), { recursive: true });
+}
 test('disabled preparation clears inherited managed-owner identity', async () => {
   const result = await prepare({ disabled: true });
   assert.equal(result.environment.SGSD_FLEET_MANAGED, '');
@@ -711,7 +716,8 @@ test('timed-out bootstrap retains ownership until its delayed receiver publishes
   // Reload an uncached bootstrap closure so its spawn binding sees this isolated delay.
   for (const name of ['global.cjs', 'server.cjs', 'codex-otlp.cjs', 'otlp.cjs', 'accounting.cjs', 'contract.cjs',
     'global-store.cjs', 'quota-sampler.cjs', 'lifecycle.cjs', 'fleet.cjs', 'boot-identity.cjs', 'workspace-recovery.cjs', 'sgsd-ledger-runtime.cjs',
-    'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs']) delete require.cache[require.resolve(`./${name}`)];
+    'sgsd-ledger-reader.cjs', 'sgsd-ledger.cjs', 'codex-continuous-manager.cjs']) delete require.cache[require.resolve(`./${name}`)];
+  delete require.cache[require.resolve('../codex-worker/usage.cjs')];
   const bootstrap = require('./global.cjs');
   assert.match(bootstrap.RUNTIME_FINGERPRINT, /^[a-f0-9]{64}$/, 'the delayed fixture must begin with an attested runtime closure');
   await assert.rejects(bootstrap.ensureService(f.root, 60), /timeout/);
@@ -915,7 +921,7 @@ test('strict native source validation rejects illegal fields and all invalid num
 
 test('loaded receiver fingerprint stays immutable after installed files change while a fresh runtime reports the new closure', async t => {
   const f = fixture(t), runtime = path.join(path.dirname(f.root), 'installed-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true });
+  copyRuntime(runtime);
   const loaded = require(path.join(runtime, 'global.cjs'));
   assert.match(loaded.RUNTIME_FINGERPRINT, /^[a-f0-9]{64}$/);
   const instance = await loaded.startGlobal({ root: f.root }); t.after(() => instance.close());
@@ -932,7 +938,7 @@ test('loaded receiver fingerprint stays immutable after installed files change w
 
 test('runtime fingerprint hashes the compiled global entry instead of replacement bytes at its path', t => {
   const f = fixture(t), runtime = path.join(path.dirname(f.root), 'compiled-entry-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true });
+  copyRuntime(runtime);
   const entry = path.join(runtime, 'global.cjs');
   const script = String.raw`
     const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
@@ -940,7 +946,8 @@ test('runtime fingerprint hashes the compiled global entry instead of replacemen
     fs.writeFileSync(entry, source.replace('const PROTOCOL = 1;', 'const PROTOCOL = 2;'));
     const loaded = new Module(entry, module); loaded.filename = entry; loaded.paths = Module._nodeModulePaths(path.dirname(entry));
     loaded._compile(source, entry); const compiled = loaded.exports.RUNTIME_FINGERPRINT;
-    for (const key of Object.keys(require.cache)) if (path.dirname(key) === path.dirname(entry)) delete require.cache[key];
+    const runtimeRoot = path.dirname(path.dirname(entry));
+    for (const key of Object.keys(require.cache)) if (key.startsWith(runtimeRoot + path.sep)) delete require.cache[key];
     const fresh = require(entry).RUNTIME_FINGERPRINT;
     process.stdout.write(JSON.stringify({ compiled, fresh }));
   `;
@@ -953,7 +960,7 @@ test('runtime fingerprint hashes the compiled global entry instead of replacemen
 
 test('dependency replacement during eager loading leaves the runtime unattested and unable to start', t => {
   const f = fixture(t), runtime = path.join(path.dirname(f.root), 'dependency-cutover-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true });
+  copyRuntime(runtime);
   const entry = path.join(runtime, 'global.cjs'), root = path.join(path.dirname(f.root), 'cutover-global');
   const script = String.raw`
     const fs = require('node:fs'), Module = require('node:module');
@@ -977,7 +984,7 @@ test('dependency replacement during eager loading leaves the runtime unattested 
 
 test('cached dependency context preserves read-only audit access but refuses receiver mutation', t => {
   const f = fixture(t), runtime = path.join(path.dirname(f.root), 'cached-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true });
+  copyRuntime(runtime);
   const entry = path.join(runtime, 'global.cjs'), root = path.join(path.dirname(f.root), 'cached-global');
   const project = path.join(path.dirname(f.root), 'cached-project'); fs.mkdirSync(path.join(project, '.planning'), { recursive: true });
   const script = String.raw`
@@ -1005,7 +1012,7 @@ test('cached dependency context preserves read-only audit access but refuses rec
 test('explicit restart replaces one verified stale receiver on the same ports and preserves registrations and deduplication', async t => {
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const f = fixture(t), oldRuntime = path.join(path.dirname(f.root), 'source-runtime');
-  fs.cpSync(__dirname, oldRuntime, { recursive: true });
+  copyRuntime(oldRuntime);
   fs.appendFileSync(path.join(oldRuntime, 'codex-otlp.cjs'), '\n// old loaded fixture\n');
   const oldEntry = path.join(oldRuntime, 'global.cjs');
   const launched = await launchRuntime(oldEntry, f.root);
@@ -1070,7 +1077,7 @@ test('explicit restart waits for an owned ordinary startup instead of declaring 
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-starting-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime'), resume = path.join(base, 'resume');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// starting old fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// starting old fixture\n');
   const entry = path.join(runtime, 'global.cjs'), token = crypto.randomUUID();
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
   const child = spawn('/bin/bash', ['-c', 'while [ ! -f "$1" ]; do sleep 0.01; done; exec "$2" --max-old-space-size=256 "$3" serve --root "$4" --startup-token "$5"',
@@ -1107,7 +1114,7 @@ test('completed transition history permits genuine absence but not a still-live 
   if (process.platform !== 'linux') return t.skip('owned process identity is Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-complete-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// completed old fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// completed old fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
   try {
     const result = await restartService({ root, trustedSourceEntry: entry });
@@ -1148,7 +1155,7 @@ test('transition retry reconciles requester failure before and after child lock 
   for (const fault of ['child_launched', 'handoff']) {
     const base = fs.mkdtempSync(path.join(os.tmpdir(), `atlas-transition-${fault}-`));
     const root = path.join(base, 'global'), project = path.join(base, 'project'), runtime = path.join(base, 'old-runtime');
-    fs.mkdirSync(path.join(project, '.planning'), { recursive: true }); fs.cpSync(__dirname, runtime, { recursive: true });
+    fs.mkdirSync(path.join(project, '.planning'), { recursive: true }); copyRuntime(runtime);
     fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), `\n// ${fault} old fixture\n`);
     const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
     try {
@@ -1176,7 +1183,7 @@ test('test cleanup terminates an exact transitional candidate when no service re
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-cleanup-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// cleanup old fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// cleanup old fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root); let candidate;
   try {
     await assert.rejects(restartService({ root, trustedSourceEntry: entry,
@@ -1197,7 +1204,7 @@ test('transition timeout returns boundedly, retains its journal and requires exp
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-timeout-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// timeout fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// timeout fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
   try {
     const started = Date.now();
@@ -1217,7 +1224,7 @@ test('an expired prepared boundary performs no revalidation, signal, port scan o
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-expired-boundary-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// expired boundary fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// expired boundary fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root), phases = [];
   const realNow = Date.now, timeoutMs = 5000;
   try {
@@ -1245,7 +1252,7 @@ test('deadline expiry immediately after lock acquisition releases the requester 
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-expired-lock-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// expired lock fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// expired lock fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
   const realFsync = fs.fsyncSync; let delayed = false;
   try {
@@ -1268,7 +1275,7 @@ test('a deadline expiring during the current listener-table scan stops boundedly
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-scan-deadline-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// scan deadline fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// scan deadline fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
   const realReadFile = fs.readFileSync;
   try {
@@ -1431,7 +1438,7 @@ test('deadline expiry during durable handoff persistence cannot transfer startup
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-handoff-deadline-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// handoff deadline fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// handoff deadline fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
   const realFsync = fs.fsyncSync, realNow = Date.now; let delayHandoff = false, delayed = false, candidate;
   const phases = [], timeoutMs = 15000;
@@ -1480,7 +1487,7 @@ test('identity change and foreign same-port takeover fail closed with the transi
   for (const fault of ['identity', 'foreign-port']) {
     const base = fs.mkdtempSync(path.join(os.tmpdir(), `atlas-transition-${fault}-`));
     const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-    fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// stale fixture\n');
+    copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// stale fixture\n');
     const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
     let foreign;
     try {
@@ -1516,7 +1523,7 @@ test('concurrent explicit restarts serialize before journal creation and converg
   if (process.platform !== 'linux') return t.skip('owned process and socket identity are Linux-only');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-race-'));
   const root = path.join(base, 'global'), runtime = path.join(base, 'old-runtime');
-  fs.cpSync(__dirname, runtime, { recursive: true }); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// stale race fixture\n');
+  copyRuntime(runtime); fs.appendFileSync(path.join(runtime, 'codex-otlp.cjs'), '\n// stale race fixture\n');
   const entry = path.join(runtime, 'global.cjs'), launched = await launchRuntime(entry, root);
   let releasePrepared, observedPrepared;
   const hold = new Promise(resolve => { releasePrepared = resolve; });
@@ -1542,19 +1549,19 @@ test('an exact trusted source receiver can already match, and completed history 
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-transition-revisions-'));
   let sameRoot, root;
   try {
-    const sameRuntime = path.join(base, 'same-runtime'); fs.cpSync(__dirname, sameRuntime, { recursive: true });
+    const sameRuntime = path.join(base, 'same-runtime'); copyRuntime(sameRuntime);
     sameRoot = path.join(base, 'same-root'); const same = await launchRuntime(path.join(sameRuntime, 'global.cjs'), sameRoot);
     assert.equal(same.service.runtime_fingerprint, RUNTIME_FINGERPRINT);
     const unchanged = await restartService({ root: sameRoot, trustedSourceEntry: path.join(sameRuntime, 'global.cjs') });
     assert.equal(unchanged.status, 'already_current'); assert.equal(unchanged.service.pid, same.service.pid);
     same.child.kill('SIGTERM'); await untilValue(() => !owned(same.service.process_identity));
 
-    const oldRuntime = path.join(base, 'old-runtime'); fs.cpSync(__dirname, oldRuntime, { recursive: true });
+    const oldRuntime = path.join(base, 'old-runtime'); copyRuntime(oldRuntime);
     fs.appendFileSync(path.join(oldRuntime, 'codex-otlp.cjs'), '\n// revision A\n');
     root = path.join(base, 'revision-root'); const old = await launchRuntime(path.join(oldRuntime, 'global.cjs'), root);
     const first = await restartService({ root, trustedSourceEntry: path.join(oldRuntime, 'global.cjs') });
     assert.equal(first.status, 'restarted');
-    const nextRuntime = path.join(base, 'next-runtime'); fs.cpSync(__dirname, nextRuntime, { recursive: true });
+    const nextRuntime = path.join(base, 'next-runtime'); copyRuntime(nextRuntime);
     fs.appendFileSync(path.join(nextRuntime, 'codex-otlp.cjs'), '\n// revision C\n');
     const next = require(path.join(nextRuntime, 'global.cjs'));
     const second = await next.restartService({ root, trustedSourceEntry: __filename.replace(/\.test\.cjs$/, '.cjs') });
