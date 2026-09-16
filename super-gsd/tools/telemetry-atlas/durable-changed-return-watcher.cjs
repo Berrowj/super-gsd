@@ -15,7 +15,7 @@ const WINDOW = /^@[0-9]+$/;
 const KINDS = new Set(['question', 'return', 'ready']);
 const PMS = new Set(['pm-delivery', 'pm-automation']);
 const TARGET_KINDS = new Set(['managed_worker', 'native_pane']);
-const ROUTES = new Set(['worker_to_pm', 'pm_to_root', 'root_to_pm', 'pm_to_worker', 'pm_to_deploy', 'deploy_to_pm', 'deploy_to_root']);
+const ROUTES = new Set(['worker_to_pm', 'native_to_pm', 'pm_to_root', 'root_to_pm', 'pm_to_worker', 'pm_to_deploy', 'deploy_to_pm', 'deploy_to_root']);
 const DISPOSITIONS = new Set(['executing', 'deferred', 'awaiting_named_dependency', 'genuinely_blocked', 'completed', 'delivered', 'awaiting_ack', 'acknowledged', 'applied']);
 const NEXT_ACTIONS = new Set(['wake_owner', 'await_dependency', 'none']);
 const MAX_LINE = 512 * 1024;
@@ -50,6 +50,7 @@ function validateEvent(event, source) {
   if (validateSource(source)) return 'invalid_source';
   if (path.resolve(event.source_path) !== path.resolve(source.path) || event.source_sha256 !== source.sha256 || event.lane !== source.lane) return 'event_source_mismatch';
   const routeOkay = event.route === 'worker_to_pm' ? event.source_owner.startsWith('worker.') && PMS.has(event.owner)
+    : event.route === 'native_to_pm' ? event.source_owner.startsWith('native.') && PMS.has(event.owner)
     : event.route === 'pm_to_root' ? PMS.has(event.source_owner) && event.owner === 'root'
     : event.route === 'root_to_pm' ? event.source_owner === 'root' && PMS.has(event.owner)
     : event.route === 'pm_to_worker' ? PMS.has(event.source_owner) && event.owner === `${event.source_owner}.worker.${event.target_worker_id || ''}`

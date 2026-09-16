@@ -236,6 +236,8 @@ function createRunner(config) {
     if (spec?.type === 'mailbox') return () => producer.projectMailbox(spec);
     if (spec?.type === 'ledger') return () => producer.projectLedger(spec);
     if (spec?.type === 'inbox') return () => producer.projectInbox(spec);
+    if (spec?.type === 'inbox_directory') return () => producer.projectInboxDirectory(spec);
+    if (spec?.type === 'native_primary') return () => producer.projectNativePrimary(spec);
     throw new Error('runner_producer_invalid');
   });
   const poll = () => {

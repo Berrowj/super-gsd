@@ -301,10 +301,71 @@ test('real Root inbox acknowledgement shape projects a pointer-only root-to-PM r
     question: 'opaque question text must not be relayed', result: { status: 'accepted' }, next_action: 'wake pm' }) + '\n');
   const output = path.join(fixture.root, 'root-events.jsonl');
   const producer = createDurableReturnProducer({ now: () => '2026-09-16T10:55:00.000Z' });
-  const produced = producer.projectInbox({ inputPath: inbox, outputPath: output, owner: 'pm-delivery', ownerEpoch: 'epoch-1', plan: 'plan-1100', task: 'task-root-inbox' });
+  const produced = producer.projectInbox({ inputPath: inbox, outputPath: output, owner: 'pm-automation', ownerEpoch: 'epoch-1', plan: 'plan-1100', task: 'task-root-inbox' });
   assert.equal(produced.emitted, 1);
   const projected = JSON.parse(fs.readFileSync(output, 'utf8'));
-  assert.equal(projected.route, 'root_to_pm'); assert.equal(projected.source_owner, 'root'); assert.equal(projected.owner, 'pm-delivery');
+  assert.equal(projected.route, 'root_to_pm'); assert.equal(projected.source_owner, 'root'); assert.equal(projected.owner, 'pm-automation');
   assert.equal(projected.event_id, 'pm-automation-root-cutover-alex-qa-1051'); assert.equal(projected.pointer, 'Root inbox: pm-automation-root-cutover-alex-qa-1051.json.');
   assert.equal(Object.hasOwn(projected, 'question'), false); assert.equal(Object.hasOwn(projected, 'result'), false);
+});
+
+test('copied Deploy EVENTS schema resolves its receipt artifact and never relays action prose', t => {
+  const fixture = makeRoot(); t.after(fixture.cleanup);
+  const receipt = path.join(fixture.root, 'results', 'pm-automation-steph-n2-governed-relations-7855f2b0-1045.json');
+  fs.mkdirSync(path.dirname(receipt), { recursive: true }); fs.writeFileSync(receipt, '{"schema_version":1,"status":"verified"}\n');
+  const ledger = path.join(fixture.root, 'deploy-EVENTS.jsonl');
+  fs.writeFileSync(ledger, JSON.stringify({ at: '2026-09-16T11:03:38.476Z', event: 'steph_n2_relations_claimed', request: 'pm-automation-steph-n2-governed-relations-7855f2b0-1045',
+    repository: 'Berrowj/clarity-erp', accepted_chain: ['4350180f3a0765c3f3cd4ab7fc14a30ecbb254bc'], required_services: ['clarity-python-api'],
+    action: 'free-form action must not be relayed', receipt: 'results/pm-automation-steph-n2-governed-relations-7855f2b0-1045.json' }) + '\n');
+  const output = path.join(fixture.root, 'deploy-derived.jsonl');
+  const producer = createDurableReturnProducer();
+  const spec = { inputPath: ledger, outputPath: output, coordinationDir: fixture.root, lane: 'deploy', sourceOwner: 'deploy', route: 'deploy_to_pm', owner: 'pm-delivery', ownerEpoch: 'epoch-1', plan: 'plan-1119', task: 'task-deploy-schema' };
+  assert.equal(producer.projectLedger(spec).emitted, 1); assert.equal(producer.projectLedger(spec).emitted, 0);
+  const projected = JSON.parse(fs.readFileSync(output, 'utf8'));
+  assert.equal(projected.event_id, 'pm-automation-steph-n2-governed-relations-7855f2b0-1045'); assert.equal(projected.artifact_path, receipt);
+  assert.equal(projected.artifact_sha256, sha(fs.readFileSync(receipt))); assert.equal(projected.pointer, 'Deploy receipt: results/pm-automation-steph-n2-governed-relations-7855f2b0-1045.json.');
+  assert.equal(Object.hasOwn(projected, 'action'), false);
+});
+
+test('dynamic Root inbox discovery accepts both hash schemas and skips unbound records', t => {
+  const fixture = makeRoot(); t.after(fixture.cleanup);
+  const inbox = path.join(fixture.root, 'inbox'); fs.mkdirSync(inbox);
+  const writeInbox = (name, value) => fs.writeFileSync(path.join(inbox, name), JSON.stringify(value) + '\n');
+  writeInbox('pm-delivery-valid.json', { event_id: 'pm-delivery-valid-1119', observed_at: '2026-09-16T11:11:30Z', owner: 'pm-delivery', source_path: fixture.source.artifactPath, source_sha256: fixture.source.artifactSha, question_or_result: 'opaque' });
+  writeInbox('pm-automation-valid.json', { event_id: 'pm-automation-valid-1119', observed_at: '2026-09-16T11:11:31+00:00', owner: 'pm-automation', source_path: fixture.source.artifactPath, source_hash: fixture.source.artifactSha, question: 'opaque', result: { status: 'done' } });
+  writeInbox('chat-unbound.json', { event_id: 'chat-unbound-1119', observed_at: '2026-09-16T11:11:32Z', owner: 'chat-support', source_path: fixture.source.artifactPath, source_hash: fixture.source.artifactSha, question_or_result: 'unbound' });
+  const output = path.join(fixture.root, 'inbox-derived.jsonl'), producer = createDurableReturnProducer({ now: () => '2026-09-16T11:12:00.000Z' });
+  const spec = { inputDir: inbox, outputPath: output, ownerEpochByOwner: { 'pm-delivery': 'delivery-epoch', 'pm-automation': 'automation-epoch' }, plan: 'plan-1119', task: 'task-inbox-discovery' };
+  const first = producer.projectInboxDirectory(spec), second = producer.projectInboxDirectory(spec);
+  assert.equal(first.emitted, 2); assert.equal(second.emitted, 0); assert.equal(first.discovered, 3);
+  assert.ok(first.skipped.some(row => row.reason === 'producer_inbox_shape_invalid'));
+  const rows = fs.readFileSync(output, 'utf8').trim().split('\n').map(JSON.parse); assert.deepEqual(rows.map(row => row.owner).sort(), ['pm-automation', 'pm-delivery']);
+});
+
+test('native primary producer captures real completion/question records with bounded cursor and dedup', t => {
+  const fixture = makeRoot(); t.after(fixture.cleanup);
+  const identity = { pid: process.pid, start: 'native-start-1111', pane_pid: process.pid, pane_start: 'pane-start-1111', cwd: fixture.root, runtime: 'codex', session: 'session-1', pane: '%59', window: '@15', thread: 'thread-1111', intake_path: path.join(fixture.root, 'native-intake.jsonl') };
+  const rollout = path.join(fixture.root, 'rollout-primary.jsonl');
+  const header = { timestamp: '2026-09-16T11:20:00.000Z', ordinal: 0, type: 'session_meta', payload: { id: identity.thread, source: 'cli', originator: 'codex-tui', thread_source: 'user', cwd: fixture.root } };
+  const huge = JSON.stringify({ timestamp: '2026-09-16T11:20:01.000Z', ordinal: 1, type: 'response_item', payload: { type: 'reasoning', text: 'x'.repeat(512 * 1024) } });
+  const question = { timestamp: '2026-09-16T11:20:02.000Z', ordinal: 2, type: 'response_item', payload: { type: 'custom_tool_call', id: 'q-1', name: 'request_user_input', call_id: 'call-1', turn_id: 'turn-1' } };
+  const complete = { timestamp: '2026-09-16T11:20:03.000Z', ordinal: 3, type: 'event_msg', payload: { type: 'task_complete', turn_id: 'turn-1', completed_at: '2026-09-16T11:20:03.000Z' } };
+  fs.writeFileSync(rollout, `${JSON.stringify(header)}\n${huge}\n${JSON.stringify(question)}\n${JSON.stringify(complete)}\n`);
+  const output = path.join(fixture.root, 'native-derived.jsonl'), producer = createDurableReturnProducer({ now: () => '2026-09-16T11:21:00.000Z' });
+  const spec = { inputPath: rollout, outputPath: output, lane: 'native-harness', sourceOwner: `native.${identity.thread}`, owner: 'pm-delivery', ownerEpoch: 'epoch-1111', plan: 'plan-1111', task: 'task-native-primary', identity, primary: true,
+    processReader: () => ({ start_time: identity.start, cwd: identity.cwd }) };
+  const first = producer.projectNativePrimary(spec), second = producer.projectNativePrimary(spec);
+  assert.equal(first.emitted, 2); assert.equal(second.emitted, 0); assert.ok(first.skipped.includes('record_too_large')); assert.equal(first.cursor.offset, fs.statSync(rollout).size);
+  const rows = fs.readFileSync(output, 'utf8').trim().split('\n').map(JSON.parse); assert.deepEqual(rows.map(row => row.kind).sort(), ['question', 'return']);
+  assert.ok(rows.every(row => row.route === 'native_to_pm' && row.owner === 'pm-delivery' && row.artifact_path === rollout));
+  const source = { path: output, sha256: producer.registrationHash(output, 'native-harness'), lane: 'native-harness' }, binding = { ...managedBinding(fixture.root), epoch: 'epoch-1111' }, mailbox = fakeMailbox(binding);
+  const watcher = createDurableChangedReturnWatcher({ root: fixture.root, sources: [source], bindings: [binding], mailbox });
+  assert.equal(watcher.poll().actions.length, 2); assert.equal(mailbox.calls.submit, 2);
+});
+
+test('native primary producer rejects a registered path whose header is a subagent rollout', t => {
+  const fixture = makeRoot(); t.after(fixture.cleanup);
+  const identity = { pid: process.pid, start: 'native-start-1111', pane_pid: process.pid, pane_start: 'pane-start-1111', cwd: fixture.root, runtime: 'codex', session: 'session-1', pane: '%59', window: '@15', thread: 'thread-1111', intake_path: path.join(fixture.root, 'native-intake.jsonl') };
+  const rollout = path.join(fixture.root, 'subagent.jsonl'); fs.writeFileSync(rollout, JSON.stringify({ type: 'session_meta', payload: { id: identity.thread, source: 'cli', originator: 'codex-subagent', thread_source: 'agent', cwd: fixture.root } }) + '\n');
+  const producer = createDurableReturnProducer(); assert.throws(() => producer.projectNativePrimary({ inputPath: rollout, outputPath: path.join(fixture.root, 'out.jsonl'), lane: 'native-harness', sourceOwner: `native.${identity.thread}`, owner: 'pm-delivery', ownerEpoch: 'epoch-1111', plan: 'plan-1111', task: 'task-native-primary', identity, processReader: () => ({ start_time: identity.start, cwd: identity.cwd }) }), /producer_native_primary_unverified/);
 });

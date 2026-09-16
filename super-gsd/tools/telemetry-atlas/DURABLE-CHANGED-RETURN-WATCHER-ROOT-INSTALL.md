@@ -46,8 +46,9 @@ for an applied receipt. Do not copy identity from an event payload.
   "producers": [
     {"type": "mailbox", "project": "/absolute/pm-delivery-project", "workerId": "<worker-uuid>", "owner": "pm-delivery", "ownerEpoch": "<owner-epoch>", "lane": "pm-delivery", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "plan": "<existing-plan>", "task": "<existing-task>"},
     {"type": "ledger", "inputPath": "/absolute/pm-delivery/existing-response-ledger.jsonl", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "lane": "pm-delivery", "sourceOwner": "pm-delivery", "route": "pm_to_root", "owner": "root", "ownerEpoch": "<root-epoch>"},
-    {"type": "ledger", "inputPath": "/absolute/deploy/existing-ready-result-ledger.jsonl", "outputPath": "/absolute/deploy/DURABLE-RETURN-EVENTS.jsonl", "lane": "deploy", "sourceOwner": "deploy", "route": "deploy_to_pm", "owner": "pm-delivery", "ownerEpoch": "<pm-epoch>", "defaultKind": "return"},
-    {"type": "inbox", "inputPath": "/absolute/root/inbox/pm-automation-root-cutover-alex-qa-1051.json", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "lane": "root", "sourceOwner": "root", "route": "root_to_pm", "owner": "pm-delivery", "ownerEpoch": "<pm-epoch>", "plan": "<existing-plan>", "task": "<existing-task>"}
+    {"type": "ledger", "inputPath": "/absolute/deploy/EVENTS.jsonl", "outputPath": "/absolute/deploy/DURABLE-RETURN-EVENTS.jsonl", "coordinationDir": "/absolute/deploy", "lane": "deploy", "sourceOwner": "deploy", "route": "deploy_to_pm", "owner": "pm-delivery", "ownerEpoch": "<pm-epoch>", "plan": "<existing-plan>", "task": "<existing-task>", "defaultKind": "return"},
+    {"type": "inbox_directory", "inputDir": "/absolute/root/inbox", "outputPath": "/absolute/root/DURABLE-RETURN-EVENTS.jsonl", "lane": "root", "sourceOwner": "root", "route": "root_to_pm", "ownerEpochByOwner": {"pm-delivery": "<pm-delivery-epoch>", "pm-automation": "<pm-automation-epoch>"}, "plan": "<existing-plan>", "task": "<existing-task>"},
+    {"type": "native_primary", "inputPath": "/absolute/codex/sessions/rollout-<registered>.jsonl", "outputPath": "/absolute/pm-delivery/DURABLE-RETURN-EVENTS.jsonl", "lane": "native-harness", "sourceOwner": "native.<registered-thread>", "owner": "pm-delivery", "ownerEpoch": "<pm-epoch>", "plan": "<existing-plan>", "task": "<existing-task>", "primary": true, "identity": {"pid": 1, "start": "<native-start>", "pane_pid": 2, "pane_start": "<pane-start>", "cwd": "/absolute/harness", "runtime": "codex", "session": "<tmux-session>", "pane": "%<digits>", "window": "@<digits>", "thread": "<registered-thread>", "intake_path": "/absolute/harness/NATIVE-INTAKE.jsonl"}}
   ],
   "bindings": [
     {"owner": "pm-delivery", "epoch": "<owner-epoch>", "kind": "managed_worker",
@@ -72,15 +73,26 @@ a new binding and new event epoch; old bindings are never silently stolen.
 The executable invokes the declared producers before each bounded watcher
 poll. `mailbox` producers project existing pending worker questions and
 `wrapper-result.json` returns. `ledger` producers incrementally map existing
-PM response and Deploy ready/result JSONL rows only when they already contain
-stable ID/time/plan/task/disposition/artifact path/artifact hash/pointer
-fields. The `inbox` producer reads the existing Root durable inbox object at
-`/absolute/root/inbox/pm-automation-root-cutover-alex-qa-1051.json`, verifies
-its `event_id`, `observed_at`, `source_path` and `source_hash` against the
-source artifact, and emits only a pointer-bound `root_to_pm` return. Its
-`question`/`result` values are not copied into the wake. All producers append
-to the declared durable-return source with a bounded cursor/event-ID ledger;
-they do not manufacture a relay message.
+PM response and Deploy ready/result JSONL rows. The actual Deploy shape
+(`at,event,request,repository,accepted_chain,required_services,action,receipt`)
+uses `request` as the stable event ID, `at` as timestamp, and resolves
+`receipt` below the declared Deploy coordination directory before hashing it;
+`action` is never relayed. The dynamic `inbox_directory` producer discovers
+new JSON files under Root `inbox`, accepts either `source_hash` or
+`source_sha256` and `question`/`result` or `question_or_result`, derives only
+bound PM owners, and emits pointer-only `root_to_pm` returns. Malformed or
+unbound files are skipped without blocking valid siblings; durable seen IDs
+prevent replay.
+
+The `native_primary` producer accepts only a census-registered primary
+rollout whose bounded `session_meta` header has `source=cli`,
+`originator=codex-tui`, `thread_source=user`, exact registered cwd and
+rollout/thread ID. It verifies the registered native PID/start/cwd before
+reading from a durable byte cursor, ignores subagent/other records, and maps
+only structured `task_complete`, approval, or `request_user_input` records.
+Each emitted event has the actual record timestamp, stable event/turn ID, a
+rollout path pointer and a hash of the compact record evidence; it never hashes
+or rereads the whole transcript and never copies assistant prose.
 
 The retained native shell ancestry is pinned independently. The current
 Linux census examples are DCE `%8` (pane PID `2908759`, native PID `3410299`),
@@ -91,7 +103,7 @@ not permission to wake a pane.
 
 Each source line is a bounded JSON object with exactly these fields:
 `event_id`, `kind` (`question|return|ready`), `lane`, `plan`, `task`,
-`source_owner`, `route`, `owner`, `owner_epoch`, `source_path`,
+`source_owner`, `route` (`native_to_pm` is the registered-primary-to-PM route), `owner`, `owner_epoch`, `source_path`,
 `source_sha256`, `observed_at`, `disposition`, `next_action`,
 `artifact_path`, `artifact_sha256`, and, only for `wake_owner`, a short safe
 `pointer`. Supported routes are `worker_to_pm`, `pm_to_root`, `root_to_pm`,
