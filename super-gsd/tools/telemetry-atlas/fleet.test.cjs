@@ -110,6 +110,11 @@ test('bind requires exact project and process environment, persists selected fie
   assert.equal(bound.status, 'bound');
   assert.deepEqual(bound.identity, { pid: 12001, start_time: '987654', executable: '/fixture/claude' });
   assert.deepEqual(fleet.bind(options(f), { processLookup: () => processFixture(f.run) }), bound);
+  assert.deepEqual(fleet.bind(options(f), { processLookup: () => processFixture(f.run, { executable: '/fixture/claude (deleted)' }) }), bound,
+    'the kernel deleted-target suffix preserves the same bound identity');
+  assert.equal(fleet.status({ root: f.root }, { processLookup: () => processFixture(f.run, { executable: '/fixture/claude (deleted)' }) }).claims[0].active, true,
+    'a deleted target remains active when all other identity fields match');
+  assert.throws(() => fleet.bind(options(f), { processLookup: () => processFixture(f.run, { executable: '/fixture/other (deleted)' }) }), /fleet_binding_conflict/);
   assert.throws(() => fleet.bind({ ...options(f), sessionId: 'different-session' }, { processLookup: () => processFixture(f.run) }), /fleet_binding_conflict/);
   assert.throws(() => fleet.bind(options(f), { processLookup: () => processFixture(f.run, { start_time: '999999' }) }), /fleet_binding_conflict/);
   assert.doesNotMatch(inventory(path.join(f.root, 'fleet')).map(r => r.body).join('\n'), /NEVER_PERSIST|environment|argv|prompt/);

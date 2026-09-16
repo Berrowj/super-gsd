@@ -48,6 +48,8 @@ test('bounded coverage census separates observed Linux sources from unknown Root
   assert.equal(result.api_usage.root_api.api_events, null);
   assert.equal(result.api_usage.windows_native.status, 'unknown');
   assert.ok(result.gaps.includes('root_api_usage_unknown'));
+  assert.equal(result.roster.status, 'unknown');
+  assert.ok(result.roster.gaps.includes('expected_roster_not_supplied'));
 
   assert.equal(f.store.ingest(event(f.run)).status, 'accepted');
   result = coverageCensus({ root: f.root });
@@ -79,6 +81,57 @@ test('coverage enumeration caps retain partial counts without classifying the ca
   assert.equal(rowCapped.events.rows, 1);
   assert.equal(rowCapped.events.limited, true);
   assert.equal(rowCapped.events.malformed_files, 0);
+});
+
+test('exact caller roster distinguishes observed identities and preserves actual event times', t => {
+  const f = fixture(t);
+  assert.equal(f.store.ingest(event(f.run)).status, 'accepted');
+  const result = coverageCensus({ root: f.root, roster: [{ roster_id: 'root-1', kind: 'Root', run_id: f.run.run_id,
+    project_id: f.run.project_id, role: f.run.role, task_id: 'task-1' }] });
+  assert.equal(result.roster.status, 'observed');
+  assert.equal(result.roster.complete, true);
+  assert.equal(result.roster.expected, 1);
+  assert.equal(result.roster.matched, 1);
+  assert.equal(result.roster.entries[0].status, 'observed');
+  assert.equal(result.roster.entries[0].observed.registered_at, f.run.registered_at);
+  assert.equal(result.roster.entries[0].observed.event_count, 1);
+  assert.equal(result.roster.entries[0].observed.api_event_count, 1);
+  assert.equal(result.roster.entries[0].observed.first_event_at, '2026-09-08T12:00:00.000Z');
+  assert.equal(result.roster.entries[0].observed.last_event_at, '2026-09-08T12:00:00.000Z');
+  assert.equal(Object.hasOwn(result.roster.entries[0].observed, 'claimed_at'), false);
+});
+
+test('exact roster keeps caller categories distinct and reports unobserved identities as unknown', t => {
+  const f = fixture(t);
+  const kinds = ['worker', 'pm-a', 'pm-b', 'deploy', 'root', 'quote-diagnosis', 'gate-child'];
+  const roster = kinds.map((kind, index) => ({ roster_id: `${kind}-1`, kind,
+    run_id: `sgsd-${String(index + 1).padStart(2, '0')}${'a'.repeat(34)}` }));
+  const result = coverageCensus({ root: f.root, roster });
+  assert.equal(result.roster.status, 'unknown');
+  assert.equal(result.roster.expected, kinds.length);
+  assert.equal(result.roster.matched, 0);
+  assert.equal(result.roster.unknown, kinds.length);
+  assert.ok(result.roster.gaps.includes('observed_run_missing'));
+  for (const kind of kinds) {
+    assert.deepEqual(result.roster.by_kind[kind], { expected: 1, matched: 0, unknown: 1 });
+    assert.equal(result.roster.entries.find(entry => entry.kind === kind).status, 'unknown');
+  }
+  assert.equal(result.complete_coverage, false);
+});
+
+test('invalid and duplicate expected identities never qualify as complete roster coverage', t => {
+  const f = fixture(t);
+  const result = coverageCensus({ root: f.root, roster: [
+    { roster_id: 'same', kind: 'worker', run_id: f.run.run_id },
+    { roster_id: 'same', kind: 'pm-a', run_id: `sgsd-${'b'.repeat(36)}` },
+    { roster_id: 'missing-run', kind: 'root' },
+  ] });
+  assert.equal(result.roster.status, 'unknown');
+  assert.equal(result.roster.complete, false);
+  assert.equal(result.roster.matched, 0);
+  assert.ok(result.roster.gaps.includes('expected_identity_ambiguous'));
+  assert.ok(result.roster.gaps.includes('expected_identity_missing_or_invalid'));
+  assert.ok(result.roster.entries.every(entry => entry.status === 'unknown'));
 });
 test('canonical corruption and duplicates fail a read-only audit', async t => {
   const f = fixture(t); f.store.ingest(event(f.run));
