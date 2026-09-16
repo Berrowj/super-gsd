@@ -20,7 +20,9 @@ no-shell `tmux` transport: exact PID/start/cwd/session/pane membership,
 rollout state, exact empty composer, approval/copy/mode/dead guards, literal
 recheck, and pointer-bound pre-Enter recheck. Any mismatch defers or fails
 closed; no shell text, model call, or worker launch is available. Successful
-native literal/Enter is `delivered`/`awaiting_ack`; it becomes `applied` only
+native literal/Enter is `delivered`/`awaiting_ack`; after the literal, the
+source performs a bounded 500 ms / 25 ms-step TUI settling window of repeated
+full native guards before the exact pre-Enter check. It becomes `applied` only
 after an exact intake claim matches event ID, owner epoch, native PID/start and
 thread. On Linux it also requires the native process to remain descended from
 the pinned pane shell; pane-shell start and native process start are separate
@@ -167,7 +169,11 @@ never replayed blindly. Managed receipts remain `acknowledged` until
 `mailbox.receipt` returns `applied`. Native delivery records literal and
 Enter separately, remains `awaiting_ack` after Enter, and requires the bound
 native intake claim before `applied`; `Enter` is withheld after any
-post-literal uncertainty.
+post-literal uncertainty or settling timeout. Reconciliation checks an
+`uncertain` native row against the same exact event ID, owner epoch, PID, start
+and thread fields; a match consumes the claim into the applied receipt without
+replaying the pointer, while wrong, partial, cross-owner and cross-session
+claims remain uncertain.
 Applied rows are retained in `state.receipts` with event ID, owner epoch,
 route, applied time and wake count.
 
