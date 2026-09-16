@@ -145,6 +145,12 @@ function flushRunRegistration({ root, runId, projectId, projectDir }) {
   }
   return run;
 }
+function readCoordination(root, runId) {
+  return require('./supervised-coordination.cjs').readCoordination(root, runId);
+}
+function validCoordinationBinding(value, expected = {}) {
+  return require('./supervised-coordination.cjs').validCoordinationBinding(value, expected);
+}
 function scopeEvent(event, run) {
   if (!run) throw new Error('unregistered_run');
   // Native envelopes already carry exact producer bindings. Never rewrite a
@@ -221,4 +227,5 @@ function createGlobalStore(root) {
     close: () => { if (directory) directory.closeSync(); directory = null; stores.clear(); },
   };
 }
-module.exports = { registerRun, readRun, readJson, writeJson, createGlobalStore, scopeEvent, RUN, RECOVERY, validContextRefs, validNativeBinding, validateRecovery, flushRunRegistration };
+module.exports = { registerRun, readRun, readCoordination, readJson, writeJson, createGlobalStore, scopeEvent, RUN, RECOVERY,
+  validContextRefs, validNativeBinding, validCoordinationBinding, validateRecovery, flushRunRegistration };
